@@ -1,0 +1,13 @@
+.env
+.venv/
+.langgraph_api/
+*.egg-info/
+__pycache__/
+*.pyc
+.ruff_cache/
+.mypy_cache/
+logs/
+dashboard/node_modules/
+dashboard/.next/
+dashboard/.env.local
+

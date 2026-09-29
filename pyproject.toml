@@ -1,0 +1,61 @@
+[project]
+name = "personal-research-assistant"
+version = "0.1.0"
+description = "Fully local, personalized research assistant. Forked from langchain-ai/local-deep-researcher: archives sources, writes structured notes to an Obsidian vault, uses vault notes as context, and evolves a personal profile over time."
+authors = [
+    { name = "Lance Martin" },
+    { name = "Prashanth" },
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph>=1.1.0",
+    "langchain>=1.1.0",
+    "langchain-community>=0.4.0",
+    "tavily-python>=0.7.23",
+    "langchain-ollama>=1.0.0",
+    "ddgs>=9.0.0",
+    "langchain-openai>=1.1.14",
+    "openai>=2.31.0",
+    "httpx>=0.28.1",
+    "markdownify>=0.11.0",
+    "python-dotenv==1.2.3",
+    "python-frontmatter>=1.1.0",
+    "win11toast>=0.35; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.11.1", "ruff>=0.15.10"]
+
+[build-system]
+requires = ["setuptools>=73.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["research_assistant"]
+
+[tool.setuptools.package-dir]
+"research_assistant" = "src/research_assistant"
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.ruff]
+lint.select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",
+]
+lint.ignore = [
+    "UP006",
+    "UP007",
+    "UP035",
+    "E501",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.7",
+]
