@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { History, PlusCircle, User, Sparkles } from "lucide-react";
+import { History, PlusCircle, User, Sparkles, Telescope } from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/", label: "History", icon: History },
   { href: "/new", label: "New", icon: PlusCircle },
+  { href: "/deep", label: "Deep", icon: Telescope },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
@@ -29,6 +30,7 @@ export function MobileNav() {
             <Link
               key={link.href}
               href={link.href}
+              aria-current={active ? "page" : undefined}
               className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium ${
                 active ? "bg-accent-soft text-accent" : "text-muted"
               }`}

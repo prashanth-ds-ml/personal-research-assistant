@@ -9,7 +9,7 @@ file just covers the dashboard itself.
 | Route | What it does |
 |---|---|
 | `/` | Research history, read straight from the Obsidian vault's `Research/` folder (not from LangGraph's own thread storage, which doesn't survive restarts) |
-| `/new` | Start a new research topic, with live streaming status, a Debate mode toggle, and comparison-mode awareness |
+| `/new` | Start a new research topic, with live streaming status and comparison-mode awareness |
 | `/graph` | The actual compiled LangGraph structure (nodes + edges), fetched live from the running backend |
 | `/knowledge` | A force-directed graph of your research notes, connected by embedding similarity |
 | `/profile` | Read-only view of the evolving `Profile.md` |

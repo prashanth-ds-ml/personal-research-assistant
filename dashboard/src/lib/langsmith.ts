@@ -38,7 +38,7 @@ async function getSessionId(): Promise<string | null> {
 
   const res = await fetch(
     `${LANGSMITH_API}/sessions?name=${encodeURIComponent(PROJECT_NAME)}`,
-    { headers: { "x-api-key": API_KEY }, cache: "no-store" }
+    { headers: { "x-api-key": API_KEY }, cache: "no-store", signal: AbortSignal.timeout(3000) }
   );
   if (!res.ok) return null;
   const sessions: { id: string }[] = await res.json();
@@ -60,6 +60,7 @@ export async function findTraceForTopic(topic: string): Promise<TraceSummary | n
       headers: { "x-api-key": API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ session: [sessionId], is_root: true, limit: 50 }),
       cache: "no-store",
+      signal: AbortSignal.timeout(3000), // a slow or offline LangSmith must not hold up opening a report
     });
     if (!rootRes.ok) return null;
     const { runs: rootRuns }: { runs: LangSmithRun[] } = await rootRes.json();
@@ -74,6 +75,7 @@ export async function findTraceForTopic(topic: string): Promise<TraceSummary | n
       headers: { "x-api-key": API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ trace: match.trace_id, limit: 100 }),
       cache: "no-store",
+      signal: AbortSignal.timeout(3000), // a slow or offline LangSmith must not hold up opening a report
     });
     const traceRuns: LangSmithRun[] = traceRes.ok ? (await traceRes.json()).runs : [];
 

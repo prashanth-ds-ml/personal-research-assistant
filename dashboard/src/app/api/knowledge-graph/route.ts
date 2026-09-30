@@ -6,6 +6,25 @@ export const runtime = "nodejs";
 
 const TOP_K = 3;
 const MIN_SIMILARITY = 0.3;
+const CONCURRENCY = 3; // embedding calls in flight at once: more just makes Ollama swap models
+
+// Embeddings per note, keyed by slug and the file's modification time: a note is embedded once, not on every
+// visit, and only changed notes are embedded again.
+const cache = new Map<string, { key: string; embedding: number[] }>();
+
+async function embedAll(notes: Awaited<ReturnType<typeof listResearchNotes>>) {
+  const queue = notes.filter((n) => cache.get(n.slug)?.key !== `${n.slug}:${n.mtimeMs}`);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
+    while (next < queue.length) {
+      const note = queue[next++];
+      const embedding = await embedText(`${note.title}\n\n${note.content}`);
+      cache.set(note.slug, { key: `${note.slug}:${note.mtimeMs}`, embedding });
+    }
+  });
+  await Promise.all(workers);
+  return notes.map((n) => cache.get(n.slug)!.embedding);
+}
 
 export async function GET() {
   const notes = await listResearchNotes();
@@ -13,9 +32,16 @@ export async function GET() {
     return NextResponse.json({ nodes: [], edges: [] });
   }
 
-  const embeddings = await Promise.all(
-    notes.map((note) => embedText(`${note.title}\n\n${note.content}`))
-  );
+  let embeddings: number[][];
+  try {
+    embeddings = await embedAll(notes);
+  } catch (e) {
+    // Say what is wrong instead of letting the page claim there are no notes.
+    return NextResponse.json(
+      { error: "Could not compute note embeddings. Is Ollama running with the embedding model pulled?", detail: String(e).slice(0, 200) },
+      { status: 502 }
+    );
+  }
 
   const edgeSet = new Map<string, { source: string; target: string; weight: number }>();
 

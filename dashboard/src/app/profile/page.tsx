@@ -1,4 +1,4 @@
-import ReactMarkdown from "react-markdown";
+import { SafeMarkdown } from "@/components/safe-markdown";
 import { UserCog } from "lucide-react";
 import { readProfileNote } from "@/lib/vault";
 
@@ -22,7 +22,7 @@ export default async function ProfilePage() {
           <UserCog className="h-4 w-4" />
         </span>
         <div className="prose prose-sm dark:prose-invert max-w-none flex-1">
-          <ReactMarkdown>{content}</ReactMarkdown>
+          <SafeMarkdown>{content}</SafeMarkdown>
         </div>
       </div>
     </div>

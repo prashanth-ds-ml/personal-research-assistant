@@ -6,6 +6,7 @@ export async function embedText(text: string): Promise<number[]> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: EMBEDDING_MODEL, prompt: text.slice(0, 4000) }),
+    signal: AbortSignal.timeout(60_000), // never wait forever on a stalled Ollama
   });
   if (!res.ok) throw new Error(`Ollama embeddings request failed: ${res.status}`);
   const data: { embedding: number[] } = await res.json();

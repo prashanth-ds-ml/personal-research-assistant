@@ -26,10 +26,16 @@ export default function KnowledgePage() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
   const [count, setCount] = useState(0);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/knowledge-graph")
-      .then((res) => res.json())
+    const controller = new AbortController();
+    fetch("/api/knowledge-graph", { signal: controller.signal })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error ?? `The server answered ${res.status}`);
+        return body;
+      })
       .then((graph: { nodes: RawNode[]; edges: RawEdge[] }) => {
         setCount(graph.nodes.length);
         if (graph.nodes.length === 0) {
@@ -87,7 +93,12 @@ export default function KnowledgePage() {
         );
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return; // the page was left: nothing to show
+        setError(e instanceof Error ? e.message : "Could not load the knowledge graph");
+        setLoading(false);
+      });
+    return () => controller.abort();
   }, []);
 
   return (
@@ -104,6 +115,11 @@ export default function KnowledgePage() {
         {loading ? (
           <div className="flex h-full items-center justify-center text-sm text-muted">
             Computing embeddings...
+          </div>
+        ) : error ? (
+          <div role="alert" className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <Network className="h-8 w-8 text-warning" />
+            <p className="text-sm text-warning">{error}</p>
           </div>
         ) : count === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, Layers, Link2, RefreshCw } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import { SafeMarkdown } from "@/components/safe-markdown";
 import { getResearchNote } from "@/lib/vault";
 import { findTraceForTopic } from "@/lib/langsmith";
 import { StatusBadge } from "@/components/status-badge";
 import { TraceCard } from "@/components/trace-card";
+import { FeedbackBar } from "@/components/feedback-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -61,8 +62,10 @@ export default async function ResearchNotePage({
       {trace && <TraceCard trace={trace} />}
 
       <div className="prose prose-zinc dark:prose-invert max-w-none">
-        <ReactMarkdown>{note.content}</ReactMarkdown>
+        <SafeMarkdown>{note.content}</SafeMarkdown>
       </div>
+
+      <FeedbackBar slug={note.slug} initialRating={note.feedbackRating} initialNote={note.feedbackNote} />
     </article>
   );
 }

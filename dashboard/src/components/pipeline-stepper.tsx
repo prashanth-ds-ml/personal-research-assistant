@@ -1,6 +1,6 @@
-import { UserCog, BookOpen, Search, Globe, Lightbulb, Swords, CheckCircle2 } from "lucide-react";
+import { UserCog, Search, Globe, Lightbulb, CheckCircle2 } from "lucide-react";
 
-export type Stage = "profile" | "query" | "research" | "reflect" | "debate" | "done";
+export type Stage = "profile" | "query" | "research" | "reflect" | "done";
 
 const BASE_STAGES: { key: Stage; label: string; icon: typeof Search }[] = [
   { key: "profile", label: "Loading profile & prior notes", icon: UserCog },
@@ -10,17 +10,12 @@ const BASE_STAGES: { key: Stage; label: string; icon: typeof Search }[] = [
   { key: "done", label: "Report written", icon: CheckCircle2 },
 ];
 
-const DEBATE_STAGE = { key: "debate" as const, label: "Debating perspectives (GPU + CPU)", icon: Swords };
-
-export function PipelineStepper({ current, debateEnabled }: { current: Stage; debateEnabled: boolean }) {
-  const STAGES = debateEnabled
-    ? [...BASE_STAGES.slice(0, 4), DEBATE_STAGE, ...BASE_STAGES.slice(4)]
-    : BASE_STAGES;
-  const currentIndex = STAGES.findIndex((s) => s.key === current);
+export function PipelineStepper({ current }: { current: Stage }) {
+  const currentIndex = BASE_STAGES.findIndex((s) => s.key === current);
 
   return (
     <ol className="flex flex-col gap-1">
-      {STAGES.map((stage, i) => {
+      {BASE_STAGES.map((stage, i) => {
         const state = i < currentIndex ? "done" : i === currentIndex ? "active" : "pending";
         const Icon = stage.icon;
         return (

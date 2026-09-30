@@ -1,8 +1,10 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStream } from "@langchain/langgraph-sdk/react";
+import { ResumeBanner } from "@/components/resume-banner";
+import { useRunThread } from "@/lib/use-run-thread";
 import { CheckCircle2, Search as SearchIcon, ArrowRight, AlertCircle } from "lucide-react";
 import { PipelineStepper, type Stage } from "@/components/pipeline-stepper";
 
@@ -12,8 +14,6 @@ interface ResearchState {
   research_loop_count?: number;
   running_summary?: string;
   report_path?: string;
-  advocate_view?: string;
-  critic_view?: string;
   entity_topics?: string[];
 }
 
@@ -30,7 +30,6 @@ function reportSlug(reportPath?: string): string | null {
 
 function currentStage(values: ResearchState, done: boolean): Stage {
   if (done) return "done";
-  if (values.advocate_view || values.critic_view) return "debate";
   if (values.entity_topics && values.entity_topics.length > 1) return "research";
   if (values.running_summary) return "reflect";
   if (values.research_loop_count) return "research";
@@ -40,24 +39,54 @@ function currentStage(values: ResearchState, done: boolean): Stage {
 
 function NewResearchForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [topic, setTopic] = useState(() => searchParams.get("topic") ?? "");
   const [loops, setLoops] = useState(3);
-  const [debateMode, setDebateMode] = useState(false);
+  const [source, setSource] = useState<"web" | "local_docs">("web");
 
+  // Remember the run's thread so leaving this page does not cancel it (see use-run-thread.ts).
+  const { threadId, remember, forget } = useRunThread("quick-research-thread");
   const stream = useStream<ResearchState>({
     apiUrl: API_URL,
     assistantId: ASSISTANT_ID,
+    threadId,
+    onThreadId: remember,
+    reconnectOnMount: () => window.localStorage, // same storage the thread id lives in
   });
+  const active = Boolean(threadId);
+
+  // Arriving with ?topic=... ("Continue researching this topic") means a new run: drop any remembered one.
+  const prefilled = Boolean(searchParams.get("topic"));
+  useEffect(() => {
+    if (prefilled) {
+      forget();
+      router.replace("/new"); // the topic is already in the field; a reload must not forget the run again
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on arrival
+  }, []);
+
+  // A remembered thread the server no longer has (backend restarted) would leave the page stuck on an error.
+  useEffect(() => {
+    if (threadId && stream.error && !stream.isLoading && !stream.values.research_topic && /404|not found/i.test(String(stream.error))) {
+      forget();
+    }
+  }, [threadId, stream.error, stream.isLoading, stream.values.research_topic, forget]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!topic.trim()) return;
+    if (!topic.trim() || stream.isLoading) return;
     stream.submit(
       { research_topic: topic },
       {
         config: {
-          configurable: { max_web_research_loops: loops, enable_debate_mode: debateMode },
+          configurable: {
+            max_web_research_loops: Math.min(10, Math.max(0, Math.round(loops) || 0)),
+            // "web" leaves search_api to the backend default (SEARCH_API env / duckduckgo).
+            ...(source === "local_docs" ? { search_api: "local_docs" } : {}),
+          },
         },
+        onDisconnect: "continue",
+        streamResumable: true,
       }
     );
   };
@@ -77,6 +106,17 @@ function NewResearchForm() {
         </p>
       </div>
 
+      {active && (
+        <ResumeBanner
+          loading={stream.isLoading}
+          noun="research"
+          onReset={() => {
+            forget();
+            setTopic("");
+          }}
+        />
+      )}
+
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5 shadow-sm"
@@ -90,7 +130,7 @@ function NewResearchForm() {
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder="What is the Model Context Protocol?"
-              disabled={stream.isLoading}
+              disabled={stream.isLoading || active}
             />
           </div>
         </label>
@@ -105,28 +145,28 @@ function NewResearchForm() {
               className="w-24 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
               value={loops}
               onChange={(e) => setLoops(Number(e.target.value))}
-              disabled={stream.isLoading}
+              disabled={stream.isLoading || active}
             />
           </label>
 
-          <label className="flex items-center gap-2 pt-4">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-accent"
-              checked={debateMode}
-              onChange={(e) => setDebateMode(e.target.checked)}
-              disabled={stream.isLoading}
-            />
-            <span className="text-sm">
-              Debate mode
-              <span className="ml-1.5 text-xs text-muted">(GPU advocate + CPU critic)</span>
-            </span>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted">Search</span>
+            <select
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              value={source}
+              onChange={(e) => setSource(e.target.value as "web" | "local_docs")}
+              disabled={stream.isLoading || active}
+            >
+              <option value="web">Web</option>
+              <option value="local_docs">Internal documents</option>
+            </select>
           </label>
+
         </div>
 
         <button
           type="submit"
-          disabled={stream.isLoading || !topic.trim()}
+          disabled={stream.isLoading || active || !topic.trim()}
           className="flex w-fit items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm shadow-accent/30 transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
         >
           {stream.isLoading ? "Researching..." : "Start Research"}
@@ -135,15 +175,24 @@ function NewResearchForm() {
       </form>
 
       {stream.error ? (
-        <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
+        <div role="alert" className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {String(stream.error)}
         </div>
       ) : null}
 
+      {stream.isLoading && (
+        <div role="status" aria-live="polite" className="flex items-center gap-3 text-sm text-muted">
+          Researching...
+          <button type="button" className="text-xs underline hover:text-foreground" onClick={() => stream.stop()}>
+            Stop
+          </button>
+        </div>
+      )}
+
       {started && (
         <div className="flex flex-col gap-5 rounded-2xl border border-border bg-surface p-5 shadow-sm">
-          <PipelineStepper current={currentStage(stream.values, done)} debateEnabled={debateMode} />
+          <PipelineStepper current={currentStage(stream.values, done)} />
 
           {comparing && (
             <div className="rounded-xl bg-background px-3 py-2 text-sm">
@@ -166,17 +215,6 @@ function NewResearchForm() {
             </div>
           )}
 
-          {!done && (stream.values.advocate_view || stream.values.critic_view) && (
-            <div className="flex flex-col gap-2 rounded-xl bg-background p-3 text-sm">
-              {stream.values.advocate_view && (
-                <p><span className="font-medium text-success">In favor: </span>{stream.values.advocate_view}</p>
-              )}
-              {stream.values.critic_view && (
-                <p><span className="font-medium text-warning">Concerns: </span>{stream.values.critic_view}</p>
-              )}
-            </div>
-          )}
-
           {!done && !comparing && stream.values.running_summary && (
             <details className="rounded-xl bg-background p-3">
               <summary className="cursor-pointer text-sm text-muted">
@@ -191,7 +229,7 @@ function NewResearchForm() {
       )}
 
       {done && slug && (
-        <div className="flex items-center gap-3 rounded-2xl border border-success/30 bg-success-soft px-5 py-4 text-sm text-success">
+        <div role="status" className="flex items-center gap-3 rounded-2xl border border-success/30 bg-success-soft px-5 py-4 text-sm text-success">
           <CheckCircle2 className="h-5 w-5 shrink-0" />
           <span className="flex-1">Research complete.</span>
           <a

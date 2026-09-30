@@ -15,6 +15,20 @@ export interface ResearchNote {
   sourcesCount: number;
   status: string;
   content: string;
+  mtimeMs?: number;
+  feedbackRating?: "up" | "down";
+  feedbackNote?: string;
+}
+
+// A report's file name without ".md". Slugs come from the URL, so they are checked before they touch a path.
+const SLUG_RE = /^[\w.-]+$/;
+
+/** Absolute path of a report, or null if the slug is not a plain file name or would leave the Research folder. */
+function reportPath(slug: string): string | null {
+  if (!VAULT_PATH || !SLUG_RE.test(slug) || slug.includes("..")) return null;
+  const dir = path.resolve(VAULT_PATH, RESEARCH_SUBDIR);
+  const file = path.resolve(dir, `${slug}.md`);
+  return file.startsWith(dir + path.sep) ? file : null;
 }
 
 async function pathExists(p: string): Promise<boolean> {
@@ -26,10 +40,41 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
+/** YAML turns an unquoted 2026-09-30 into a Date; the UI wants the plain string. */
+function asDateString(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return typeof value === "string" ? value : "";
+}
+
+function feedbackOf(data: Record<string, unknown>): Pick<ResearchNote, "feedbackRating" | "feedbackNote"> {
+  const r = data.feedback_rating;
+  return {
+    feedbackRating: r === "up" || r === "down" ? r : undefined,
+    feedbackNote: typeof data.feedback_note === "string" ? data.feedback_note : undefined,
+  };
+}
+
+function toNote(slug: string, raw: string, mtimeMs?: number): ResearchNote {
+  const { data, content } = matter(raw);
+  return {
+    slug,
+    title: typeof data.title === "string" && data.title ? data.title : slug,
+    date: asDateString(data.date),
+    topicSlug: typeof data.topic_slug === "string" ? data.topic_slug : "",
+    loops: typeof data.loops === "number" ? data.loops : 0,
+    sourcesCount: typeof data.sources_count === "number" ? data.sources_count : 0,
+    status: typeof data.status === "string" ? data.status : "unknown",
+    content,
+    mtimeMs,
+    ...feedbackOf(data),
+  };
+}
+
 /** Lists all research notes from the vault's Research/ folder, newest first.
  * This is the durable source of truth for research history - deliberately
  * not LangGraph thread history, since the local dev server doesn't persist
- * threads across restarts. */
+ * threads across restarts. A note that cannot be read or parsed (bad YAML after a hand edit in Obsidian)
+ * is skipped instead of taking the whole history page down. */
 export async function listResearchNotes(): Promise<ResearchNote[]> {
   if (!VAULT_PATH) return [];
 
@@ -40,41 +85,40 @@ export async function listResearchNotes(): Promise<ResearchNote[]> {
 
   const notes = await Promise.all(
     files.map(async (file) => {
-      const raw = await fs.readFile(path.join(dir, file), "utf-8");
-      const { data, content } = matter(raw);
-      return {
-        slug: file.replace(/\.md$/, ""),
-        title: data.title ?? file,
-        date: data.date ?? "",
-        topicSlug: data.topic_slug ?? "",
-        loops: data.loops ?? 0,
-        sourcesCount: data.sources_count ?? 0,
-        status: data.status ?? "unknown",
-        content,
-      } satisfies ResearchNote;
+      try {
+        const full = path.join(dir, file);
+        const [raw, stat] = await Promise.all([fs.readFile(full, "utf-8"), fs.stat(full)]);
+        return toNote(file.replace(/\.md$/, ""), raw, stat.mtimeMs);
+      } catch {
+        return null;
+      }
     })
   );
 
-  return notes.sort((a, b) => (a.date < b.date ? 1 : -1));
+  return notes.filter((n): n is ResearchNote => n !== null).sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 export async function getResearchNote(slug: string): Promise<ResearchNote | null> {
-  if (!VAULT_PATH) return null;
-  const filePath = path.join(VAULT_PATH, RESEARCH_SUBDIR, `${slug}.md`);
-  if (!(await pathExists(filePath))) return null;
+  const filePath = reportPath(slug);
+  if (!filePath || !(await pathExists(filePath))) return null;
+  try {
+    return toNote(slug, await fs.readFile(filePath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
 
-  const raw = await fs.readFile(filePath, "utf-8");
-  const { data, content } = matter(raw);
-  return {
-    slug,
-    title: data.title ?? slug,
-    date: data.date ?? "",
-    topicSlug: data.topic_slug ?? "",
-    loops: data.loops ?? 0,
-    sourcesCount: data.sources_count ?? 0,
-    status: data.status ?? "unknown",
-    content,
-  };
+/** Writes the user's rating into the report's frontmatter (same fields the Python planner reads).
+ * Returns false if the slug is invalid or the report does not exist. */
+export async function saveFeedback(slug: string, rating: "up" | "down", note: string): Promise<boolean> {
+  const filePath = reportPath(slug);
+  if (!filePath || !(await pathExists(filePath))) return false;
+  const { data, content } = matter(await fs.readFile(filePath, "utf-8"));
+  data.feedback_rating = rating;
+  data.feedback_note = note.trim();
+  data.feedback_at = new Date().toISOString();
+  await fs.writeFile(filePath, matter.stringify(content, data), "utf-8");
+  return true;
 }
 
 /** Reads the evolving profile note, or a friendly placeholder if the vault

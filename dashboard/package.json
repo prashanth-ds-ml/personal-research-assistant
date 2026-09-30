@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001",
+    "dev": "next dev -H 127.0.0.1 -p 3001",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "next start -H 127.0.0.1 -p 3001",
     "lint": "eslint"
   },
   "dependencies": {
@@ -14,12 +14,12 @@
     "d3-force": "^3.0.0",
     "date-fns": "^4.4.0",
     "gray-matter": "^4.0.3",
-    "langgraph-nextjs-api-passthrough": "^0.1.4",
     "lucide-react": "^1.48.0",
     "next": "16.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
