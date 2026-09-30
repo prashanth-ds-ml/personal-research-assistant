@@ -21,3 +21,4 @@ kb.sqlite
 .kb/
 library_kb.sqlite-*
 .pytest_cache/
+.obsidian/
