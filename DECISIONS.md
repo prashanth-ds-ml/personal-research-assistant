@@ -224,3 +224,26 @@ chunks) moved hybrid recall@1 from 80% to 76% and recall@3 from 92% to 88%;
 recall@6 stayed at 96%. BM25 and dense alone fell further at some cutoffs. The
 practical reading: keep retrieving 6-8 passages per question, which the
 pipeline already does.
+
+## The web collector is one agent, and we write our own fetching
+(Decided 2026-10-01; design in `docs/web-collector-design.md`; not built yet.)
+
+Deep research could read the library but not *find* web pages. Options weighed: (a) a separate search graph,
+(b) a search-backend component plus a separate fetch component, (c) one collector module.
+Chosen: **one independent module, `collector.py`**, with search as a pluggable function inside it
+(DuckDuckGo via `ddgs` by default, SearXNG if configured, no paid APIs). The deep-research graph and
+`scripts/collect.py` both call it, so it works standalone from the command line. Two calls, `discover`
+(search, dedupe, triage; downloads nothing) and `collect` (fetch, convert to markdown, save), with a review pause
+between them so the user sees every candidate and approves the list. Fetching is strictly sequential.
+
+**LangChain's web loaders were not adopted.** `WebBaseLoader`, `RecursiveUrlLoader` and friends are thin wrappers
+over requests and BeautifulSoup. They have none of what this project needs (public-host-only checks with redirect
+re-validation, robots.txt, per-host rate limits, size caps, manifest, dedupe), so adopting them would mean wrapping
+them in our own guards and adding dependencies for little saved work. Extraction already uses `trafilatura`
+(better main-content and table extraction than generic HTML-to-text) and PDFs use Docling. Only crawling inside a
+single trusted site might be worth revisiting later, built on our own fetcher. (This comparison is from memory of
+the loaders' design; re-check the current versions before citing it.)
+
+**Why the review pause:** general web search returns SEO pages. The relevance score pre-ticks the good ones, and
+the user's ticking is the real quality filter. An optional domain allow-list (WHO, CDC, NHS, government sites)
+covers high-stakes topics. The pause can be switched off for unattended runs.
