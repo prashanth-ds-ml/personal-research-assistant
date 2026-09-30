@@ -1,0 +1,33 @@
+{
+ "n": 25,
+ "hits": {
+  "bm25": {
+   "1": 17,
+   "3": 20,
+   "6": 23
+  },
+  "dense": {
+   "1": 12,
+   "3": 18,
+   "6": 23
+  },
+  "hybrid": {
+   "1": 20,
+   "3": 23,
+   "6": 24
+  }
+ },
+ "misses": {
+  "bm25": [
+   "Which retriever and which generator does the original RAG model combine?",
+   "What is a chain of thought in the context of prompting?"
+  ],
+  "dense": [
+   "How many parameters does GPT-3 have?",
+   "What is a chain of thought in the context of prompting?"
+  ],
+  "hybrid": [
+   "What is a chain of thought in the context of prompting?"
+  ]
+ }
+}

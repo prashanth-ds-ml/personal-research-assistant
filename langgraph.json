@@ -1,7 +1,8 @@
 {
     "dockerfile_lines": [],
     "graphs": {
-      "research_assistant": "./src/research_assistant/graph.py:graph"
+      "research_assistant": "./src/research_assistant/graph.py:graph",
+      "deep_research": "./src/research_assistant/goal_graph.py:graph"
     },
     "python_version": "3.11",
     "env": "./.env",

@@ -13,13 +13,12 @@ from typing_extensions import Literal
 
 from research_assistant import vault
 from research_assistant.configuration import Configuration
+from research_assistant.documents import local_docs_search
 from research_assistant.lmstudio import ChatLMStudio
 from research_assistant.notifications import notify_run_complete
 from research_assistant.prompts import (
     comparison_planning_instructions,
     comparison_report_synthesis_instructions,
-    debate_advocate_instructions,
-    debate_critic_instructions,
     get_current_date,
     json_mode_query_instructions,
     json_mode_reflection_instructions,
@@ -51,6 +50,7 @@ from research_assistant.utils import (
 
 # Constants
 MAX_TOKENS_PER_SOURCE = 1000
+PROFILE_MAX_CHARS = 6000          # how much of Profile.md may be pasted into a prompt
 CHARS_PER_TOKEN = 4
 
 def generate_search_query_with_structured_output(
@@ -100,18 +100,19 @@ def generate_search_query_with_structured_output(
         # Use JSON mode
         llm = get_llm(configurable)
         result = llm.invoke(messages)
-        print(f"result: {result}")
         content = result.content
+        if configurable.strip_thinking_tokens:
+            content = strip_thinking_tokens(content)     # strip BEFORE parsing: thinking models put JSON after </think>
 
         try:
             parsed_json = json.loads(content)
+            if not isinstance(parsed_json, dict):
+                raise ValueError("model returned JSON that is not an object")
             search_query = parsed_json.get(json_query_field)
             if not search_query:
                 return _with_secondary({"search_query": fallback_query}, parsed_json)
             return _with_secondary({"search_query": search_query}, parsed_json)
-        except (json.JSONDecodeError, KeyError):
-            if configurable.strip_thinking_tokens:
-                content = strip_thinking_tokens(content)
+        except (json.JSONDecodeError, ValueError, KeyError):
             return _with_secondary({"search_query": fallback_query}, None)
 
 def get_llm(configurable: Configuration):
@@ -199,12 +200,15 @@ def load_profile(state: SummaryState, config: RunnableConfig):
                 "start it before running research."
             ) from e
 
+    profile = vault.read_profile(configurable.vault_path, configurable.profile_note_path)
+    if len(profile) > PROFILE_MAX_CHARS:
+        # The note grows by one Session Log entry per run and is pasted into every prompt. Keep the top
+        # (standing preferences and the newest log entries) and say that the rest was left out.
+        profile = profile[:PROFILE_MAX_CHARS].rsplit("\n", 1)[0] + "\n\n[older profile entries omitted to fit the model's context]"
     return {
         "run_date": datetime.now().strftime("%Y-%m-%d"),
         "topic_slug": vault.slugify(state.research_topic),
-        "profile_content": vault.read_profile(
-            configurable.vault_path, configurable.profile_note_path
-        ),
+        "profile_content": profile,
     }
 
 
@@ -229,6 +233,7 @@ def retrieve_vault_context(state: SummaryState, config: RunnableConfig):
         embedding_model=configurable.embedding_model,
         topic=state.research_topic,
         top_k=configurable.vault_context_top_k,
+        ollama_base_url=configurable.ollama_base_url,
     )
     return {"vault_context": context}
 
@@ -262,9 +267,13 @@ def plan_research(state: SummaryState, config: RunnableConfig):
             "no reference to other sub-topics"
         )
 
-    llm = ChatOllama(
-        base_url=configurable.ollama_base_url, model=configurable.local_llm, temperature=0
-    ).bind_tools([ConductResearch])
+    if configurable.llm_provider == "lmstudio":
+        tool_llm = ChatLMStudio(
+            base_url=configurable.lmstudio_base_url, model=configurable.local_llm, temperature=0)
+    else:
+        tool_llm = ChatOllama(
+            base_url=configurable.ollama_base_url, model=configurable.local_llm, temperature=0)
+    llm = tool_llm.bind_tools([ConductResearch])
 
     result = llm.invoke(
         [
@@ -407,6 +416,15 @@ def web_research(state: SummaryState, config: RunnableConfig):
             state.search_query,
             max_results=3,
             fetch_full_page=configurable.fetch_full_page,
+        )
+    elif search_api == "local_docs":
+        search_results = local_docs_search(
+            state.search_query,
+            docs_path=configurable.docs_path,
+            embedding_model=configurable.embedding_model,
+            top_k=configurable.docs_top_k,
+            chunk_size=configurable.docs_chunk_size,
+            ollama_base_url=configurable.ollama_base_url,
         )
     else:
         raise ValueError(f"Unsupported search API: {configurable.search_api}")
@@ -645,67 +663,12 @@ async def parallel_research(state: SummaryState, config: RunnableConfig):
 
 
 def _synthesis_text(state: SummaryState) -> str:
-    """Text to synthesize the report/debate from: the comparison entities'
+    """Text to synthesize the report from: the comparison entities'
     joined summaries if this was a comparison run, else the normal single-topic
     running summary."""
     if state.entity_research:
         return "\n\n".join(f"### {r['topic']}\n{r['summary']}" for r in state.entity_research)
     return state.running_summary
-
-
-async def debate_perspectives(state: SummaryState, config: RunnableConfig):
-    """LangGraph node that runs a GPU advocate and a CPU-pinned critic concurrently.
-
-    Runs once, after the research loop ends, before finalize_summary. The
-    critic is forced onto CPU (num_gpu=0) so it uses system RAM rather than
-    VRAM, letting it run genuinely concurrently with the GPU-resident
-    advocate model instead of competing for the same memory pool - measured
-    at ~3x faster wall-clock than running both sequentially.
-
-    Args:
-        state: Current graph state containing the running summary
-        config: Configuration for the runnable, including debate_cpu_model
-
-    Returns:
-        Dictionary with state update: advocate_view and critic_view (empty
-        strings if debate mode is disabled)
-    """
-    configurable = Configuration.from_runnable_config(config)
-    if not configurable.enable_debate_mode:
-        return {}
-
-    advocate_llm = get_report_llm(configurable)
-    critic_llm = ChatOllama(
-        base_url=configurable.ollama_base_url,
-        model=configurable.debate_cpu_model,
-        temperature=0.3,
-        num_gpu=0,
-    )
-
-    synthesis_text = _synthesis_text(state)
-    advocate_prompt = debate_advocate_instructions.format(
-        research_topic=state.research_topic, running_summary=synthesis_text
-    )
-    critic_prompt = debate_critic_instructions.format(
-        research_topic=state.research_topic, running_summary=synthesis_text
-    )
-
-    advocate_result, critic_result = await asyncio.gather(
-        advocate_llm.ainvoke(
-            [SystemMessage(content=advocate_prompt), HumanMessage(content="Make the case now.")]
-        ),
-        critic_llm.ainvoke(
-            [SystemMessage(content=critic_prompt), HumanMessage(content="Raise your concerns now.")]
-        ),
-    )
-
-    advocate_view = advocate_result.content
-    critic_view = critic_result.content
-    if configurable.strip_thinking_tokens:
-        advocate_view = strip_thinking_tokens(advocate_view)
-        critic_view = strip_thinking_tokens(critic_view)
-
-    return {"advocate_view": advocate_view, "critic_view": critic_view}
 
 
 def finalize_summary(state: SummaryState, config: RunnableConfig):
@@ -756,13 +719,6 @@ def finalize_summary(state: SummaryState, config: RunnableConfig):
     report_body = result.content
     if configurable.strip_thinking_tokens:
         report_body = strip_thinking_tokens(report_body)
-
-    if state.advocate_view and state.critic_view:
-        report_body += (
-            f"\n\n## Perspectives\n"
-            f"**In favor** ({configurable.local_llm}): {state.advocate_view}\n\n"
-            f"**Concerns** ({configurable.debate_cpu_model}): {state.critic_view}"
-        )
 
     fallback_sources_text = (
         None if state.archived_sources else _fallback_sources_text(state.sources_gathered)
@@ -850,33 +806,35 @@ def notify_complete(state: SummaryState, config: RunnableConfig):
 
 def route_research(
     state: SummaryState, config: RunnableConfig
-) -> Literal["debate_perspectives", "web_research"]:
+) -> Literal["finalize_summary", "web_research"]:
     """LangGraph routing function that determines the next step in the research flow.
 
     Controls the research loop by deciding whether to continue gathering information
-    or to move on (via debate_perspectives, which no-ops if debate mode is off) to
-    finalizing the summary, based on the configured maximum number of research loops.
+    or to move on to finalizing the summary, based on the configured maximum number of
+    research loops.
 
     Args:
         state: Current graph state containing the research loop count
         config: Configuration for the runnable, including max_web_research_loops setting
 
     Returns:
-        String literal indicating the next node to visit ("web_research" or "debate_perspectives")
+        String literal indicating the next node to visit ("web_research" or "finalize_summary")
     """
 
     configurable = Configuration.from_runnable_config(config)
-    if state.research_loop_count <= configurable.max_web_research_loops:
+    # research_loop_count is the number of search passes done so far, so "< max" means max passes in total
+    # (the inherited "<=" ran one pass more than the dashboard's "Max research loops" said).
+    if state.research_loop_count < configurable.max_web_research_loops:
         return "web_research"
     else:
-        return "debate_perspectives"
+        return "finalize_summary"
 
 
 # Add nodes and edges
 builder = StateGraph(
     SummaryState,
-    input=SummaryStateInput,
-    output=SummaryStateOutput,
+    input_schema=SummaryStateInput,
+    output_schema=SummaryStateOutput,
     config_schema=Configuration,
 )
 builder.add_node("load_profile", load_profile)
@@ -887,7 +845,6 @@ builder.add_node("web_research", web_research)
 builder.add_node("summarize_sources", summarize_sources)
 builder.add_node("reflect_on_summary", reflect_on_summary)
 builder.add_node("parallel_research", parallel_research)
-builder.add_node("debate_perspectives", debate_perspectives)
 builder.add_node("finalize_summary", finalize_summary)
 builder.add_node("update_profile", update_profile)
 builder.add_node("notify_complete", notify_complete)
@@ -901,8 +858,7 @@ builder.add_edge("generate_query", "web_research")
 builder.add_edge("web_research", "summarize_sources")
 builder.add_edge("summarize_sources", "reflect_on_summary")
 builder.add_conditional_edges("reflect_on_summary", route_research)
-builder.add_edge("parallel_research", "debate_perspectives")
-builder.add_edge("debate_perspectives", "finalize_summary")
+builder.add_edge("parallel_research", "finalize_summary")
 builder.add_edge("finalize_summary", "update_profile")
 builder.add_edge("update_profile", "notify_complete")
 builder.add_edge("notify_complete", END)

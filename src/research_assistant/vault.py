@@ -140,8 +140,17 @@ def write_report(
         file_path = research_dir / f"{base_name}-{n}.md"
         n += 1
 
+    # Later research loops often re-retrieve the same source (esp. with
+    # local_docs, where the corpus is small); cite each URL once.
+    seen_urls: set[str] = set()
+    unique_sources = []
+    for src in archived_sources:
+        if src["url"] not in seen_urls:
+            seen_urls.add(src["url"])
+            unique_sources.append(src)
+
     sources_lines = []
-    for display_index, src in enumerate(archived_sources, start=1):
+    for display_index, src in enumerate(unique_sources, start=1):
         rel = Path(src["file_path"]).relative_to(Path(vault_path) / sources_subdir)
         sources_lines.append(f"{display_index}. [{src['title']}](../{sources_subdir}/{rel.as_posix()}) — {src['url']}")
     if sources_lines:
@@ -159,7 +168,7 @@ def write_report(
         date=run_date,
         topic_slug=topic_slug,
         loops=loops,
-        sources_count=len(archived_sources),
+        sources_count=len(unique_sources),
         status="complete",
     )
     file_path.write_text(frontmatter.dumps(post), encoding="utf-8")
@@ -218,6 +227,7 @@ def retrieve_vault_context(
     embedding_model: str,
     topic: str,
     top_k: int,
+    ollama_base_url: str = "",
 ) -> str:
     """Embed existing Research/ notes and return the top_k most relevant as
     formatted markdown snippets. Returns "" if the vault/folder is empty or
@@ -230,7 +240,6 @@ def retrieve_vault_context(
     if not notes:
         return ""
 
-    from langchain.embeddings import init_embeddings
     from langchain_core.documents import Document
     from langchain_core.vectorstores import InMemoryVectorStore
     from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -246,7 +255,9 @@ def retrieve_vault_context(
     if not docs:
         return ""
 
-    embeddings = init_embeddings(embedding_model)
+    from research_assistant.documents import make_embeddings
+
+    embeddings = make_embeddings(embedding_model, ollama_base_url)
     store = InMemoryVectorStore.from_documents(docs, embeddings)
     hits = store.similarity_search(topic, k=top_k)
 
@@ -256,3 +267,40 @@ def retrieve_vault_context(
             f"### {hit.metadata['title']} ({hit.metadata['path']})\n{hit.page_content.strip()}"
         )
     return "\n\n".join(snippets)
+
+
+# ---- report feedback (the dashboard writes the same frontmatter fields) ---------------------
+
+FEEDBACK_RATINGS = ("up", "down")
+
+
+def set_feedback(vault_path: str, research_subdir: str, slug: str, rating: str, note: str = "") -> Path:
+    """Record whether a report was useful in its own frontmatter:
+    feedback_rating (up|down), feedback_note, feedback_at."""
+    if rating not in FEEDBACK_RATINGS:
+        raise ValueError(f"rating must be one of {FEEDBACK_RATINGS}")
+    path = Path(vault_path) / research_subdir / f"{slug}.md"
+    post = frontmatter.load(path)
+    post["feedback_rating"] = rating
+    post["feedback_note"] = note.strip()
+    post["feedback_at"] = datetime.now(timezone.utc).isoformat()
+    path.write_text(frontmatter.dumps(post), encoding="utf-8")
+    return path
+
+
+def recent_feedback(vault_path: str, research_subdir: str, n: int = 5) -> list[dict]:
+    """The n most recent reports that have a rating: [{title, goal, rating, note, at}]."""
+    folder = Path(vault_path) / research_subdir
+    if not vault_path or not folder.is_dir():
+        return []
+    items = []
+    for path in folder.glob("*.md"):
+        try:
+            post = frontmatter.load(path)
+        except Exception:
+            continue
+        if post.get("feedback_rating") in FEEDBACK_RATINGS:
+            items.append({"title": post.get("title", path.stem), "goal": post.get("goal", ""),
+                          "rating": post["feedback_rating"], "note": str(post.get("feedback_note", "")),
+                          "at": str(post.get("feedback_at", ""))})
+    return sorted(items, key=lambda x: x["at"], reverse=True)[:n]

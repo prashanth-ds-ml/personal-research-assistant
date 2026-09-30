@@ -44,11 +44,24 @@ def strip_thinking_tokens(text: str) -> str:
     Returns:
         str: The text with thinking tokens and their content removed
     """
-    while "<think>" in text and "</think>" in text:
-        start = text.find("<think>")
-        end = text.find("</think>") + len("</think>")
-        text = text[:start] + text[end:]
-    return text
+    # Single left-to-right pass. The close tag is searched for AFTER the open tag, and an opening tag
+    # with no closing tag leaves the rest of the text alone. (The original loop rewrote the text until
+    # no tags remained, which never ends on input like "</think><think>" and grows without bound on
+    # "a</think>b<think>c".)
+    out: list[str] = []
+    i = 0
+    while True:
+        start = text.find("<think>", i)
+        if start == -1:
+            out.append(text[i:])
+            break
+        end = text.find("</think>", start + len("<think>"))
+        if end == -1:
+            out.append(text[i:])
+            break
+        out.append(text[i:start])
+        i = end + len("</think>")
+    return "".join(out)
 
 
 def deduplicate_and_format_sources(
@@ -351,7 +364,7 @@ def perplexity_search(
     }
 
     response = requests.post(
-        "https://api.perplexity.ai/chat/completions", headers=headers, json=payload
+        "https://api.perplexity.ai/chat/completions", headers=headers, json=payload, timeout=60
     )
     response.raise_for_status()  # Raise exception for bad status codes
 

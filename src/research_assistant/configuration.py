@@ -11,6 +11,20 @@ class SearchAPI(Enum):
     TAVILY = "tavily"
     DUCKDUCKGO = "duckduckgo"
     SEARXNG = "searxng"
+    LOCAL_DOCS = "local_docs"
+
+
+# Settings a caller may change for a single run (the dashboard form, the API). Everything else,
+# notably every path and every service URL, is environment/default only. See from_runnable_config.
+PER_RUN_KEYS = frozenset({
+    "max_web_research_loops", "local_llm", "llm_provider", "search_api", "fetch_full_page",
+    "strip_thinking_tokens", "use_tool_calling", "enable_vault_context", "vault_context_top_k",
+    "archive_full_sources", "enable_profile_update", "notify_on_complete", "enable_comparison_planning",
+    "max_comparison_entities", "planner_model", "extractor_model", "writer_model",
+    "ask_clarifying_questions", "require_plan_approval", "auto_ingest", "collect_sources", "seed_urls",
+    "fetch_max_sources", "fetch_min_relevance", "docs_retrieval_k", "docs_top_k", "docs_chunk_size",
+    "contact_email",
+})
 
 
 class Configuration(BaseModel):
@@ -31,8 +45,27 @@ class Configuration(BaseModel):
         title="LLM Provider",
         description="Provider for the LLM (Ollama or LMStudio)",
     )
-    search_api: Literal["perplexity", "tavily", "duckduckgo", "searxng"] = Field(
-        default="duckduckgo", title="Search API", description="Web search API to use"
+    search_api: Literal[
+        "perplexity", "tavily", "duckduckgo", "searxng", "local_docs"
+    ] = Field(
+        default="duckduckgo",
+        title="Search API",
+        description="Search backend: a web search API, or local_docs to search docs_path",
+    )
+    docs_path: str = Field(
+        default="",
+        title="Internal Docs Path",
+        description="Folder of PDF/Markdown/text files searched when search_api=local_docs",
+    )
+    docs_top_k: int = Field(
+        default=4,
+        title="Docs Top K",
+        description="Number of document chunks retrieved per search when search_api=local_docs",
+    )
+    docs_chunk_size: int = Field(
+        default=1500,
+        title="Docs Chunk Size",
+        description="Characters per document chunk when search_api=local_docs",
     )
     fetch_full_page: bool = Field(
         default=True,
@@ -111,11 +144,6 @@ class Configuration(BaseModel):
         title="Notify On Complete",
         description="Show a native OS notification when a research run finishes",
     )
-    enable_debate_mode: bool = Field(
-        default=False,
-        title="Enable Debate Mode",
-        description="Run a GPU advocate and a CPU-pinned critic concurrently before finalizing",
-    )
     enable_comparison_planning: bool = Field(
         default=True,
         title="Enable Comparison Planning",
@@ -130,33 +158,88 @@ class Configuration(BaseModel):
         title="Max Comparison Entities",
         description="Cap on how many conduct_research calls plan_research will honor in one turn",
     )
-    debate_cpu_model: str = Field(
-        default="gemma3:4b",
-        title="Debate CPU Model",
+    # --- Goal-driven deep research (deep_research graph) ---
+    kb_path: str = Field(
+        default="",
+        title="Knowledge Base Path",
+        description="SQLite knowledge-base file; default <vault_path>/.kb/library.sqlite",
+    )
+    planner_model: str = Field(default="", title="Planner Model", description="Blank = local_llm")
+    extractor_model: str = Field(default="", title="Extractor Model", description="Blank = local_llm")
+    writer_model: str = Field(default="", title="Writer Model", description="Blank = local_llm")
+    ask_clarifying_questions: bool = Field(
+        default=True,
+        title="Ask Clarifying Questions",
+        description="Pause and ask the user a few questions about the goal before planning",
+    )
+    require_plan_approval: bool = Field(
+        default=True,
+        title="Require Plan Approval",
+        description="Pause and show the research plan for approval before the expensive steps",
+    )
+    library_folders: str = Field(
+        default="",
+        title="Library Folders",
         description=(
-            "Smaller model pinned to CPU (num_gpu=0) for the debate's critic voice. "
-            "Deliberately a different model family than local_llm (Google Gemma vs. "
-            "Meta Llama by default) - same-family models share training data/alignment "
-            "and produce a much weaker, more agreeable 'debate'."
+            "Folders kept indexed, separated by ';'. Blank = <vault>/Sources and <vault>/Library. "
+            "Each folder's name is its namespace in the knowledge base."
         ),
+    )
+    auto_ingest: bool = Field(
+        default=True,
+        title="Auto-Ingest",
+        description="Index new or changed files in the library folders at the start of each deep-research run",
+    )
+    collect_sources: bool = Field(
+        default=False,
+        title="Fetch New Sources",
+        description="After plan approval, fetch open-access papers (arXiv, Europe PMC) for the plan's questions",
+    )
+    seed_urls: str = Field(
+        default="",
+        title="Seed URLs",
+        description="Pages or PDFs to fetch into the library before researching, separated by whitespace or ';'",
+    )
+    fetch_max_sources: int = Field(default=10, title="Max New Sources", description="Cap on sources saved per run")
+    fetch_min_relevance: int = Field(
+        default=3, title="Min Relevance",
+        description="Keep a fetched source only if the local model scores it at least this (0-3). 3 = directly answers "
+                    "the question; 2 lets in tangential papers that then stay in the library")
+    contact_email: str = Field(
+        default="", title="Contact Email",
+        description="Put in the fetcher's User-Agent so site owners can reach you (good manners; optional)")
+    docs_retrieval_k: int = Field(
+        default=8,
+        title="Passages Per Question",
+        description="Passages retrieved per sub-question in deep research",
     )
 
     @classmethod
     def from_runnable_config(
         cls, config: RunnableConfig | None = None
     ) -> "Configuration":
-        """Create a Configuration instance from a RunnableConfig."""
+        """Create a Configuration instance from a RunnableConfig.
+
+        Precedence for each setting: environment variable (NAME in upper case) > the run's
+        ``configurable`` dict > the class default. Two rules make this safe to expose:
+
+        * An environment variable that is set but EMPTY counts as unset (docker-compose passes
+          blanks for unset options; they must not beat a per-run value).
+        * Only the keys in ``PER_RUN_KEYS`` may be set per run. Paths and service URLs (vault, knowledge
+          base, library folders, Ollama/LM Studio address) come only from the environment or defaults,
+          because a per-run override would let whoever can reach the API point the assistant at
+          arbitrary folders or hosts.
+        """
         configurable = (
             config["configurable"] if config and "configurable" in config else {}
         )
 
-        # Get raw values from environment or config
-        raw_values: dict[str, Any] = {
-            name: os.environ.get(name.upper(), configurable.get(name))
-            for name in cls.model_fields.keys()
-        }
-
-        # Filter out None values
-        values = {k: v for k, v in raw_values.items() if v is not None}
+        values: dict[str, Any] = {}
+        for name in cls.model_fields:
+            env = os.environ.get(name.upper())
+            if env:
+                values[name] = env
+            elif name in PER_RUN_KEYS and configurable.get(name) is not None:
+                values[name] = configurable[name]
 
         return cls(**values)

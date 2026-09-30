@@ -21,8 +21,6 @@ class SummaryState:
     knowledge_gaps: Annotated[list, operator.add] = field(default_factory=list)
     archived_sources: Annotated[list, operator.add] = field(default_factory=list)
     report_path: str = field(default=None)  # Absolute path to the written Obsidian note
-    advocate_view: str = field(default="")  # Debate mode: GPU model's case for the findings
-    critic_view: str = field(default="")  # Debate mode: CPU model's concerns/caveats
     entity_topics: list = field(default_factory=list)  # Set by plan_research; len<2 means not a comparison
     entity_research: list = field(default_factory=list)  # Set by parallel_research; each: {topic, summary, loops}
 

@@ -186,30 +186,6 @@ Do NOT rewrite, summarize, or restate the existing profile. Do NOT produce anyth
 resembling a "Standing Preferences" section - that is manually maintained by the user.
 Output ONLY the new bullet list (markdown "- " bullets), no heading, no preamble.
 </FORMATTING>"""
-
-debate_advocate_instructions = """You are an advocate for this research summary on: {research_topic}
-
-<SUMMARY>
-{running_summary}
-</SUMMARY>
-
-<TASK>
-Argue for why these findings are solid and well-supported. Highlight the strongest,
-most confidently-backed points. Be specific - reference what's actually in the summary,
-not generic praise. 3-5 sentences.
-</TASK>"""
-
-debate_critic_instructions = """You are a skeptical critic reviewing this research summary on: {research_topic}
-
-<SUMMARY>
-{running_summary}
-</SUMMARY>
-
-<TASK>
-Argue for what might be incomplete, overstated, missing important nuance, or contested.
-Be specific - reference what's actually in the summary, not generic skepticism. 3-5 sentences.
-</TASK>"""
-
 comparison_planning_instructions = """You are a research supervisor. Decide whether the user's research
 request names 2 or more distinct things that should be researched independently and compared,
 or whether it's a single topic.

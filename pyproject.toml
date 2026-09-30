@@ -22,11 +22,17 @@ dependencies = [
     "markdownify>=0.11.0",
     "python-dotenv==1.2.3",
     "python-frontmatter>=1.1.0",
+    "pypdf>=5.0.0",
+    "numpy>=1.26",
+    "trafilatura>=2.0",
+    "langchain-text-splitters>=0.3.0",
     "win11toast>=0.35; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
-dev = ["mypy>=1.11.1", "ruff>=0.15.10"]
+dev = ["ruff>=0.15.10", "pytest>=8.0"]
+# PDF/DOCX/HTML -> markdown with tables (heavy: pulls PyTorch). Without it PDFs fall back to pypdf text.
+docling = ["docling>=2.0"]
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]
@@ -57,5 +63,6 @@ lint.ignore = [
 
 [dependency-groups]
 dev = [
-    "ruff>=0.12.7",
+    "ruff>=0.15.10",
+    "pytest>=8.0",
 ]

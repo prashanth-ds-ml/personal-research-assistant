@@ -7,7 +7,10 @@ logon via register-task.ps1's scheduled task, but safe to run manually too.
 # Portable: derives everything from this script's own location, so it works
 # regardless of where the repo is cloned to.
 $projectRoot   = Split-Path -Parent $PSScriptRoot
+# Prefer a per-project venv, else the repo-wide shared one (..\..\.venv), which is what this
+# repo actually uses. Fail loudly in the log instead of silently starting nothing.
 $venvScripts   = "$projectRoot\.venv\Scripts"
+if (-not (Test-Path "$venvScripts\langgraph.exe")) { $venvScripts = (Resolve-Path "$projectRoot\..\..\.venv\Scripts" -ErrorAction SilentlyContinue).Path }
 $dashboardRoot = "$projectRoot\dashboard"
 $logsDir       = "$projectRoot\logs"
 $dashboardLogsDir = "$dashboardRoot\logs"
@@ -26,6 +29,7 @@ try {
 # cwd matters: langgraph.json's "env": "./.env" and "dependencies": ["."]
 # are relative to it, and port 2024 is avoided on this machine (see the
 # plan's "ports 2024/3000 are poisoned" note) - always use 2025.
+if (-not $venvScripts -or -not (Test-Path "$venvScripts\langgraph.exe")) { Add-Content "$logsDir\startup.log" "$(Get-Date -Format o) ERROR: langgraph.exe not found (looked in project and repo-root .venv)"; exit 1 }
 Start-Process -FilePath "$venvScripts\langgraph.exe" -ArgumentList "dev", "--no-browser", "--no-reload", "--port", "2025" `
     -WorkingDirectory $projectRoot -WindowStyle Hidden `
     -RedirectStandardOutput "$logsDir\langgraph-dev.log" `
