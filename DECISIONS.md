@@ -247,3 +247,31 @@ the loaders' design; re-check the current versions before citing it.)
 **Why the review pause:** general web search returns SEO pages. The relevance score pre-ticks the good ones, and
 the user's ticking is the real quality filter. An optional domain allow-list (WHO, CDC, NHS, government sites)
 covers high-stakes topics. The pause can be switched off for unattended runs.
+
+## A streaming model call can never time out, so one bad call hung a whole run
+(Found 2026-10-01 from a real run; fix designed, not yet built.)
+
+LangSmith showed a deep-research run as "incomplete". The cause was not LangSmith: the run had sat for about
+1.5 hours inside one model call in the `research` step. Ollama's log showed a single request that had generated
+about 79,000 tokens at 53 tokens/s with repeated context shifts (8,192-token window): the model never emitted a
+stop token. Our `LLM_TIMEOUT = 300` is an HTTP read timeout; a streaming response resets it on every token, so a
+model that keeps talking is never timed out. There was also no cap on output length, and the step saves its
+evidence only when it finishes, so cancelling lost all of the run's work. Cancelling the run in LangGraph marked it
+interrupted, but the blocked worker thread kept the connection open, so Ollama kept generating until the backend was
+restarted (in-memory threads were lost; the goals were saved to `logs/saved-goals-2026-10-01.md`).
+
+Planned fix, in this order:
+1. Cap output length (`num_predict`) on every call, sized per task (extraction and judging are short).
+2. A wall-clock limit per call, not just a per-chunk read timeout.
+3. A repeat detector: stop a call whose output loops, then let the existing retry run at a different temperature.
+4. Checkpoint progress inside `research` (per question) so a failure at question 4 keeps questions 1-3.
+5. A test with a fake model that never stops, and the stuck-call case added to the walkthrough checks.
+Likely trigger (an inference, not confirmed): JSON mode on a small model looping on whitespace or repeated text.
+
+## Model choice for a private deployment is a study inside project 6, not a new tool
+(Decided 2026-10-01.) A separate "model-fit" tool was considered and researched. The space is already covered:
+quality evals by promptfoo, Inspect (UK AISI), DeepEval, lm-evaluation-harness and MedHELM; load and latency by
+GuideLLM (performance only, no quality, no cost); capacity and cost by calculators such as tokcalc (formula-based).
+"Runs inside the customer's environment" is therefore not a differentiator. No single tool was found that joins
+measured quality, measured speed and cost into one recommendation, but the search was limited. Decision: do not build
+a new eval engine; run a model-selection study inside project 6 with the existing tools and publish one report.
