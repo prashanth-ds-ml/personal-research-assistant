@@ -11,3 +11,13 @@ dashboard/node_modules/
 dashboard/.next/
 dashboard/.env.local
 
+vault/
+library/
+library_kb.sqlite
+library_md/
+report_*.md
+kb.sqlite
+.coverage
+.kb/
+library_kb.sqlite-*
+.pytest_cache/

@@ -1,6 +1,6 @@
 # Model benchmarks
 
-Three model-selection decisions in this project were made by measuring against
+Two model-selection decisions in this project were made by measuring against
 the actual prompts this graph uses, not by assumption. Scripts live in
 `scripts/benchmarks/` and are runnable against your own local Ollama models -
 these results are from one machine (RTX 5050, 8GB VRAM, another process
@@ -29,29 +29,7 @@ tradeoff on spot-check. Notably the tutorial's own suggested model
 (`deepseek-r1:8b`) wasn't the fastest despite being an R1-style "thinking"
 model this repo's `strip_thinking_tokens` machinery was clearly built around.
 
-## 2. Debate mode's CPU-pinned critic
-
-`scripts/benchmarks/benchmark_debate_critic.py` - debate mode pins a second,
-smaller model fully to CPU (`num_gpu=0`) so it can run concurrently with the
-GPU-resident advocate. Speed matters here specifically because the critic
-must not become the slower half of that concurrent pair.
-
-| Model | Time | Notes |
-|---|---|---|
-| **gemma3:4b** (chosen) | 15.3s | Sharp, specific critique; different model family from the advocate |
-| llama3.2:3b | 12.7s | Fastest, also good quality - but same family (Meta) as the default advocate |
-| qwen3.5:2b | **255.0s** | Disqualifying - ~20x slower despite being the smallest model |
-
-`llama3.2:3b` was initially picked for speed, then deliberately swapped for
-`gemma3:4b` (Google) once we realized `llama3.2:3b` is the *same model
-family* as the default advocate (`llama3.1:8b`, Meta) - same-family models
-share training data and alignment, producing a much weaker, more agreeable
-"debate" than two genuinely different models. The ~20% speed cost was worth
-it for a real second opinion. `qwen3.5:2b`'s catastrophic slowness matches
-the same anomaly seen with `qwen3.5:4b` in benchmark 1 - the `qwen3.5` family
-appears to have some CPU-inference inefficiency independent of model size.
-
-## 3. Comparison mode's multi-tool-calling reliability
+## 2. Comparison mode's multi-tool-calling reliability
 
 `scripts/benchmarks/benchmark_tool_calling.py` - comparison mode's
 `plan_research` node depends on a model reliably calling one tool multiple
@@ -78,3 +56,24 @@ to confirm the model discriminates rather than habitually over-splitting.
 no model swap was needed for comparison mode - a real risk turned out not to
 apply to this specific model, which is exactly why it was worth testing
 instead of assuming.
+
+## 3. Deep-research model roles
+
+`scripts/run_deep_report.py` with each model in all three roles (planner,
+extractor, writer) on the same goal and library, before the retrieval fixes
+(v2 pipeline; the qwen3 run finished, a second attempt crashed on an Ollama
+`/tokenize` connection error, so its numbers are from the first run).
+
+| model | run time | verified facts | cited facts | empty sections | papers used | verdict |
+|---|---|---|---|---|---|---|
+| llama3.1:8b | ~9 min | 56 | 45 | 0 | 6/11 | fastest, most stable extractor |
+| qwen3:8b | ~3-4 min per question (vs ~1 for llama) | n/a | 46 | 0 | 7/11 | most on-topic prose, several times slower, cites ranges like `[E6-E9]` |
+| gemma4:e4b | 12.5 min | 35 | 31 | 2 | 5/11 | best prose and tables, but extracts fewer facts |
+| granite4.1:8b | 8 min | 18 | 16 | 2 | 5/11 | weakest: few facts, uncited tables |
+
+Conclusion drawn from measurement: **extract with llama, write with gemma.**
+With the v5 pipeline, that mix produced ~21% more body text (2,619 vs 2,165
+words) at the same number of cited facts, for about 8% more time
+(12.0 vs 11.1 minutes). qwen3's slowness and the tokenizer crash ruled it out
+as a default despite good prose. Note the caveat: one goal, one run per cell;
+planner variance is large enough that small differences (5-10%) are within noise.

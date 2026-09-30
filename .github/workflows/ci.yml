@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend:
-    name: Backend (lint + import check)
+    name: Backend (lint + tests + import check)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,9 +18,20 @@ jobs:
       - name: Install package
         run: pip install -e ".[dev]"
       - name: Ruff lint
-        run: ruff check src/
-      - name: Graph compiles (no live Ollama/vault needed - import-time only)
-        run: python -c "from research_assistant.graph import graph; print(list(graph.get_graph().nodes.keys()))"
+        run: ruff check src/ tests/ scripts/
+      - name: Offline tests (fake embeddings + fake LLM - no Ollama, no network, no Docling)
+        run: pytest tests -q
+      - name: Both graphs compile (import-time only; no Ollama or vault needed)
+        run: |
+          python -c "from research_assistant.graph import graph; print(list(graph.get_graph().nodes))"
+          python -c "from research_assistant.goal_graph import graph; print(list(graph.get_graph().nodes))"
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build
 
   dashboard:
     name: Dashboard (build)
@@ -36,4 +47,6 @@ jobs:
           cache: "npm"
           cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint src
       - run: npm run build

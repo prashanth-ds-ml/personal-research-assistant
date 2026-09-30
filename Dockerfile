@@ -1,39 +1,33 @@
-FROM --platform=$BUILDPLATFORM python:3.11-slim
+# Backend: the LangGraph agent served by `langgraph dev` on port 2025.
+# (2024 is the upstream default; this project standardizes on 2025 everywhere.)
+FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    build-essential \
-    python3-dev \
-    libssl-dev \
-    libffi-dev \
-    rustc \
-    cargo \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir uv
 
-# Install uv package manager (use pip for safer cross-arch install)
-RUN pip install uv
-ENV PATH="/root/.local/bin:${PATH}"
+# Docling (PDF/DOCX -> markdown with tables) is heavy (PyTorch); opt in with
+#   docker compose build --build-arg INSTALL_DOCLING=true
+# It needs a few shared libraries that the slim image lacks.
+ARG INSTALL_DOCLING=false
+RUN if [ "$INSTALL_DOCLING" = "true" ]; then apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*; fi
 
-# 2) Copy the repository content
-COPY . /app
+# Dependencies first, from a stub package, so editing code does not reinstall them.
+COPY pyproject.toml README.md ./
+RUN mkdir -p src/research_assistant && touch src/research_assistant/__init__.py     && uv pip install --system --no-cache -e . "langgraph-cli[inmem]"     && if [ "$INSTALL_DOCLING" = "true" ]; then uv pip install --system --no-cache docling; fi
 
-# 3) Provide default environment variables to point to Ollama (running elsewhere)
-#    Adjust the OLLAMA_URL to match your actual Ollama container or service.
-ENV OLLAMA_BASE_URL="http://localhost:11434/"
+COPY src ./src
+COPY langgraph.json ./
+# langgraph.json points at ./.env; secrets are NOT baked in (see .dockerignore),
+# configuration arrives as container environment variables instead.
+RUN touch .env
 
-# 4) Expose the port that LangGraph dev server uses (default: 2024)
-EXPOSE 2024
+# Defaults for a container talking to Ollama on the Docker host.
+ENV OLLAMA_BASE_URL="http://host.docker.internal:11434"     VAULT_PATH="/vault"     DOCS_PATH="/docs"     NOTIFY_ON_COMPLETE="False"
 
-# 5) Launch the assistant with the LangGraph dev server:
-#    Equivalent to the quickstart: uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev
-CMD ["uvx", \
-     "--refresh", \
-     "--from", "langgraph-cli[inmem]", \
-     "--with-editable", ".", \
-     "--python", "3.11", \
-     "langgraph", \
-     "dev", \
-     "--host", "0.0.0.0"]
+VOLUME ["/vault", "/docs"]
+EXPOSE 2025
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:2025/ok', timeout=4)"
+
+CMD ["langgraph", "dev", "--host", "0.0.0.0", "--port", "2025", "--no-browser", "--no-reload"]
