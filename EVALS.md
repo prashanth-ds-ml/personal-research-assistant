@@ -129,6 +129,7 @@ labelled, the faithfulness numbers in section 3.)
 | v4 | HyDE query, drop reference chunks, retries | 1,689 | 54 | 11/11 | one empty section (recommendations cannot be retrieved) |
 | **v5** | **synthesis section written from other sections' findings** | **2,165** | **57** | 8/11 | recommendations section grounded; no empty sections |
 | v5 + gemma writer | llama plans/extracts, gemma4:e4b writes | 2,619 | 57 | 9/11 | longer, better-organised prose; ~8% slower |
+| v6 (after audit fixes) + gemma writer | same mix; re-chunked library, evidence merged across questions, hardened pipeline | 2,498 | 66 | 12 docs | 0 empty sections, 0 retries; 12 sources vs 9 in v5; thinner failure-modes section (249 words) |
 
 Each run makes about 165 model calls and takes 11-12 minutes on an RTX 5050
 (8 GB). The retry wrapper recorded 0 retries in v4/v5; the failure that
