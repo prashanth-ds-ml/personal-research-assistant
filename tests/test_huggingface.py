@@ -105,15 +105,24 @@ def test_extra_ai_sites_are_searched_in_groups_of_six_with_site_filters(tmp_path
     fx, _ = make_fetcher(routes)
     store = f.SourceStore(tmp_path / "Library", "goal")
     queries = []
-    sites = [f"site{i}.example" for i in range(14)]               # more than the 12 used
+    sites = [f"site{i}.example" for i in range(20)]               # more than the 18 used
     c.discover(["q?"], search=lambda q, n: queries.append(q) or [], fx=fx, store=store, llm=JUDGE, include_papers=False,
                extra_sites=sites)
-    assert len(queries) == 3                                       # the plain search plus two site groups
+    assert len(queries) == 4                                       # the plain search plus three site groups
     assert "site:site0.example OR site:site1.example" in queries[1] and "site:site5.example" in queries[1]
-    assert "site:site6.example" in queries[2] and "site:site11.example" in queries[2] and "site12" not in queries[2]
+    assert "site:site6.example" in queries[2] and "site:site11.example" in queries[2]
+    assert "site:site12.example" in queries[3] and "site:site17.example" in queries[3] and "site18" not in queries[3]
     queries.clear()
     c.discover(["q?"], search=lambda q, n: queries.append(q) or [], fx=fx, store=store, llm=JUDGE, include_papers=False)
     assert len(queries) == 1                                       # off by default in the function
+
+
+def test_the_default_site_list_leads_with_the_explainer_blogs_in_their_own_group():
+    sites = c.AI_SITES
+    assert len(sites) == c.MAX_SITES == 18
+    assert sites[:6] == ["sebastianraschka.com", "magazine.sebastianraschka.com", "karpathy.github.io", "karpathy.ai",
+                         "jalammar.github.io", "newsletter.languagemodels.co"]
+    assert Configuration().collect_extra_sites.split(";") == sites       # the setting and the constant agree
 
 
 def test_a_failing_site_search_does_not_lose_the_main_results(tmp_path):

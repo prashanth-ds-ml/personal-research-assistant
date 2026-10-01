@@ -28,9 +28,10 @@ PAPER_SOURCES = {"arxiv", "europepmc"}
 HF_CARDS = {"hf-model", "hf-dataset"}
 
 # Where AI engineers actually publish. Used for ONE extra, site-restricted web search per group of six, and fully configurable
-# (COLLECT_EXTRA_SITES). Review the list: it is a starting point, not an endorsement.
-AI_SITES = ["huggingface.co", "github.com", "docs.langchain.com", "anthropic.com", "openai.com", "lilianweng.github.io",
-            "eugeneyan.com", "huyenchip.com", "hamel.dev", "simonwillison.net", "pinecone.io", "ai.google.dev"]
+# (COLLECT_EXTRA_SITES). Review the list: it is a starting point, not an endorsement. The first group is the explainer
+# blogs of Sebastian Raschka, Andrej Karpathy and Jay Alammar.
+AI_SITES = ["sebastianraschka.com", "magazine.sebastianraschka.com", "karpathy.github.io", "karpathy.ai", "jalammar.github.io", "newsletter.languagemodels.co", "huggingface.co", "github.com", "docs.langchain.com", "anthropic.com", "openai.com", "ai.google.dev", "lilianweng.github.io", "eugeneyan.com", "huyenchip.com", "hamel.dev", "simonwillison.net", "pinecone.io"]
+MAX_SITES = 18               # three groups of six: one extra search per group, per question
 
 
 @dataclass
@@ -175,7 +176,7 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
         groups: list[list[Candidate]] = []
         try:
             hits = search(terms, per_question * 2)             # ask for extra: some are filtered out below
-            for i in range(0, min(len(extra_sites or []), 12), 6):    # AI-engineering sites: one search per group of six
+            for i in range(0, min(len(extra_sites or []), MAX_SITES), 6):    # AI-engineering sites: one search per group of six
                 group = (extra_sites or [])[i:i + 6]
                 try:
                     hits += search(f"{terms} (" + " OR ".join(f"site:{s}" for s in group) + ")", per_question)
@@ -188,7 +189,7 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
                     continue
                 seen_urls.add(key)
                 web.append(_web_candidate(h, q))
-            groups.append(web[: per_question * (1 + -(-min(len(extra_sites or []), 12) // 6))])     # room for each site group
+            groups.append(web[: per_question * (1 + -(-min(len(extra_sites or []), MAX_SITES) // 6))])     # room for each site group
         except Exception as e:                  # a search outage must not stop the run: papers may still be found
             on_progress(f"web search failed: {str(e)[:100]}")
         if include_papers:

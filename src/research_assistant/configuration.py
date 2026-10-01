@@ -219,11 +219,9 @@ class Configuration(BaseModel):
         default=True, title="Search AI Engineering Sites",
         description="Also run site-restricted web searches over the sites listed in collect_extra_sites")
     collect_extra_sites: str = Field(
-        default=";".join(["huggingface.co", "github.com", "docs.langchain.com", "anthropic.com", "openai.com",
-                          "lilianweng.github.io", "eugeneyan.com", "huyenchip.com", "hamel.dev", "simonwillison.net",
-                          "pinecone.io", "ai.google.dev"]),
+        default=";".join(["sebastianraschka.com", "magazine.sebastianraschka.com", "karpathy.github.io", "karpathy.ai", "jalammar.github.io", "newsletter.languagemodels.co", "huggingface.co", "github.com", "docs.langchain.com", "anthropic.com", "openai.com", "ai.google.dev", "lilianweng.github.io", "eugeneyan.com", "huyenchip.com", "hamel.dev", "simonwillison.net", "pinecone.io"]),
         title="AI Engineering Sites",
-        description="Sites for the extra searches, separated by ';' (the first 12 are used). Edit to taste")
+        description="Sites for the extra searches, separated by ';' (the first 18 are used, in groups of six: one extra search per group). Edit to taste")
     fetch_min_relevance: int = Field(
         default=3, title="Min Relevance",
         description="Keep a fetched source only if the local model scores it at least this (0-3). 3 = directly answers "

@@ -214,7 +214,7 @@ The library and your feedback are what make it better over time; no retraining i
   it is free when nothing changed): drop a PDF into `Library/`, start a run, and it is searchable.
 - **Optional source collecting.** Tick *Find and collect new sources first* on the Deep Research page
   (or run `python scripts/collect.py "<question>"` for papers only). After you approve the plan, a collector
-  searches the web (DuckDuckGo, or your own SearXNG), arXiv, Hugging Face (Papers, model cards, dataset cards), a configurable list of AI-engineering sites (HF blog, GitHub, LangChain, Anthropic, OpenAI, well-known engineering blogs; `COLLECT_EXTRA_SITES`) and, if you leave it on, Europe PMC, for each question, one question
+  searches the web (DuckDuckGo, or your own SearXNG), arXiv, Hugging Face (Papers, model cards, dataset cards), a configurable list of AI-engineering sites (the explainer blogs of Sebastian Raschka, Andrej Karpathy and Jay Alammar in a group of their own, then HF blog, GitHub, LangChain, Anthropic, OpenAI and well-known engineering blogs; `COLLECT_EXTRA_SITES`) and, if you leave it on, Europe PMC, for each question, one question
   after another, and has the local model score every result 0-3. The run then **pauses and shows you the
   list**: titles, sites, relevance, page or paper. Nothing is downloaded yet. You tick what you want, and
   the chosen ones are fetched one at a time (robots.txt honoured, public addresses only, login or paywalled
