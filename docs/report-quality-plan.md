@@ -1,4 +1,13 @@
-# Report quality plan (drafted 2026-10-01, not yet implemented)
+# Report quality plan (drafted 2026-10-01)
+
+**Progress:** stages 0, 1 and 2 are built, tested (250 offline tests) and live-checked on the real goal (the coverage check
+rated 12 questions: 1 answered, 7 thin, 4 nothing, which matches why the original report was poor). Stages 3-8 are next.
+
+**Change made while building stage 0:** the plan said to exclude the whole `Sources/` folder from deep research. The library
+report showed that 65 of its 84 documents are real archived web pages (good evidence, and much of what the tokenizer and Indic
+questions rely on); only the 18 archived copies of local documents (`doc://`) are junk. So only those are left out by default
+(`include_archived_pages` brings them back). Also: the start form no longer has a *collect sources* checkbox; the choice is made
+at plan approval, next to the coverage.
 
 Source: the review in `report-review-2026-10-01.md` (a real report that was confident, uncited in places, self-contradicting and
 built on a library that did not cover the goal). Goal of this plan: the assistant either gives a report you can rely on, or

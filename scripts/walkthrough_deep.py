@@ -32,6 +32,8 @@ def main():
     ap.add_argument("--max-pick", type=int, default=3, help="with --fetch-web: collect at most this many candidates")
     ap.add_argument("--plan-only", action="store_true", help="stop after the revised plan (fast check of planning)")
     a = ap.parse_args()
+    if a.goal.startswith("@"):                       # a long goal kept in a file
+        a.goal = Path(a.goal[1:]).read_text(encoding="utf-8").strip()
     t0 = time.time()
     c = httpx.Client(base_url=a.api, timeout=3600)
 
@@ -65,6 +67,8 @@ def main():
     pretty("PAUSE 2 plan:", t0, f"{len(p1['plan']['sub_questions'])} questions, sections = "
                                 f"{[s['title'] for s in p1['plan']['outline']]}, revisions_left={p1['revisions_left']}")
 
+    for row in p1.get("coverage", []):
+        pretty(f"coverage {row['status']:8}", t0, f"{row['relevant']}/{row['checked']} relevant | {row['question'][:90]}")
     out = run({"command": {"resume": {"feedback": a.feedback}}})
     p2 = interrupt_of(out)
     assert p2 and p2["type"] == "approve_plan", f"expected revised plan, got {json.dumps(out)[:300]}"

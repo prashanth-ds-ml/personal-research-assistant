@@ -398,3 +398,108 @@ def test_stop_ends_a_run_without_marking_it_failed(flow, monkeypatch):
         g.invoke(Command(resume={"approved": True}), cfg)
     assert runlog.read_run(str(tmp_path / "vault"), "t")["status"] == "stopped"      # not "failed"
     deep_report.set_stop_check(None)
+
+
+# ---- coverage check and the collect choice at approval (report quality, stage 2) ---------------------------
+
+def _three_question_plan(monkeypatch, statuses=("answered", "thin", "nothing")):
+    plan = deep_report.Plan(goal="g", title="T", sub_questions=["q one?", "q two?", "q three?"],
+                            outline=[{"title": "A", "questions": [0, 1, 2], "brief": ""}])
+    monkeypatch.setattr(deep_report, "make_plan", lambda *a, **k: plan)
+    rows = [{"index": i, "question": q, "status": s, "relevant": 2 if s == "answered" else 0, "checked": 3, "titles": []}
+            for i, (q, s) in enumerate(zip(plan.sub_questions, statuses, strict=True))]
+    monkeypatch.setattr(deep_report, "coverage", lambda *a, **k: rows)
+    return rows
+
+
+def _discover_spy(monkeypatch):
+    seen = {}
+
+    def fake(questions, **k):
+        seen["questions"], seen["indexes"] = list(questions), k.get("question_indexes")
+        return [_cand(1, 3)]
+
+    monkeypatch.setattr(goal_graph.collector, "discover", fake)
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", lambda *a, **k: {
+        "saved": 0, "pages": 0, "papers": 0, "skipped": 0, "failed": 0, "folder": ""})
+    return seen
+
+
+def _to_approval(g, cfg):
+    g.invoke({"goal": "Does hybrid help?"}, cfg)
+    return interrupt_value(g.invoke(Command(resume=""), cfg))
+
+
+def test_the_approval_card_carries_the_coverage_of_every_question(flow, monkeypatch):
+    g, cfg, _, tmp_path = flow
+    rows = _three_question_plan(monkeypatch)
+    shown = _to_approval(g, cfg)
+    assert shown["type"] == "approve_plan" and shown["coverage"] == rows
+    rec = _record(tmp_path)
+    assert rec["coverage"][2]["status"] == "nothing"
+    assert any(e["text"].startswith("Coverage: 1 answered, 1 thin, 1 nothing") for e in rec["events"])
+
+
+def test_collect_for_gaps_searches_only_the_uncovered_questions_with_their_own_numbers(flow, monkeypatch):
+    g, cfg, _, _ = flow
+    _three_question_plan(monkeypatch)
+    seen = _discover_spy(monkeypatch)
+    _to_approval(g, cfg)
+    shown = interrupt_value(g.invoke(Command(resume={"approved": True, "collect": "gaps"}), cfg))
+    assert shown["type"] == "review_sources"
+    assert seen["questions"] == ["q two?", "q three?"] and seen["indexes"] == [1, 2]
+
+
+def test_collect_all_and_collect_none(flow, monkeypatch):
+    g, cfg, _, _ = flow
+    _three_question_plan(monkeypatch)
+    seen = _discover_spy(monkeypatch)
+    _to_approval(g, cfg)
+    g.invoke(Command(resume={"approved": True, "collect": "all"}), cfg)
+    assert seen["questions"] == ["q one?", "q two?", "q three?"] and seen["indexes"] == [0, 1, 2]
+
+    g2, cfg2 = flow[0], {"configurable": {**flow[1]["configurable"], "thread_id": "other"}}
+    seen.clear()
+    _to_approval(g2, cfg2)
+    out = g2.invoke(Command(resume={"approved": True, "collect": "none"}), cfg2)
+    assert "questions" not in seen and out["report_path"]            # no search, no pause, report written
+
+
+def test_without_a_choice_the_old_setting_decides(flow, monkeypatch):
+    g, cfg, _, _ = flow
+    _three_question_plan(monkeypatch)
+    seen = _discover_spy(monkeypatch)
+    _to_approval(g, cfg)
+    g.invoke(Command(resume={"approved": True}), cfg)                # collect_sources is off by default
+    assert "questions" not in seen
+    on = {"configurable": {**cfg["configurable"], "thread_id": "on", "collect_sources": True}}
+    g.invoke({"goal": "Does hybrid help?"}, on)
+    g.invoke(Command(resume=""), {"configurable": {"thread_id": "on"}})
+    g.invoke(Command(resume={"approved": True}), {"configurable": {"thread_id": "on"}})
+    assert seen["indexes"] == [0, 1, 2]                              # switched on and no choice made: every question
+
+
+def test_when_everything_is_covered_a_gaps_request_searches_nothing(flow, monkeypatch):
+    g, cfg, _, tmp_path = flow
+    _three_question_plan(monkeypatch, statuses=("answered", "answered", "answered"))
+    seen = _discover_spy(monkeypatch)
+    _to_approval(g, cfg)
+    out = g.invoke(Command(resume={"approved": True, "collect": "gaps"}), cfg)
+    assert "questions" not in seen and out["report_path"]
+    assert any("already covered" in e["text"] for e in _record(tmp_path)["events"])
+
+
+def test_the_coverage_check_can_be_switched_off_and_its_failure_is_not_fatal(flow, monkeypatch):
+    g, cfg, _, _ = flow
+    _three_question_plan(monkeypatch)
+
+    def boom(*a, **k):
+        raise RuntimeError("embedding service down")
+
+    monkeypatch.setattr(deep_report, "coverage", boom)
+    shown = _to_approval(g, cfg)
+    assert shown["coverage"] == []                                   # failed: the plan is still shown
+    off = {"configurable": {**cfg["configurable"], "thread_id": "off", "coverage_check": False}}
+    monkeypatch.setattr(deep_report, "coverage", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not run")))
+    g.invoke({"goal": "g"}, off)
+    assert interrupt_value(g.invoke(Command(resume=""), {"configurable": {"thread_id": "off"}}))["coverage"] == []

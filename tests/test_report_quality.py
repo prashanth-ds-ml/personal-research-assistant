@@ -117,3 +117,41 @@ def test_a_missing_on_topic_answer_keeps_the_fact_and_unsupported_facts_are_stil
 def test_the_old_entailment_helper_still_works_for_the_scripts():
     llm = lambda prompt, json_mode=False: json.dumps({"supported": True, "on_topic": False})  # noqa: E731
     assert d._entailed("c", "q", "p", llm) is True                        # supported only; the scripts ignore topic
+
+
+# ---- stage 2: coverage of each question ----------------------------------------------------------------
+
+def _plan(n=3):
+    return d.Plan(goal="g", title="T", sub_questions=[f"question {i}" for i in range(n)],
+                  outline=[{"title": "S", "questions": list(range(n))}])
+
+
+def test_coverage_marks_each_question_answered_thin_or_nothing():
+    relevant_docs = {"question 0": 3, "question 1": 1, "question 2": 0}     # how many of the 4 passages are on topic
+
+    def search(q):
+        return [{"title": f"{q} doc {i}", "path": f"{q}-{i}", "text": f"{'RELEVANT ' if i < relevant_docs[q] else ''}text {i} of {q}"}
+                for i in range(4)]
+
+    def llm(prompt, json_mode=False):
+        passage = prompt.split("<passage>")[1]
+        return json.dumps({"relevant": "RELEVANT" in passage})
+
+    rows = d.coverage(_plan(), search, llm)
+    assert [r["status"] for r in rows] == ["answered", "thin", "nothing"]
+    assert [r["relevant"] for r in rows] == [3, 1, 0] and rows[0]["index"] == 0 and rows[2]["checked"] == 4
+    assert len(rows[0]["titles"]) == 3 and rows[2]["titles"] == []
+
+
+def test_coverage_judges_documents_not_repeated_passages_from_one_document():
+    def search(q):                                   # five passages, all from the same document
+        return [{"title": "One doc", "path": "same", "text": f"RELEVANT passage {i}"} for i in range(5)]
+
+    llm = lambda prompt, json_mode=False: json.dumps({"relevant": True})  # noqa: E731
+    row = d.coverage(_plan(1), search, llm)[0]
+    assert row["checked"] == 1 and row["status"] == "thin"          # one document is thin, however many passages it has
+
+
+def test_an_unreadable_judgement_counts_as_not_relevant():
+    search = lambda q: [{"title": "D", "path": "p", "text": "text"}]  # noqa: E731
+    assert d.coverage(_plan(1), search, lambda prompt, json_mode=False: "not json")[0]["status"] == "nothing"

@@ -54,6 +54,8 @@ class DeepState(TypedDict, total=False):
     library_update: dict
     collect_report: dict
     options: dict
+    coverage: list[dict]
+    collect_mode: str
     candidates: list[dict]
     selected_ids: list[str]
     revisions: int
@@ -242,6 +244,34 @@ def plan(state: DeepState, config: RunnableConfig) -> dict:
     return {"plan": {"goal": p.goal, "title": p.title, "sub_questions": p.sub_questions, "outline": p.outline}}
 
 
+COLLECT_MODES = ("gaps", "all", "none")
+
+
+def _default_collect_mode(cfg: Configuration) -> str:
+    """When the user does not say: search for every question if collecting was switched on, otherwise not at all."""
+    return "all" if cfg.collect_sources else "none"
+
+
+@tracked("coverage", "Checking what the library can answer")
+def check_coverage(state: DeepState, config: RunnableConfig) -> dict:
+    """Before the user approves the plan: for each question, can the library answer it? Cheap (a few short judgements per
+    question) next to the hour a hopeless run would waste. Never fails the run."""
+    cfg = _cfg(state, config)
+    if not cfg.coverage_check:
+        return {"coverage": []}
+    log = _run_log(config)
+    try:
+        with open_kb(cfg) as kb:
+            rows = deep_report.coverage(_plan_obj(state["plan"]), library_search(kb, cfg, k=8), build_llms(cfg)["planner"])
+    except Exception as e:
+        log.event(f"Coverage check failed: {str(e)[:150]}", level="error")
+        return {"coverage": []}
+    counts = {s: sum(r["status"] == s for r in rows) for s in ("answered", "thin", "nothing")}
+    log.event(f"Coverage: {counts['answered']} answered, {counts['thin']} thin, {counts['nothing']} nothing in the library")
+    log.record(coverage=rows)
+    return {"coverage": rows}
+
+
 def _valid_decision(decision: Any, revisions_left: int) -> bool:
     if not isinstance(decision, dict):
         return False
@@ -255,10 +285,11 @@ def approve(state: DeepState, config: RunnableConfig) -> dict:
     ever runs unseen. Anything else is refused and asked again once."""
     cfg = _cfg(state, config)
     if not cfg.require_plan_approval:
-        return {"plan_notes": ""}
+        return {"plan_notes": "", "collect_mode": _default_collect_mode(cfg)}
     revisions = state.get("revisions", 0)
     left = max(MAX_PLAN_REVISIONS - revisions, 0)
-    payload = {"type": "approve_plan", "plan": state["plan"], "revisions_left": left}
+    payload = {"type": "approve_plan", "plan": state["plan"], "revisions_left": left,
+               "coverage": state.get("coverage") or []}
     _run_log(config).waiting("approve")
     decision = interrupt(payload)
     if not _valid_decision(decision, left):
@@ -267,7 +298,8 @@ def approve(state: DeepState, config: RunnableConfig) -> dict:
     if isinstance(decision, dict) and decision.get("feedback") and left > 0 and not decision.get("approved"):
         return {"plan_notes": str(decision["feedback"]), "revisions": revisions + 1}
     if isinstance(decision, dict) and decision.get("approved"):
-        return {"plan_notes": ""}
+        mode = decision.get("collect")
+        return {"plan_notes": "", "collect_mode": mode if mode in COLLECT_MODES else _default_collect_mode(cfg)}
     raise RuntimeError("The plan was not approved, so the run was stopped before any evidence was gathered.")
 
 
@@ -294,15 +326,25 @@ def discover(state: DeepState, config: RunnableConfig) -> dict:
     """With "Fetch new sources" on: search the web and the open-access paper APIs for each plan question, one question
     after another, and judge each result. Downloads nothing; the user chooses in the next step. Never fails the run."""
     cfg = _cfg(state, config)
-    if not cfg.collect_sources or not cfg.vault_path:
+    mode = state.get("collect_mode") or _default_collect_mode(cfg)
+    if mode == "none" or not cfg.vault_path:
         return {"candidates": [], "selected_ids": []}
     log = _run_log(config)
+    questions = state["plan"]["sub_questions"]
+    indexes = list(range(len(questions)))
+    if mode == "gaps" and state.get("coverage"):
+        indexes = [r["index"] for r in state["coverage"] if r["status"] != "answered"]
+        if not indexes:
+            log.event("Every question is already covered by the library; nothing to look for")
+            return {"candidates": [], "selected_ids": []}
+        log.event(f"Looking for sources for {len(indexes)} question(s) the library does not cover well")
     try:
         _, store = _source_store(cfg, state["plan"])
         with httpx.Client() as http:
             fx = fetcher.Fetcher(http=http, contact=cfg.contact_email)
             found = collector.discover(
-                state["plan"]["sub_questions"], search=collector.make_search(cfg.search_backend, cfg.searxng_url, http),
+                [questions[i] for i in indexes], question_indexes=indexes,
+                search=collector.make_search(cfg.search_backend, cfg.searxng_url, http),
                 fx=fx, store=store, llm=build_llms(cfg)["planner"], per_question=cfg.collect_candidates_per_question,
                 allow=collector.split_domains(cfg.collect_allow_domains),
                 block=collector.split_domains(cfg.collect_block_domains), on_progress=log.event)
@@ -505,7 +547,8 @@ def save(state: DeepState, config: RunnableConfig) -> dict:
 def _graph(checkpointer: Any = None) -> Any:
     b = StateGraph(DeepState, input_schema=DeepInput, output_schema=DeepOutput)
     for name, fn in [("refresh_library", refresh_library), ("make_questions", make_questions), ("clarify", clarify),
-                     ("plan", plan), ("approve", approve), ("discover", discover), ("review", review),
+                     ("plan", plan), ("coverage", check_coverage), ("approve", approve), ("discover", discover),
+                     ("review", review),
                      ("collect", collect), ("research", research),
                      ("write", write), ("save", save)]:
         b.add_node(name, fn)
@@ -513,7 +556,8 @@ def _graph(checkpointer: Any = None) -> Any:
     b.add_edge("refresh_library", "make_questions")
     b.add_edge("make_questions", "clarify")
     b.add_edge("clarify", "plan")
-    b.add_edge("plan", "approve")
+    b.add_edge("plan", "coverage")
+    b.add_edge("coverage", "approve")
     b.add_conditional_edges("approve", route_after_approval, {"plan": "plan", "research": "discover"})
     b.add_edge("discover", "review")
     b.add_edge("review", "collect")

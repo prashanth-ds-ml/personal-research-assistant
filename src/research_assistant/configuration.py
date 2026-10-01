@@ -23,7 +23,7 @@ PER_RUN_KEYS = frozenset({
     "max_comparison_entities", "planner_model", "extractor_model", "writer_model",
     "ask_clarifying_questions", "require_plan_approval", "auto_ingest", "collect_sources", "seed_urls",
     "fetch_max_sources", "fetch_min_relevance", "docs_retrieval_k", "docs_top_k", "docs_chunk_size",
-    "contact_email", "collect_review", "include_archived_pages",
+    "contact_email", "collect_review", "include_archived_pages", "coverage_check",
 })
 
 
@@ -205,6 +205,10 @@ class Configuration(BaseModel):
         default=3, title="Min Relevance",
         description="Keep a fetched source only if the local model scores it at least this (0-3). 3 = directly answers "
                     "the question; 2 lets in tangential papers that then stay in the library")
+    coverage_check: bool = Field(
+        default=True, title="Coverage Check",
+        description="Before asking you to approve the plan, check what the library can answer for each question "
+                    "(answered / thin / nothing) so you can collect sources for the gaps first")
     include_archived_pages: bool = Field(
         default=False, title="Include Archived Pages",
         description="Deep research leaves out copies of your own documents that the quick assistant archived into the "

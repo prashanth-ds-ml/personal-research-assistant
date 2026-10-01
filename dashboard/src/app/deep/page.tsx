@@ -26,7 +26,15 @@ interface DeepState {
   library_update?: { added?: number; removed?: number; documents?: number; failed?: string[]; error?: string };
 }
 type ClarifyInterrupt = { type: "clarify"; goal: string; questions: string[] };
-type ApproveInterrupt = { type: "approve_plan"; plan: Plan; revisions_left: number };
+interface CoverageRow {
+  index: number;
+  question: string;
+  status: "answered" | "thin" | "nothing";
+  relevant: number;
+  checked: number;
+  titles: string[];
+}
+type ApproveInterrupt = { type: "approve_plan"; plan: Plan; revisions_left: number; coverage?: CoverageRow[] };
 interface ReviewCandidate {
   id: string;
   title: string;
@@ -70,7 +78,7 @@ function DeepResearchForm() {
   const [goal, setGoal] = useState(() => searchParams.get("goal") ?? "");
   const [answers, setAnswers] = useState<string[]>([]);
   const [feedback, setFeedback] = useState("");
-  const [fetchNew, setFetchNew] = useState(false);
+  const [collectChoice, setCollectChoice] = useState<"gaps" | "all" | "none" | null>(null);
   const [seeds, setSeeds] = useState("");
 
   // Remember the run's thread so leaving this page does not cancel it (see use-run-thread.ts).
@@ -101,7 +109,7 @@ function DeepResearchForm() {
     setAnswers([]);
     setFeedback("");
     setSeeds("");
-    setFetchNew(false);
+    setCollectChoice(null);
   };
 
   // The graph pauses (LangGraph `interrupt`) to ask questions / show the plan.
@@ -119,6 +127,8 @@ function DeepResearchForm() {
   const ticks = overrides.key === reviewKey ? overrides.map : {};
   const isTicked = (c: ReviewCandidate, min: number) => ticks[c.id] ?? c.score >= min;
   const setTick = (id: string, value: boolean) => setOverrides({ key: reviewKey, map: { ...ticks, [id]: value } });
+  const gaps = pending?.type === "approve_plan" ? (pending.coverage ?? []).filter((r) => r.status !== "answered") : [];
+  const effectiveCollect: "gaps" | "all" | "none" = collectChoice ?? (gaps.length > 0 ? "gaps" : "none");
   const slug = reportSlug(stream.values.report_path);
   const started = stream.isLoading || Boolean(stream.values.goal) || Boolean(pending);
 
@@ -142,7 +152,7 @@ function DeepResearchForm() {
     setFeedback("");
     stream.submit(
       { goal },
-      { config: { configurable: { collect_sources: fetchNew, seed_urls: seeds } }, ...keepAlive }
+      { config: { configurable: { seed_urls: seeds } }, ...keepAlive }
     );
   };
 
@@ -191,23 +201,6 @@ function DeepResearchForm() {
             placeholder="e.g. Should our team adopt hybrid retrieval for the clinical guideline search? Cover accuracy, failure modes and cost."
             disabled={stream.isLoading || Boolean(pending) || active}
           />
-        </label>
-        <label className="flex items-start gap-2">
-          <input
-            id="fetch-new"
-            type="checkbox"
-            className="mt-1 h-4 w-4 accent-accent"
-            checked={fetchNew}
-            onChange={(e) => setFetchNew(e.target.checked)}
-            disabled={stream.isLoading || Boolean(pending) || active}
-          />
-          <span className="text-sm">
-            Find and collect new sources first
-            <span className="block text-xs text-muted">
-              After you approve the plan, searches the web, arXiv and Europe PMC for each question and shows you what it
-              found. You choose which pages and papers to save into your library (adds a few minutes).
-            </span>
-          </span>
         </label>
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted">Pages or PDFs to add first (optional, one per line)</span>
@@ -386,13 +379,59 @@ function DeepResearchForm() {
             Research plan: {pending.plan.title}
           </div>
           <div>
-            <div className="text-xs font-medium text-muted">Questions I will answer from your library</div>
-            <ol className="mt-1 list-decimal pl-5 text-sm">
-              {pending.plan.sub_questions.map((q) => (
-                <li key={q}>{q}</li>
-              ))}
+            <div className="text-xs font-medium text-muted">Questions I will answer, and what your library has on each</div>
+            <ol className="mt-1 flex list-decimal flex-col gap-1.5 pl-5 text-sm">
+              {pending.plan.sub_questions.map((q, i) => {
+                const row = pending.coverage?.find((r) => r.index === i);
+                return (
+                  <li key={q}>
+                    {q}
+                    {row ? (
+                      <span
+                        className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          row.status === "answered" ? "bg-success-soft text-success" : row.status === "thin" ? "bg-warning-soft text-warning" : "bg-surface-hover text-muted"
+                        }`}
+                        title={row.titles.join(" | ")}
+                      >
+                        {row.status === "answered" ? `covered (${row.relevant} documents)` : row.status === "thin" ? "thin (1 document)" : "nothing in the library"}
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ol>
+            {gaps.length > 0 && (pending.coverage?.length ?? 0) > 0 ? (
+              <p role="status" className="mt-2 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">
+                {gaps.length} of {pending.coverage?.length} questions are not well covered by your library
+                {gaps.length * 2 >= (pending.coverage?.length ?? 0) ? ". With this little material the report would mostly say what is missing: collecting sources first is strongly advised" : ""}.
+              </p>
+            ) : null}
           </div>
+          <fieldset className="flex flex-col gap-1.5 text-sm" disabled={stream.isLoading}>
+            <legend className="text-xs font-medium text-muted">Collect new sources before researching?</legend>
+            {(
+              [
+                { value: "gaps", label: `Yes, for the ${gaps.length} question(s) the library does not cover well`, off: gaps.length === 0 },
+                { value: "all", label: "Yes, for every question", off: false },
+                { value: "none", label: "No, use the library as it is", off: false },
+              ] as const
+            ).map((o) => (
+              <label key={o.value} className={`flex items-center gap-2 ${o.off ? "opacity-50" : ""}`}>
+                <input
+                  type="radio"
+                  name="collect"
+                  className="h-4 w-4 accent-accent"
+                  checked={effectiveCollect === o.value}
+                  disabled={o.off}
+                  onChange={() => setCollectChoice(o.value)}
+                />
+                {o.label}
+              </label>
+            ))}
+            <span className="text-xs text-muted">
+              You will see everything it finds, as PDFs/papers and web pages separately, and choose what to keep.
+            </span>
+          </fieldset>
           <div>
             <div className="text-xs font-medium text-muted">Report outline</div>
             <ul className="mt-1 list-disc pl-5 text-sm">
@@ -406,7 +445,7 @@ function DeepResearchForm() {
             </ul>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" className={primary} disabled={stream.isLoading} onClick={() => resume({ approved: true })}>
+            <button type="button" className={primary} disabled={stream.isLoading} onClick={() => resume({ approved: true, collect: effectiveCollect })}>
               Approve and run <ArrowRight className="h-4 w-4" />
             </button>
           </div>

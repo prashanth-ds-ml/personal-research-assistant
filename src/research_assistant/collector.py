@@ -115,10 +115,12 @@ def from_dict(d: dict) -> Candidate:
 def discover(questions: list[str], *, search: Search, fx: Fetcher, store: SourceStore, llm: LLM,
              per_question: int = 8, max_candidates: int = 40, min_score: int = 1, allow: list[str] | None = None,
              block: list[str] | None = None, include_papers: bool = True, search_pause: float = 1.0,
+             question_indexes: list[int] | None = None,
              on_progress: Callable[[str], None] = lambda s: None) -> list[dict]:
     """Candidates for every question, one question at a time, each judged 0-3 for relevance. Returns dicts ready for
     the dashboard, best first within each question, anything scoring below ``min_score`` left out.
-    Already-saved sources and URLs repeated across questions are dropped."""
+    Already-saved sources and URLs repeated across questions are dropped. ``question_indexes`` gives the plan's own
+    number for each question when only some of them are searched (the dashboard groups candidates by that number)."""
     allow, block = allow or [], block or []
     seen_urls: set[str] = set()
     out: list[dict] = []
@@ -127,8 +129,9 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
     for qi, q in enumerate(questions):
         if len(out) >= max_candidates:
             break
+        qn = question_indexes[qi] if question_indexes else qi
         terms = fetcher.search_terms(q, llm)
-        on_progress(f"Q{qi + 1}/{len(questions)}: searching for '{terms}'")
+        on_progress(f"Q{qn + 1}: searching for '{terms}'")
         groups: list[list[Candidate]] = []
         try:
             hits = search(terms, per_question * 2)             # ask for extra: some are filtered out below
@@ -156,9 +159,9 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
                 continue
             c.relevance = fetcher.triage(c, q, llm)
             if c.relevance >= min_score:
-                found.append(to_dict(c, qi))
+                found.append(to_dict(c, qn))
         found.sort(key=lambda d: -d["score"])
-        on_progress(f"Q{qi + 1}: {len(found)} candidates worth showing")
+        on_progress(f"Q{qn + 1}: {len(found)} candidates worth showing")
         out.extend(found[: min(quota, max(0, max_candidates - len(out)))])
         fx.sleep(search_pause)                                  # be gentle with the search engine
     return out
