@@ -59,7 +59,8 @@ def flow(tmp_path, monkeypatch):
     monkeypatch.setattr(goal_graph, "open_kb", lambda cfg: kb)
     monkeypatch.setenv("VAULT_PATH", str(tmp_path / "vault"))
     g = goal_graph._graph(InMemorySaver())
-    return g, {"configurable": {"thread_id": "t"}}, prompts, tmp_path
+    return g, {"configurable": {"thread_id": "t", "min_section_facts": 1, "min_section_documents": 1,
+                                "min_supported_share": 0.0}}, prompts, tmp_path
 
 
 def interrupt_value(out):

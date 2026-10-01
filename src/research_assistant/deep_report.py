@@ -21,6 +21,8 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from research_assistant import report_checks as rc
+
 LLM = Callable[..., str]
 
 
@@ -641,7 +643,9 @@ Overall goal of the report: {goal}
 Use ONLY the evidence below. Cite every factual sentence with its id in square brackets, e.g. [E3].
 Do not state anything the evidence does not support. Where sources disagree, say so. If a comparison
 across sources or methods is possible, include a markdown table in which EVERY row names its subject
-and the numbers come from the evidence. Do not repeat a point you have already made. Write 3-6 substantial paragraphs
+and the numbers come from the evidence. Do not repeat a point you have already made. Do not recommend or rank options
+and do not announce what the section will do: say what the evidence shows (recommendations are written in a separate
+final section). Write 3-6 substantial paragraphs
 (plus any table) of clear, specific prose - no filler, no headings.
 
 EVIDENCE:
@@ -747,20 +751,24 @@ This is a synthesis section. Base it ONLY on the findings below (each already ci
 Turn them into concrete, actionable guidance for the goal: prioritised recommendations, trade-offs, what to
 do first, and what remains uncertain or is not covered by the sources. Keep the [E#] citations you rely on;
 never cite an id that is not in the findings. Write 3-6 substantial paragraphs or a numbered list with
-explanations - no filler, no headings.
-
+explanations - no filler, no headings. State ONE recommendation clearly in the first paragraph and keep every
+later paragraph consistent with it. Do not give any number (cost, time, size) that is not in the findings.
+{uncovered}
 FINDINGS:
 {findings}"""
 
 
-def write_synthesis(section: dict, plan: Plan, prior: list[tuple[str, str]], llm: LLM) -> str:
+def write_synthesis(section: dict, plan: Plan, prior: list[tuple[str, str]], llm: LLM,
+                    uncovered: list[str] | None = None) -> str:
     valid = {f"E{n}" for _, body in prior for n in re.findall(r"\[E(\d+)\]", body)}
     if not valid:
         return "*No findings were available to synthesise recommendations from.*"
     findings = "\n\n".join(f"### {t}\n{_clip(b, MAX_SECTION_CHARS)}" for t, b in prior
                            if "No supporting evidence" not in b)
+    note = ("These areas of the goal have NO usable evidence in the library: " + "; ".join(uncovered) +
+            ". Say plainly that your guidance does not cover them and do not guess about them.\n") if uncovered else ""
     body = llm(SYNTH_PROMPT.format(title=section["title"], brief=section.get("brief", ""),
-                                   goal=plan.goal, findings=findings))
+                                   goal=plan.goal, findings=findings, uncovered=note))
     if not body.strip():
         return "*The model failed to write this section.*"
     body = _keep_valid_citations(body, valid)
@@ -768,16 +776,32 @@ def write_synthesis(section: dict, plan: Plan, prior: list[tuple[str, str]], llm
 
 
 def write_all(plan: Plan, evidence: list[Evidence], llm: LLM,
-              on_progress: Callable[[str], None] = lambda s: None) -> list[tuple[str, str]]:
-    """Evidence sections first (each sees only its own evidence); the synthesis
-    section last, seeing the finished sections."""
+              on_progress: Callable[[str], None] = lambda s: None,
+              standards: rc.Standards | None = None) -> list[tuple[str, str]]:
+    """Evidence sections first (each sees only its own evidence); the synthesis section last, seeing the supported sections.
+
+    A section the evidence cannot carry (see report_checks.section_support) is not written by the model: it becomes a
+    short note saying what is missing. If too few sections are supported the report is a gap report and the
+    recommendations section is replaced by "what to collect"."""
+    standards = standards or rc.Standards()
+    supports = rc.plan_support(plan.outline, evidence, standards)
+    gap_mode = rc.is_gap_report(supports.values(), standards)
     sections: list[tuple[str, str]] = []
-    for sec in plan.outline:
+    supported: list[tuple[str, str]] = []
+    for i, sec in enumerate(plan.outline):
         on_progress(f"Writing: {sec['title']}")
         if sec.get("synthesis"):
-            sections.append((sec["title"], write_synthesis(sec, plan, sections, llm)))
+            if gap_mode:
+                body = rc.gaps_and_next_steps(supports, plan.sub_questions)
+            else:
+                uncovered = [s["title"] for s in supports.values() if s["status"] != "supported"]
+                body = write_synthesis(sec, plan, supported, llm, uncovered=uncovered)
+        elif supports[i]["status"] == "supported":
+            body = write_section(sec, plan, evidence, llm)
+            supported.append((sec["title"], body))
         else:
-            sections.append((sec["title"], write_section(sec, plan, evidence, llm)))
+            body = rc.gap_note(sec, supports[i], plan.sub_questions, evidence, standards)
+        sections.append((sec["title"], body))
     return sections
 
 
@@ -820,15 +844,83 @@ def goal_line(goal: str, limit: int = 400) -> str:
     return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " ..."
 
 
+REC_PROMPT = """Below is the recommendations section of a research report.
+State its main recommendation (what to do or choose) in ONE sentence. If it gives no recommendation, use an empty string.
+Return JSON: {{"recommendation": "..."}}
+
+{text}"""
+
+SAME_PROMPT = """Text A: {a}
+
+Text B: {b}
+
+Do A and B recommend the same course of action (the same choice, not just the same topic)?
+Return JSON: {{"same": true or false}}"""
+
+SUMMARY_FIX = """The recommendation of this report is: {rec}
+The summary MUST state exactly this recommendation and nothing that contradicts it."""
+
+
+def extract_recommendation(body: str, llm: LLM) -> str:
+    raw = _obj(_json(llm(REC_PROMPT.format(text=_clip(body, MAX_SECTION_CHARS)), json_mode=True), {}))
+    rec = raw.get("recommendation")
+    return rec.strip() if isinstance(rec, str) else ""
+
+
+def same_recommendation(a: str, b: str, llm: LLM) -> bool:
+    raw = _obj(_json(llm(SAME_PROMPT.format(a=a, b=b), json_mode=True), {}))
+    return str(raw.get("same", "true")).lower() != "false"      # when the model gives no answer, do not raise an alarm
+
+
 def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidence], llm: LLM,
-             library_size: int = 0, notes: list[str] | None = None, scope_note: str = "") -> str:
+             library_size: int = 0, notes: list[str] | None = None, scope_note: str = "",
+             standards: rc.Standards | None = None) -> str:
     """Put the report together. ``scope_note`` says what else was searched this run (for example newly
     fetched papers); ``notes`` are extra limitations to state (for example model failures)."""
+    standards = standards or rc.Standards()
     valid = {e.id for e in evidence}
-    summary = llm(SUMMARY_PROMPT.format(
-        goal=plan.goal, sections="\n\n".join(f"## {t}\n{_clip(b, MAX_SECTION_CHARS)}" for t, b in sections))).strip()
+    by_id = {e.id: e for e in evidence}
+    supports = rc.plan_support(plan.outline, evidence, standards)
+    gap_mode = rc.is_gap_report(supports.values(), standards)
+    weak = [s for s in supports.values() if s["status"] != "supported"]
+
+    sections = [(t, b if rc.is_generated(b) else rc.strip_filler(b)) for t, b in rc.dedupe_sections(sections)]
+    recommendation_body = next((b for (t, b), sec in zip(sections, plan.outline, strict=False)
+                                if sec.get("synthesis") and not rc.is_generated(b)), "")
+    warnings: list[str] = []
+
+    if gap_mode:
+        names = [s["title"] for s in supports.values() if s["status"] == "supported"]
+        summary = (f"The library does not hold enough evidence to answer this goal, so this report gives no recommendation. "
+                   f"{len(names)} of {len(supports)} sections have enough evidence"
+                   + (f" ({', '.join(names)})" if names else "") + ". Not covered: " +
+                   (", ".join(s["title"] for s in weak) or "nothing") + ". Collect sources for the uncovered questions "
+                   "and run again (the plan approval step offers this).")
+    else:
+        rec = extract_recommendation(recommendation_body, llm) if recommendation_body else ""
+        prompt = SUMMARY_PROMPT.format(
+            goal=plan.goal, sections="\n\n".join(f"## {t}\n{_clip(b, MAX_SECTION_CHARS)}" for t, b in sections
+                                                  if not rc.is_generated(b)))
+        if rec:
+            prompt += "\n\n" + SUMMARY_FIX.format(rec=rec)
+        if weak:
+            prompt += ("\n\nSay in one sentence that the evidence is thin or missing for: " +
+                       "; ".join(s["title"] for s in weak) + ". Do not make claims about those areas.")
+        summary = llm(prompt).strip()
+        if rec and not same_recommendation(summary, rec, llm):
+            summary = llm(prompt + "\n\nYour previous summary contradicted the recommendation. Write it again, "
+                                   "stating exactly the recommendation above.").strip()
+            if not same_recommendation(summary, rec, llm):
+                warnings.append("The summary and the recommendations section may not state the same recommendation: "
+                                "read the recommendations section as the authoritative one.")
     # The summary is held to the same standard as the sections: no invented ids, no chatty preamble.
-    summary = _clean_prose(_keep_valid_citations(summary, valid))
+    summary = rc.strip_filler(_clean_prose(_keep_valid_citations(summary, valid)))
+
+    if standards.claim_labels:
+        known = rc.evidence_numbers(evidence)
+        sections = [(t, b if rc.is_generated(b) else rc.label_text(b, by_id, known)) for t, b in sections]
+        if not gap_mode:
+            summary = rc.label_text(summary, by_id, known)
 
     bodies = [b for _, b in sections] + [summary]
     cited = {int(n) for body in bodies for n in re.findall(r"\[E(\d+)\]", body)}
@@ -844,15 +936,24 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
     limits = [
         where,
         "Each claim passed two automatic checks: its quote appears verbatim in the passage, and a second model "
-        "call judged that the passage supports it. These checks do not catch a source that is itself wrong or "
-        "deliberately misleading, or a mistake in how several findings were combined.",
+        "call judged that the passage supports it and is about the question asked. These checks do not catch a source "
+        "that is itself wrong or deliberately misleading, or a mistake in how several findings were combined.",
         "Written by a small local model: verify important conclusions against the cited quotes.",
         *(notes or []),
+        *warnings,
     ]
+    if standards.claim_labels:
+        limits.append("Every sentence is labelled: [established] (cited, from 2 or more documents), [single source], "
+                      "[inference] (no citation) or [inference: figures not from sources].")
+    if weak:
+        limits.append(f"{len(weak)} of {len(supports)} evidence section(s) did not have enough evidence and say so: "
+                      + "; ".join(s["title"] for s in weak) + ".")
     if thin:
         limits.append("Thin evidence (fewer than 2 supporting facts) for: " + "; ".join(thin))
 
-    out = [f"# {plan.title}", "", f"> **Goal:** {goal_line(plan.goal)}", "", "## Executive summary", "", summary, ""]
+    out = [f"# {plan.title}", "", f"> **Goal:** {goal_line(plan.goal)}", "",
+           "## Evidence status", "", rc.status_table(list(supports.values()), standards), "",
+           "## Executive summary", "", summary, ""]
     for title, body in sections:
         out += [f"## {title}", "", body, ""]
     out += ["## Limitations", "", *[f"- {x}" for x in limits], "", "## Sources", ""]
@@ -868,7 +969,8 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
 
 
 def run(goal: str, search: Callable[[str], list[dict]], plan_llm: LLM, extract_llm: LLM,
-        write_llm: LLM, library_size: int = 0, on_progress: Callable[[str], None] = print) -> tuple[str, dict]:
+        write_llm: LLM, library_size: int = 0, on_progress: Callable[[str], None] = print,
+        standards: rc.Standards | None = None) -> tuple[str, dict]:
     """Full pipeline. Returns (markdown_report, stats)."""
     reset_stats()
     plan = make_plan(goal, plan_llm)
@@ -876,7 +978,7 @@ def run(goal: str, search: Callable[[str], list[dict]], plan_llm: LLM, extract_l
     evidence = gather_evidence(plan, search, extract_llm, on_progress, query_llm=plan_llm)
     check_model_health(snapshot_stats(), len(evidence))
     on_progress(f"Verified evidence items: {len(evidence)}")
-    sections = write_all(plan, evidence, write_llm, on_progress)
-    report = assemble(plan, sections, evidence, write_llm, library_size)
+    sections = write_all(plan, evidence, write_llm, on_progress, standards=standards)
+    report = assemble(plan, sections, evidence, write_llm, library_size, standards=standards)
     return report, {"questions": len(plan.sub_questions), "sections": len(sections),
                     "evidence": len(evidence), "words": len(report.split()), **{f"llm_{k}": v for k, v in LLM_STATS.items()}}

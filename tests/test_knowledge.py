@@ -110,10 +110,12 @@ def test_pipeline_end_to_end_with_fake_llm():
     def search(q):
         return [hit] if "hybrid" in q.lower() else []
 
-    report, stats = deep_report.run("Should we use hybrid?", search, llm, llm, llm, on_progress=lambda s: None)
+    report, stats = deep_report.run("Should we use hybrid?", search, llm, llm, llm, on_progress=lambda s: None,
+                                    standards=deep_report.rc.Standards(1, 1, 0.0))
     assert stats["evidence"] == 1
     assert "[E99]" not in report and "Hybrid wins [E1]" in report
-    assert "No supporting evidence" in report            # the unanswerable section
+    assert "does not have enough evidence for this section" in report     # the unanswerable section says what is missing
+    assert "holds nothing relevant" in report
     assert "| E1 | Hybrid beats BM25 |" in report        # appendix row for the cited fact
     assert "Thin evidence" in report
 

@@ -83,7 +83,8 @@ def test_invented_citations_in_the_summary_are_removed_and_real_ones_reach_the_a
     ev = [d.Evidence("E1", "claim one", "quote one here", "Src", "", [0]),
           d.Evidence("E2", "claim two", "quote two here", "Src", "", [0])]
     out = d.assemble(plan, [("S", "Body cites [E1].")], ev,
-                     lambda p, json_mode=False: "Here is the summary:\nIt says [E2] and invents [E99].")
+                     lambda p, json_mode=False: "Here is the summary:\nIt says [E2] and invents [E99].",
+                     standards=d.rc.Standards(1, 1, 0.0))
     assert "[E99]" not in out and "Here is the summary" not in out
     assert "| E2 |" in out and "| E1 |" in out                              # E2 is cited only in the summary
 

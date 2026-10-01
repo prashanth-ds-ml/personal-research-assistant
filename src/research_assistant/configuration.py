@@ -23,7 +23,8 @@ PER_RUN_KEYS = frozenset({
     "max_comparison_entities", "planner_model", "extractor_model", "writer_model",
     "ask_clarifying_questions", "require_plan_approval", "auto_ingest", "collect_sources", "seed_urls",
     "fetch_max_sources", "fetch_min_relevance", "docs_retrieval_k", "docs_top_k", "docs_chunk_size",
-    "contact_email", "collect_review", "include_archived_pages", "coverage_check",
+    "contact_email", "collect_review", "include_archived_pages", "coverage_check", "claim_labels",
+    "min_section_facts", "min_section_documents", "min_supported_share",
 })
 
 
@@ -205,6 +206,19 @@ class Configuration(BaseModel):
         default=3, title="Min Relevance",
         description="Keep a fetched source only if the local model scores it at least this (0-3). 3 = directly answers "
                     "the question; 2 lets in tangential papers that then stay in the library")
+    min_section_facts: int = Field(
+        default=3, title="Facts Per Section",
+        description="A report section is written from evidence only if its questions have at least this many verified facts")
+    min_section_documents: int = Field(
+        default=2, title="Documents Per Section",
+        description="... from at least this many different documents; otherwise the section says what is missing")
+    min_supported_share: float = Field(
+        default=0.5, title="Supported Share",
+        description="If fewer than this share of the evidence sections are supported, the report is a gap report: it gives "
+                    "no recommendation and lists what to collect")
+    claim_labels: bool = Field(
+        default=True, title="Label Claims",
+        description="Mark every sentence [established], [single source], [inference] or [inference: figures not from sources]")
     coverage_check: bool = Field(
         default=True, title="Coverage Check",
         description="Before asking you to approve the plan, check what the library can answer for each question "

@@ -29,7 +29,7 @@ def test_synthesis_cites_only_ids_from_prior_sections_and_runs_last():
             return "Adopt hybrid search first [E1]. An invented cite [E9]."
         return "Hybrid wins [E1]."
 
-    sections = d.write_all(plan, ev, llm)
+    sections = d.write_all(plan, ev, llm, standards=d.rc.Standards(1, 1, 0.0))
     assert [t for t, _ in sections] == ["Findings", "Recommendations"]
     assert "Hybrid wins [E1]." in seen["synth"]           # it saw the finished section
     assert sections[1][1] == "Adopt hybrid search first [E1]. An invented cite ."

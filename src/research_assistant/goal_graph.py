@@ -496,7 +496,9 @@ def write(state: DeepState, config: RunnableConfig) -> dict:
         log.event(message)
         written[0] += 1
 
-    sections = deep_report.write_all(plan_, evidence, llm, on_progress=section_started)
+    standards = deep_report.rc.Standards(cfg.min_section_facts, cfg.min_section_documents, cfg.min_supported_share,
+                                         cfg.claim_labels)
+    sections = deep_report.write_all(plan_, evidence, llm, on_progress=section_started, standards=standards)
     log.progress(sections_total=len(plan_.outline), sections_done=len(sections), current="Assembling the report")
     llm_stats = deep_report.snapshot_stats()
     notes = []
@@ -506,7 +508,7 @@ def write(state: DeepState, config: RunnableConfig) -> dict:
     with open_kb(cfg) as kb:
         library_size = kb.stats()["documents"]
     report = deep_report.assemble(plan_, sections, evidence, llm, library_size=library_size, notes=notes,
-                                  scope_note=_scope_note(state.get("collect_report")))
+                                  scope_note=_scope_note(state.get("collect_report")), standards=standards)
     cited = {int(n) for n in re.findall(r"\[E(\d+)\]", report.split("## Evidence appendix")[0])}
     groups = deep_report.group_sources(evidence, cited)
     log.record(sources=[{"group": label, **d} for label, items in groups for d in items])

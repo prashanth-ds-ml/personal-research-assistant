@@ -63,7 +63,8 @@ def wired(tmp_path, monkeypatch):
     monkeypatch.setattr(goal_graph, "open_kb", lambda cfg: kb)
     g = goal_graph._graph(InMemorySaver())
     monkeypatch.setenv("VAULT_PATH", str(tmp_path / "vault"))     # paths come from the environment, never per run
-    cfg = {"configurable": {"thread_id": "t1"}}
+    cfg = {"configurable": {"thread_id": "t1", "min_section_facts": 1, "min_section_documents": 1,
+                            "min_supported_share": 0.0}}
     return g, cfg, calls, tmp_path
 
 
