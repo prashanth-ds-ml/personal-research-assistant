@@ -230,3 +230,13 @@ sections, 45 verified facts, 3,241 words, 5 distinct sources cited, 1 section wi
 calls, about 13 minutes in total. One run, one goal: it shows the pipeline works end to end, not that web pages improve
 reports. The candidate list included low-quality sites (forums, social posts), which is why the review step and
 `COLLECT_ALLOW_DOMAINS` exist.
+
+## Report-quality changes: what was and was not validated (2026-10-01, evening)
+- **Validated:** the coverage check on an out-of-coverage goal (all 7 questions "nothing", confirmed by a direct library search) and on
+  the small-model goal (12 questions: 1 answered, 7 thin, 4 nothing, matching why the original report was poor). 285 offline tests cover
+  the gate, labels, consistency check, failed-section handling and the collector.
+- **Not validated:** the evidence gate, claim labels and consistency check on a healthy end-to-end run. The one full run (chunking goal,
+  about 2.5 hours) was disturbed by a power-capped GPU: all four sections failed to write, which exposed and led to fixing a bug (see
+  DECISIONS), so it shows the failure handling, not report quality. Label accuracy, the 30-fact on-topic sample and the contradiction
+  check on a real report are still to measure.
+- **Not done:** deliverable-aware planning (the requested decision table, recipe and paper list as sections).

@@ -302,3 +302,26 @@ a new eval engine; run a model-selection study inside project 6 with the existin
 - **Feedback that steers is not a topic.** "Keep it focused on X" and "make it shorter" were turned into a new
   section and a research question. Such notes (keep, make, stay, be, use, prefer, avoid, shorten, lengthen,
   simplify) are now passed to the planner and not enforced as sections.
+
+## A time limit meant to catch runaways killed healthy writes on a slow machine
+(2026-10-01) A real chunking run produced a report in which all four evidence sections read "The model failed to write this section",
+while the status table said "supported" and the summary was a model-written paragraph about having nothing to summarise. Cause: the
+240 s per-call limit (added to stop endless generations) also killed slow but healthy section writes; each section took 12 minutes
+(3 retries of 240 s) on a GPU running at 180 MHz. Fixes: prose calls get 1,200 s and the loop and length checks are the real guard; a
+timed-out call is not retried; a section the model failed to write is marked "failed" (not "supported"), and when half or more failed the
+summary is written by code and says to free memory and run again; the facts of failed sections go to the appendix; placeholder notes
+are not labelled as claims. Lesson: a guard tuned on a healthy machine must degrade gracefully on a slow one, and a gate must look at
+what was actually written, not only at what evidence existed.
+
+## The slowdown was mostly a power-capped GPU, not memory
+(2026-10-01) Measured: per-question time 33-235 s on healthy runs against 316-1,483 s on a slow one; committed memory 76 GB on 23.6 GB RAM
+(a 3-day-old 15 GB python job, Docker Desktop's VM 7.6 GB that I had started and not closed, a WebView2 app); gemma4:e4b keeps 5.4 GB of
+weights in system RAM (all 43 layers on the GPU). After closing Docker (free RAM 2.4 -> 4.6 GB) the baseline was still 5-10x slow:
+the GPU runs at 180 MHz (max 3,090) with a 10 W power ceiling (default 80 W), reason "software power cap", while charging at 3.6 W.
+Decision: memory hygiene and a preflight check stay in the plan, but speed is judged only after the power cap is fixed; the model
+scheduler is demoted to cheap insurance.
+
+## Coverage check validated on an out-of-coverage goal
+(2026-10-01) Goal: "How does reciprocal rank fusion combine rankings?" The coverage check marked all 7 questions "nothing". A direct
+search of the library confirmed it: "reciprocal rank fusion" appears in 2 chunks of 1 blog page, in passing, with no explanation. So the
+check refused correctly instead of letting the report fill with off-topic material (the failure of the original small-model report).

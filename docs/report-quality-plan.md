@@ -1,6 +1,7 @@
 # Report quality plan (drafted 2026-10-01)
 
-**Progress:** stages 0, 1 and 2 are built, tested (250 offline tests) and live-checked on the real goal (the coverage check
+**Progress (end of 2026-10-01): stages 0-5 are built and committed (285 tests); stage 7 is partly done (coverage card, collect choice,
+evidence status in the report); stage 6 and the real-run validation of stage 8 are not done.** Earlier note: stages 0, 1 and 2 were built, tested (250 offline tests) and live-checked on the real goal (the coverage check
 rated 12 questions: 1 answered, 7 thin, 4 nothing, which matches why the original report was poor). Stages 3-8 are next.
 
 **Change made while building stage 0:** the plan said to exclude the whole `Sources/` folder from deep research. The library
