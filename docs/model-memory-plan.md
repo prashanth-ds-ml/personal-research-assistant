@@ -35,6 +35,15 @@ only half right: the compute is on the GPU, the embedding tables live in RAM.
 
 **4. Ollama is a recent version (0.34.3)** with only `OLLAMA_ORIGINS` set. Our code sets no `keep_alive`, `num_gpu` or memory options.
 
+**5. (Found 2026-10-01 afternoon, after Docker was closed and RAM rose from 2.4 to 4.6 GB) The GPU is power-capped.** The plan-only
+baseline took 3m47s for planning (about 10 s on a healthy day). `nvidia-smi` under load: 100% utilisation at **180 MHz against a 3,090 MHz
+maximum**, 21.7 W, throttle reason "software power cap", **GPU ceiling power limit 10 W against an 80 W default**. Windows is on Best
+performance and the laptop (HP OMEN 16) reports AC power but charging at only 3.6 W while the GPU is busy. The cap is set outside Windows
+(HP OMEN firmware/Command Center performance mode, or an undersized or loose charger): we cannot change it from this project. This
+explains slowdowns of 5-10x better than memory does, and it also explains why a 240 s per-call limit that was fine on 30 Sep killed
+writer calls today. Also seen: with llama (5.8 GB) and the embedding model (2.4 GB at 4k context) loaded, VRAM is 7.8 of 8.1 GB.
+The coverage result of "7 nothing" in that baseline was not validated (it may be genuine, or the judge calls may have been disturbed).
+
 **What this says:** the main cause is system memory taken by other things (a 3-day-old 15 GB python job, Docker's VM, a WebView2 app),
 not model choice and not missing model-swap logic. Model scheduling helps at the margin; freeing memory is what restores speed.
 The earlier plan put the model scheduler first; the evidence puts hygiene and a preflight check first.
