@@ -43,7 +43,28 @@ export interface RunSummary {
   note: string;
 }
 
+/** A source the collector saved, skipped or failed on during this run. */
+export interface CollectedRow {
+  title: string;
+  url: string;
+  kind: string;
+  status: string;
+  reason: string;
+}
+
+/** A document the report's evidence came from. */
+export interface UsedSource {
+  title: string;
+  url: string;
+  kind: string;
+  group: string;
+  facts: number;
+  cited: number;
+}
+
 export interface RunDetail extends RunSummary {
+  collected: CollectedRow[];
+  sources: UsedSource[];
   events: RunEvent[];
   stats: Record<string, number>;
   backendReachable: boolean;
@@ -154,7 +175,9 @@ export async function getRun(id: string): Promise<RunDetail | null> {
   const thread = ACTIVE.has(str(rec.status)) ? await threadState(id) : null;
   const events = Array.isArray(rec.events) ? (rec.events as RunEvent[]) : [];
   const stats = (rec.stats && typeof rec.stats === "object" ? rec.stats : {}) as Record<string, number>;
-  return { ...summarize(rec, id, thread), events, stats, backendReachable: thread !== "unreachable" };
+  const collected = Array.isArray(rec.collected) ? (rec.collected as CollectedRow[]) : [];
+  const sources = Array.isArray(rec.sources) ? (rec.sources as UsedSource[]) : [];
+  return { ...summarize(rec, id, thread), collected, sources, events, stats, backendReachable: thread !== "unreachable" };
 }
 
 /** Ask the backend to stop the run, and record that the user did. Returns a message for the page. */

@@ -94,6 +94,10 @@ class RunLog:
         """Counters for the live view (questions_done, evidence, sections_done, current ...)."""
         self._mutate(lambda d: d.setdefault("progress", {}).update(fields))
 
+    def record(self, **fields) -> None:
+        """Top-level facts about the run for the dashboard (for example the sources collected or used)."""
+        self._mutate(lambda d: d.update(fields))
+
     def waiting(self, kind: str) -> None:
         """Paused for the user: kind is 'clarify', 'approve' or 'review'."""
         def f(d):

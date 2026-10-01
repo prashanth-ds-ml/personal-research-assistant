@@ -318,41 +318,49 @@ function DeepResearchForm() {
               {pending.error}
             </p>
           ) : null}
-          {Array.from(new Set(pending.candidates.map((c) => c.question_index))).map((qi) => {
-            const group = pending.candidates.filter((c) => c.question_index === qi);
-            return (
-              <div key={qi} className="flex flex-col gap-2 border-t border-border pt-3">
-                <div className="text-xs font-medium text-muted">{group[0].question}</div>
-                {group.map((c) => (
-                  <label key={c.id} className="flex items-start gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4 accent-accent"
-                      checked={isTicked(c, pending.min_relevance)}
-                      onChange={(e) => setTick(c.id, e.target.checked)}
-                      disabled={stream.isLoading}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <a href={c.url} target="_blank" rel="noopener noreferrer nofollow" className="font-medium hover:text-accent hover:underline">
-                          {c.title}
-                        </a>
-                        <span className="flex items-center gap-1 rounded-full bg-surface-hover px-2 py-0.5 text-[11px] text-muted">
-                          {c.kind === "paper" ? <FileText className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
-                          {c.kind === "paper" ? "paper" : "web page"}
-                        </span>
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.score >= 3 ? "bg-success-soft text-success" : "bg-warning-soft text-warning"}`}>
-                          relevance {c.score}/3
-                        </span>
-                      </span>
-                      <span className="block truncate text-xs text-muted">{c.site}</span>
-                      {c.snippet ? <span className="mt-0.5 block text-xs text-muted">{c.snippet}</span> : null}
-                    </span>
-                  </label>
-                ))}
+          {[
+            { key: "pdf", label: "PDFs and papers", icon: <FileText className="h-4 w-4" />, items: pending.candidates.filter((c) => c.kind === "paper") },
+            { key: "web", label: "Web pages", icon: <Globe className="h-4 w-4" />, items: pending.candidates.filter((c) => c.kind !== "paper") },
+          ].map((section) => (
+            <div key={section.key} className="flex flex-col gap-3 border-t border-border pt-3">
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                {section.icon}
+                {section.label} ({section.items.length}, {section.items.filter((c) => isTicked(c, pending.min_relevance)).length} ticked)
               </div>
-            );
-          })}
+              {section.items.length === 0 ? <p className="text-xs text-muted">None found.</p> : null}
+              {Array.from(new Set(section.items.map((c) => c.question_index))).map((qi) => {
+                const group = section.items.filter((c) => c.question_index === qi);
+                return (
+                  <div key={qi} className="flex flex-col gap-2">
+                    <div className="text-xs font-medium text-muted">{group[0].question}</div>
+                    {group.map((c) => (
+                      <label key={c.id} className="flex items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 accent-accent"
+                          checked={isTicked(c, pending.min_relevance)}
+                          onChange={(e) => setTick(c.id, e.target.checked)}
+                          disabled={stream.isLoading}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <a href={c.url} target="_blank" rel="noopener noreferrer nofollow" className="font-medium hover:text-accent hover:underline">
+                              {c.title}
+                            </a>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.score >= 3 ? "bg-success-soft text-success" : "bg-warning-soft text-warning"}`}>
+                              relevance {c.score}/3
+                            </span>
+                          </span>
+                          <span className="block truncate text-xs text-muted">{c.site}</span>
+                          {c.snippet ? <span className="mt-0.5 block text-xs text-muted">{c.snippet}</span> : null}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
           <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <button
               type="button"

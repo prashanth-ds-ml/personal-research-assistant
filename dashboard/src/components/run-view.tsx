@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Circle, Loader2, RotateCcw, Square } from "lucide-react";
-import type { RunDetail } from "@/lib/runs";
+import { AlertTriangle, CheckCircle2, Circle, FileText, Globe, Loader2, RotateCcw, Square } from "lucide-react";
+import type { CollectedRow, RunDetail, UsedSource } from "@/lib/runs";
 import { RunBadge, ago, duration, isActive } from "@/components/run-status";
 
 // The pipeline as the user thinks of it. Each backend step belongs to one stage.
@@ -31,6 +31,81 @@ function Bar({ label, done, total }: { label: string; done: number; total: numbe
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
       </div>
     </div>
+  );
+}
+
+const isPdf = (kind: string) => kind === "pdf" || kind === "paper";
+
+function Link2Row({ title, url }: { title: string; url: string }) {
+  return url ? (
+    <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="font-medium hover:text-accent hover:underline">
+      {title}
+    </a>
+  ) : (
+    <span className="font-medium">{title}</span>
+  );
+}
+
+/** Two lists side by side: PDFs and papers on one side, web pages on the other, so it is clear what the run is
+ * pulling in and what the report leans on. `rows` come either from the collector (with a status) or from the report
+ * (with fact counts). */
+function SourceColumns({ title, hint, collected, used }: { title: string; hint: string; collected?: CollectedRow[]; used?: UsedSource[] }) {
+  const pdfs = (collected ?? []).filter((c) => isPdf(c.kind));
+  const pages = (collected ?? []).filter((c) => !isPdf(c.kind));
+  const usedPdfs = (used ?? []).filter((u) => isPdf(u.kind));
+  const usedPages = (used ?? []).filter((u) => u.kind === "web");
+  const usedOther = (used ?? []).filter((u) => !isPdf(u.kind) && u.kind !== "web");
+  const empty = <li className="text-muted">None</li>;
+  const col = (label: string, icon: React.ReactNode, items: React.ReactNode[], count: number) => (
+    <div className="flex flex-col gap-2">
+      <h3 className="flex items-center gap-1.5 text-xs font-medium text-muted">
+        {icon}
+        {label} ({count})
+      </h3>
+      <ul className="flex flex-col gap-1.5 text-xs">{items.length ? items : empty}</ul>
+    </div>
+  );
+  const collectedItem = (c: CollectedRow, i: number) => (
+    <li key={`${c.url}-${i}`}>
+      <Link2Row title={c.title || c.url} url={c.url} />
+      <span className={`ml-2 ${c.status === "saved" ? "text-success" : "text-warning"}`}>
+        {c.status === "saved" ? "saved" : c.status}
+        {c.reason ? `: ${c.reason}` : ""}
+      </span>
+    </li>
+  );
+  const usedItem = (u: UsedSource, i: number) => (
+    <li key={`${u.url}-${u.title}-${i}`}>
+      <Link2Row title={u.title} url={u.url} />
+      <span className="ml-2 text-muted">
+        {u.facts} fact{u.facts === 1 ? "" : "s"}, {u.cited} cited
+      </span>
+    </li>
+  );
+  return (
+    <section aria-label={title} className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
+      <div>
+        <h2 className="text-sm font-medium">{title}</h2>
+        <p className="text-xs text-muted">{hint}</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {collected
+          ? [
+              col("PDFs and papers", <FileText className="h-3.5 w-3.5" />, pdfs.map(collectedItem), pdfs.length),
+              col("Web pages", <Globe className="h-3.5 w-3.5" />, pages.map(collectedItem), pages.length),
+            ]
+          : [
+              col("PDFs and papers", <FileText className="h-3.5 w-3.5" />, usedPdfs.map(usedItem), usedPdfs.length),
+              col("Web pages", <Globe className="h-3.5 w-3.5" />, usedPages.map(usedItem), usedPages.length),
+            ]}
+      </div>
+      {!collected && usedOther.length > 0 ? (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <h3 className="text-xs font-medium text-muted">Other documents ({usedOther.length})</h3>
+          <ul className="flex flex-col gap-1.5 text-xs">{usedOther.map(usedItem)}</ul>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -198,6 +273,21 @@ export function RunView({ id }: { id: string }) {
           </Link>
         ) : null}
       </div>
+
+      {run.collected.length > 0 ? (
+        <SourceColumns
+          title="Collected for this run"
+          hint="What the collector fetched after you chose sources. Saved ones are now in your library; the others are listed with the reason they were left out."
+          collected={run.collected}
+        />
+      ) : null}
+      {run.sources.length > 0 ? (
+        <SourceColumns
+          title="Used in the report"
+          hint="The documents the report's evidence came from, with how many facts each supplied and how many the report cites."
+          used={run.sources}
+        />
+      ) : null}
 
       <section aria-label="Activity">
         <h2 className="mb-2 text-sm font-medium">Activity</h2>

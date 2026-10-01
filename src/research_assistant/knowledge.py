@@ -25,6 +25,7 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
+import frontmatter
 import numpy as np
 
 # Folders never indexed: the fetcher keeps the ORIGINAL PDFs in raw/ next to the converted markdown.
@@ -52,7 +53,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 """
 # docs columns added after the first release: added to existing databases on open.
-MIGRATIONS = {"status": "TEXT DEFAULT 'ok'", "error": "TEXT DEFAULT ''", "markdown": "TEXT"}
+MIGRATIONS = {"status": "TEXT DEFAULT 'ok'", "error": "TEXT DEFAULT ''", "markdown": "TEXT",
+              "source_kind": "TEXT DEFAULT ''"}
 
 
 class EmbeddingMismatch(RuntimeError):
@@ -133,6 +135,41 @@ def convert_to_markdown(path: Path) -> str:
 
         pages = (p.extract_text() or "" for p in PdfReader(str(path)).pages)
         return "\n\n".join(f"<!-- page {i} -->\n{t}" for i, t in enumerate(pages, 1) if t.strip())
+
+
+def split_front_matter(text: str) -> tuple[dict, str]:
+    """(metadata, body) of a markdown file that starts with a YAML block; ({}, text) when it does not.
+    Saved sources carry provenance there (url, source, the question they were found for). That block is metadata, not
+    content: indexing it made a source match the very question that fetched it."""
+    if not text.startswith("---"):
+        return {}, text
+    try:
+        post = frontmatter.loads(text)
+        return dict(post.metadata), post.content
+    except Exception:
+        return {}, text
+
+
+def classify_source(path: str, front: dict) -> tuple[str, str]:
+    """(kind, url) of a document, so reports and the dashboard can tell PDFs from web pages.
+
+    kind is "pdf" (a PDF file, an arXiv paper, or a PDF address), "paper" (open-access full text without a PDF),
+    "web" (a web page) or "document" (anything else, for example a note or a locally archived page)."""
+    suffix = Path(path).suffix.lower()
+    source = str(front.get("source", "")).lower()
+    url = str(front.get("url", "") or "")
+    if not url.startswith(("http://", "https://")):
+        url = ""
+    if source == "arxiv":
+        sid = str(front.get("source_id", ""))
+        return "pdf", url or (f"https://arxiv.org/abs/{sid}" if sid else "")
+    if source == "europepmc":
+        return "paper", url
+    if suffix == ".pdf" or url.lower().split("?")[0].endswith(".pdf"):
+        return "pdf", url
+    if source in ("web", "seed") or url:
+        return "web", url
+    return "document", ""
 
 
 _TITLE = re.compile(r"^#{1,3}\s+(.{8,200})$")
@@ -357,11 +394,15 @@ class KnowledgeBase:
         costs you the previous version of the document. A document with no usable text is recorded (status
         'empty') so it is not converted again on every run. Returns the number of chunks (0 if unchanged)."""
         digest = digest or hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+        front, body = split_front_matter(markdown)
+        kind, front_url = classify_source(path, front)
+        source_url = source_url or front_url
+        title = title or str(front.get("title") or "")
         with self._lock:
             row = self.db.execute("SELECT id, hash FROM docs WHERE path=?", (path,)).fetchone()
             if row and row[1] == digest and not force:
                 return 0
-            chunks = chunk_markdown(markdown) if status == "ok" else []
+            chunks = chunk_markdown(body) if status == "ok" else []
             vectors = self.embeddings.embed_documents([c["text"] for c in chunks]) if chunks else []
             if vectors:
                 self._check_dim(vectors)
@@ -370,10 +411,10 @@ class KnowledgeBase:
                     self._delete_doc(row[0])
                 doc_status = status if status != "ok" or chunks else "empty"
                 cur = self.db.execute(
-                    "INSERT INTO docs(path, hash, title, source_url, ingested_at, n_chunks, status, error, markdown) "
-                    "VALUES (?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO docs(path, hash, title, source_url, ingested_at, n_chunks, status, error, markdown, source_kind) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (path, digest, title or Path(path).stem, source_url, datetime.now(timezone.utc).isoformat(),
-                     len(chunks), doc_status, error, markdown))
+                     len(chunks), doc_status, error, markdown, kind))
                 doc_id = cur.lastrowid
                 self._insert_chunks(doc_id, chunks, vectors)
                 if vectors and not self._meta("embedding_dim"):
@@ -419,7 +460,9 @@ class KnowledgeBase:
             target = (md_out / rel).with_suffix(".md")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(md, encoding="utf-8")
-        n = self.ingest_text(key, md, title=title_from_markdown(md, file.stem), digest=digest, force=force)
+        front, body = split_front_matter(md)
+        title = str(front.get("title") or "") or title_from_markdown(body, file.stem)
+        n = self.ingest_text(key, md, title=title, digest=digest, force=force)
         return "added" if n else "empty"
 
     def ingest_folder(self, root: str | Path, md_out: Path | None = None,
@@ -501,24 +544,28 @@ class KnowledgeBase:
                 if md is None:
                     missing.append(path)
                     continue
-                chunks = chunk_markdown(md)
+                front, body = split_front_matter(md)
+                chunks = chunk_markdown(body)
                 vectors = self.embeddings.embed_documents([c["text"] for c in chunks]) if chunks else []
-                staged.append((doc_id, chunks, vectors))
+                staged.append((doc_id, chunks, vectors, classify_source(path, front)))
             if missing:
                 raise EmbeddingMismatch(
                     f"{len(missing)} document(s) have no saved text and cannot be rebuilt (first: {missing[0]}). "
                     "Re-ingest them first with `python scripts/ingest_library.py <folder> --force`, or delete "
                     "the library file and ingest again.")
             with self.db:
-                for doc_id, chunks, vectors in staged:
+                for doc_id, chunks, vectors, (kind, url) in staged:
                     for (cid, text, heading) in self.db.execute(
                             "SELECT id, text, heading FROM chunks WHERE doc_id=?", (doc_id,)).fetchall():
                         self.db.execute("INSERT INTO chunks_fts(chunks_fts, rowid, text, heading) VALUES ('delete',?,?,?)",
                                         (cid, text, heading))
                     self.db.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
                     self._insert_chunks(doc_id, chunks, vectors)
-                    self.db.execute("UPDATE docs SET n_chunks=? WHERE id=?", (len(chunks), doc_id))
-                dims = {len(v[0]) for _, _, v in staged if v}
+                    self.db.execute(
+                        "UPDATE docs SET n_chunks=?, source_kind=?, "
+                        "source_url=CASE WHEN source_url IS NULL OR source_url='' THEN ? ELSE source_url END WHERE id=?",
+                        (len(chunks), kind, url, doc_id))
+                dims = {len(v[0]) for _, _, v, _ in staged if v}
                 if dims:
                     self._set_meta("embedding_dim", str(dims.pop()))
                 if embedding_model:
@@ -575,13 +622,14 @@ class KnowledgeBase:
             out = []
             for cid, score in sorted(fused.items(), key=lambda kv: -kv[1])[:k]:
                 row = self.db.execute(
-                    "SELECT c.text, c.heading, c.page, c.kind, d.title, d.path, d.source_url "
+                    "SELECT c.text, c.heading, c.page, c.kind, d.title, d.path, d.source_url, d.source_kind "
                     "FROM chunks c JOIN docs d ON d.id=c.doc_id WHERE c.id=?",
                     (cid,),
                 ).fetchone()
                 if row is None:                 # deleted by another connection since the matrix was cached
                     continue
-                text, heading, page, kind, title, path, url = row
+                text, heading, page, kind, title, path, url, source_kind = row
                 out.append({"score": score, "text": text, "heading": heading, "page": page,
-                            "kind": kind, "title": title, "path": path, "source_url": url})
+                            "kind": kind, "title": title, "path": path, "source_url": url or "",
+                            "source_kind": source_kind or ""})
             return out

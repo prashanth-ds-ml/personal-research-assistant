@@ -359,10 +359,20 @@ def collect(state: DeepState, config: RunnableConfig) -> dict:
                 summary["warning"] = (f"{summary['saved']} sources were saved but only {ing['added']} were indexed, "
                                       "so this run may not see all of them.")
         log.event(f"Collected {summary['saved']} sources ({summary['skipped']} skipped, {summary['failed']} failed)")
+        log.record(collected=[_collected_row(m) for m in store.manifest])
         return {"collect_report": summary}
     except Exception as e:
         log.event(f"Collecting sources failed: {str(e)[:150]}", level="error")
         return {"collect_report": {"error": str(e)[:300]}}
+
+
+def _collected_row(m: dict) -> dict:
+    """One line of the collect manifest, as the dashboard shows it: what it is, where it came from, what happened."""
+    url = m.get("url", "")
+    kind = ("pdf" if m.get("source") == "arxiv" or url.lower().split("?")[0].endswith(".pdf")
+            else "paper" if m.get("source") == "europepmc" else "web")
+    return {"title": m.get("title", ""), "url": url, "kind": kind, "status": m.get("status", ""),
+            "reason": m.get("reason", "")}
 
 
 def _plan_obj(d: dict) -> deep_report.Plan:
@@ -439,10 +449,15 @@ def write(state: DeepState, config: RunnableConfig) -> dict:
         library_size = kb.stats()["documents"]
     report = deep_report.assemble(plan_, sections, evidence, llm, library_size=library_size, notes=notes,
                                   scope_note=_scope_note(state.get("collect_report")))
+    cited = {int(n) for n in re.findall(r"\[E(\d+)\]", report.split("## Evidence appendix")[0])}
+    groups = deep_report.group_sources(evidence, cited)
+    log.record(sources=[{"group": label, **d} for label, items in groups for d in items])
     return {"report": report, "stats": {
         "questions": len(plan_.sub_questions), "sections": len(sections),
         "evidence": len(evidence), "words": len(report.split()),
         "sources": len({e.source for e in evidence}),
+        "sources_pdf": sum(len(items) for label, items in groups if label.startswith("Papers")),
+        "sources_web": sum(len(items) for label, items in groups if label == "Web pages"),
         **{f"llm_{k}": v for k, v in llm_stats.items()}}}
 
 

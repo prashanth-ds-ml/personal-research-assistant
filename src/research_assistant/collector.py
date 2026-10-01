@@ -97,7 +97,8 @@ def _web_candidate(hit: Hit, question: str) -> Candidate:
 def to_dict(c: Candidate, question_index: int) -> dict:
     """What the dashboard shows and sends back (the id is what the user ticks)."""
     return {"id": f"{c.source}:{c.id}", "title": c.title, "url": c.page_url or c.url, "site": _host(c.page_url or c.url),
-            "kind": "paper" if c.source in PAPER_SOURCES else "page", "question": c.question,
+            "kind": "paper" if c.source in PAPER_SOURCES or (c.page_url or c.url).lower().split("?")[0].endswith(".pdf")
+            else "page", "question": c.question,
             "question_index": question_index, "score": c.relevance, "snippet": c.summary[:300], "source": c.source,
             "pdf_url": c.url if c.source == "arxiv" else "", "authors": c.authors, "published": c.published,
             "licence": c.licence}

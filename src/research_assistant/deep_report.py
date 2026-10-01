@@ -229,6 +229,8 @@ class Evidence:
     source: str
     heading: str
     sub_questions: list[int]      # every question this fact helps answer (a passage often answers several)
+    url: str = ""                 # where the source lives, when known
+    kind: str = ""                # "pdf", "paper", "web" or "document" (see knowledge.classify_source)
 
 
 @dataclass
@@ -565,7 +567,8 @@ def gather_evidence(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
                     merged += 1
                     continue
                 ev = Evidence(id=f"E{len(evidence) + 1}", claim=f["claim"], quote=f["quote"],
-                              source=hit["title"], heading=hit.get("heading", ""), sub_questions=[qi])
+                              source=hit["title"], heading=hit.get("heading", ""), sub_questions=[qi],
+                              url=hit.get("source_url", "") or "", kind=hit.get("source_kind", "") or "")
                 by_quote[key] = ev
                 evidence.append(ev)
                 claim_words.append(words)
@@ -731,6 +734,37 @@ bullet key takeaways) that reflects ONLY what the sections say. Keep any [E#] ci
 {sections}"""
 
 
+SOURCE_GROUPS = (("Papers and PDFs", ("pdf", "paper")), ("Web pages", ("web",)), ("Other documents", ("document", "")))
+
+
+def group_sources(evidence: list[Evidence], cited_ids: set[int]) -> list[tuple[str, list[dict]]]:
+    """The documents the evidence came from, in groups (papers and PDFs / web pages / other), each with how many facts it
+    supplied and how many of those the report cites. Empty groups are left out."""
+    docs: dict[tuple[str, str], dict] = {}
+    for e in evidence:
+        d = docs.setdefault((e.source, e.url), {"title": e.source, "url": e.url, "kind": e.kind, "facts": 0, "cited": 0})
+        d["facts"] += 1
+        d["cited"] += int(e.id[1:]) in cited_ids
+    groups = []
+    for label, kinds in SOURCE_GROUPS:
+        items = sorted((d for d in docs.values() if d["kind"] in kinds), key=lambda d: (-d["cited"], -d["facts"], d["title"]))
+        if items:
+            groups.append((label, items))
+    return groups
+
+
+def _source_line(d: dict) -> str:
+    name = f"[{d['title']}]({d['url']})" if d["url"] else d["title"]
+    return f"- {name} - {d['facts']} fact(s), {d['cited']} cited"
+
+
+def goal_line(goal: str, limit: int = 400) -> str:
+    """A readable one-paragraph version of the goal for the report header (a long structured prompt is not pasted whole)."""
+    text = re.sub(r"^\s*(my\s+)?goal\s*[:\n]+", "", goal.strip(), flags=re.I)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " ..."
+
+
 def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidence], llm: LLM,
              library_size: int = 0, notes: list[str] | None = None, scope_note: str = "") -> str:
     """Put the report together. ``scope_note`` says what else was searched this run (for example newly
@@ -746,8 +780,10 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
 
     thin = [plan.sub_questions[i] for i in range(len(plan.sub_questions))
             if sum(i in e.sub_questions for e in evidence) < 2]
-    sources = sorted({e.source for e in evidence})
-    where = f"Evidence comes from {len(sources)} document(s) in the local library"
+    groups = group_sources(evidence, cited)
+    n_docs = sum(len(items) for _, items in groups)
+    parts = [f"{len(items)} {label.lower()}" for label, items in groups]
+    where = f"Evidence comes from {n_docs} document(s) in the local library" + (f" ({'; '.join(parts)})" if parts else "")
     where += f" ({library_size} indexed)." if library_size else "."
     where += " " + (scope_note or "Nothing was searched on the web.")
     limits = [
@@ -761,12 +797,13 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
     if thin:
         limits.append("Thin evidence (fewer than 2 supporting facts) for: " + "; ".join(thin))
 
-    out = [f"# {plan.title}", "", f"> **Goal:** {plan.goal}", "", "## Executive summary", "", summary, ""]
+    out = [f"# {plan.title}", "", f"> **Goal:** {goal_line(plan.goal)}", "", "## Executive summary", "", summary, ""]
     for title, body in sections:
         out += [f"## {title}", "", body, ""]
-    out += ["## Limitations", "", *[f"- {x}" for x in limits], "",
-            "## Sources", "", *[f"- {s}" for s in sources], "",
-            "## Evidence appendix", "",
+    out += ["## Limitations", "", *[f"- {x}" for x in limits], "", "## Sources", ""]
+    for label, items in groups:
+        out += [f"### {label} ({len(items)})", "", *[_source_line(d) for d in items], ""]
+    out += ["## Evidence appendix", "",
             "| ID | Claim | Verbatim quote | Source |", "|---|---|---|---|"]
     for e in evidence:
         if int(e.id[1:]) in cited:
