@@ -115,6 +115,20 @@ def from_dict(d: dict) -> Candidate:
                      relevance=int(d.get("score", -1)), question=d.get("question", ""))
 
 
+def paper_key(c: Candidate) -> str | None:
+    return fetcher.arxiv_key(c.page_url or c.url) or (fetcher.arxiv_key(f"arxiv.org/abs/{c.id}") if c.source == "arxiv" else None)
+
+
+def fair_order(candidates: list[dict]) -> list[dict]:
+    """The order to collect in when there is a limit: best match first within each question, and the questions taking turns,
+    so a limit of 10 gives every question some sources instead of the first questions using all of them."""
+    by_q: dict[int, list[dict]] = {}
+    for d in candidates:
+        by_q.setdefault(d.get("question_index", 0), []).append(d)
+    queues = [sorted(items, key=lambda d: -d.get("score", 0)) for _, items in sorted(by_q.items())]
+    return [d for rank in itertools.zip_longest(*queues) for d in rank if d is not None]
+
+
 def discover(questions: list[str], *, search: Search, fx: Fetcher, store: SourceStore, llm: LLM,
              per_question: int = 8, max_candidates: int = 40, min_score: int = 1, allow: list[str] | None = None,
              block: list[str] | None = None, include_papers: bool = True, search_pause: float = 1.0,
@@ -126,6 +140,7 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
     number for each question when only some of them are searched (the dashboard groups candidates by that number)."""
     allow, block = allow or [], block or []
     seen_urls: set[str] = set()
+    seen_papers: set[str] = set()
     out: list[dict] = []
     # Each question gets an equal share of the total, so the first questions cannot use up the whole list.
     quota = max(1, -(-max_candidates // max(len(questions), 1)))
@@ -155,14 +170,18 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
                 except Exception as e:
                     on_progress(f"{label} search failed: {str(e)[:100]}")
         mixed = [c for group in itertools.zip_longest(*groups) for c in group if c is not None]
+        mixed.sort(key=lambda c: c.source != "arxiv")            # a paper found twice: keep the PDF, not its abstract page
         found: list[dict] = []
         for c in mixed:
             c.question = q
-            if store.seen(c):
+            key = paper_key(c)
+            if store.seen(c) or (key and key in seen_papers):
                 continue
             c.relevance = fetcher.triage(c, q, llm)
             if c.relevance >= min_score:
                 found.append(to_dict(c, qn))
+                if key:
+                    seen_papers.add(key)
         found.sort(key=lambda d: -d["score"])
         on_progress(f"Q{qn + 1}: {len(found)} candidates worth showing")
         out.extend(found[: min(quota, max(0, max_candidates - len(out)))])

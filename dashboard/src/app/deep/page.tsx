@@ -357,6 +357,13 @@ function DeepResearchForm() {
               })}
             </div>
           ))}
+          {pending.candidates.filter((c) => isTicked(c, pending.min_relevance)).length > pending.max_sources ? (
+            <p role="status" className="rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">
+              You ticked {pending.candidates.filter((c) => isTicked(c, pending.min_relevance)).length}, but at most {pending.max_sources} are
+              collected: the best match of each question first, taking turns across the questions. Untick the weaker ones, or raise
+              FETCH_MAX_SOURCES in .env to collect more.
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <button
               type="button"

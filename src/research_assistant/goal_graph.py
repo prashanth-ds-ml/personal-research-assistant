@@ -400,7 +400,7 @@ def collect(state: DeepState, config: RunnableConfig) -> dict:
     log = _run_log(config)
     seeds = [u for u in re.split(r"[\s;]+", cfg.seed_urls) if u.startswith(("http://", "https://"))]
     by_id = {d["id"]: d for d in state.get("candidates") or []}
-    picked = [by_id[i] for i in state.get("selected_ids") or [] if i in by_id]
+    picked = collector.fair_order([by_id[i] for i in state.get("selected_ids") or [] if i in by_id])
     if not (picked or seeds) or not cfg.vault_path:
         return {}
     try:

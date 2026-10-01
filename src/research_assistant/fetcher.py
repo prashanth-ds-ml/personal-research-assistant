@@ -408,6 +408,16 @@ def triage(c: Candidate, question: str, llm: LLM) -> int:
 _TRACKING = ("utm_", "fbclid", "gclid", "mc_", "ref", "source")
 
 
+_ARXIV_URL = re.compile(r"arxiv\.org/(?:abs|pdf)/((?:[a-z\-]+(?:\.[A-Z]{2})?/\d{7})|(?:\d{4}\.\d{4,5}))(?:v\d+)?(?:\.pdf)?", re.I)
+
+
+def arxiv_key(text: str) -> str | None:
+    """"arxiv:<id>" (version removed) for an arXiv address of any kind (abs page, pdf link), else None. The same paper reached
+    through the web search (abs page) and through the arXiv search (pdf) then counts as ONE source."""
+    m = _ARXIV_URL.search(text or "")
+    return f"arxiv:{m.group(1).lower()}" if m else None
+
+
 def normalize_url(url: str) -> str:
     """A stable key for 'the same page': host without www, path without trailing slash, the query string
     (sorted, tracking parameters removed) and no fragment. The query matters: ?id=1 and ?id=2 are
@@ -454,6 +464,9 @@ class SourceStore:
         keys = [f"id:{c.source}:{c.id}"]
         if c.page_url or c.url:
             keys.append("url:" + normalize_url(c.page_url or c.url))
+        paper = arxiv_key(c.page_url or c.url) or (arxiv_key(f"arxiv.org/abs/{c.id}") if c.source == "arxiv" else None)
+        if paper:
+            keys.append(paper)
         if text:
             keys.append("hash:" + hashlib.sha256(text.encode("utf-8")).hexdigest())
         return keys
