@@ -23,7 +23,7 @@ PER_RUN_KEYS = frozenset({
     "max_comparison_entities", "planner_model", "extractor_model", "writer_model",
     "ask_clarifying_questions", "require_plan_approval", "auto_ingest", "collect_sources", "seed_urls",
     "fetch_max_sources", "fetch_min_relevance", "docs_retrieval_k", "docs_top_k", "docs_chunk_size",
-    "contact_email",
+    "contact_email", "collect_review",
 })
 
 
@@ -205,6 +205,24 @@ class Configuration(BaseModel):
         default=3, title="Min Relevance",
         description="Keep a fetched source only if the local model scores it at least this (0-3). 3 = directly answers "
                     "the question; 2 lets in tangential papers that then stay in the library")
+    search_backend: Literal["ddgs", "searxng"] = Field(
+        default="ddgs", title="Web Search Backend",
+        description="Where the source collector finds web pages: DuckDuckGo (ddgs) or your SearXNG instance")
+    searxng_url: str = Field(
+        default="", title="SearXNG URL",
+        description="Address of your SearXNG instance, used when the search backend is searxng (environment only)")
+    collect_allow_domains: str = Field(
+        default="", title="Allowed Domains",
+        description="Only collect web pages from these domains, separated by ';' (for example who.int;cdc.gov;*.gov.in). "
+                    "Blank = any public site")
+    collect_block_domains: str = Field(
+        default="", title="Blocked Domains", description="Never collect from these domains, separated by ';'")
+    collect_candidates_per_question: int = Field(
+        default=8, title="Candidates Per Question", description="Web pages shown per plan question (papers come on top)")
+    collect_review: bool = Field(
+        default=True, title="Review Sources",
+        description="Pause and show the candidate pages and papers so you choose which to collect. Off = collect "
+                    "everything scoring at least the minimum relevance (for unattended runs)")
     contact_email: str = Field(
         default="", title="Contact Email",
         description="Put in the fetcher's User-Agent so site owners can reach you (good manners; optional)")

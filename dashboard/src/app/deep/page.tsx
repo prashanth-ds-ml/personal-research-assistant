@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import { ResumeBanner } from "@/components/resume-banner";
 import { useRunThread } from "@/lib/use-run-thread";
-import { AlertCircle, ArrowRight, CheckCircle2, MessageCircleQuestion, ListChecks } from "lucide-react";
+import { Activity, AlertCircle, ArrowRight, CheckCircle2, FileText, Globe, MessageCircleQuestion, ListChecks } from "lucide-react";
 
 // State shape of the `deep_research` graph (src/research_assistant/goal_graph.py).
 interface Plan {
@@ -21,12 +22,30 @@ interface DeepState {
   report?: string;
   report_path?: string;
   stats?: { questions: number; sections: number; evidence: number; words: number };
-  collect_report?: { saved?: number; skipped?: number; failed?: number; folder?: string; error?: string };
+  collect_report?: { saved?: number; pages?: number; papers?: number; skipped?: number; failed?: number; folder?: string; error?: string };
   library_update?: { added?: number; removed?: number; documents?: number; failed?: string[]; error?: string };
 }
 type ClarifyInterrupt = { type: "clarify"; goal: string; questions: string[] };
 type ApproveInterrupt = { type: "approve_plan"; plan: Plan; revisions_left: number };
-type DeepInterrupt = ClarifyInterrupt | ApproveInterrupt;
+interface ReviewCandidate {
+  id: string;
+  title: string;
+  url: string;
+  site: string;
+  kind: "page" | "paper";
+  question: string;
+  question_index: number;
+  score: number;
+  snippet: string;
+}
+type ReviewInterrupt = {
+  type: "review_sources";
+  candidates: ReviewCandidate[];
+  max_sources: number;
+  min_relevance: number;
+  error?: string;
+};
+type DeepInterrupt = ClarifyInterrupt | ApproveInterrupt | ReviewInterrupt;
 
 // Must be absolute - useStream does `new URL(apiUrl)` internally.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
@@ -44,8 +63,11 @@ const primary =
 const secondary =
   "flex w-fit items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-hover disabled:opacity-50";
 
-export default function DeepResearchPage() {
-  const [goal, setGoal] = useState("");
+function DeepResearchForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // "Start this goal again" (from a run that was lost or stopped) arrives with the goal in the address.
+  const [goal, setGoal] = useState(() => searchParams.get("goal") ?? "");
   const [answers, setAnswers] = useState<string[]>([]);
   const [feedback, setFeedback] = useState("");
   const [fetchNew, setFetchNew] = useState(false);
@@ -61,6 +83,16 @@ export default function DeepResearchPage() {
     reconnectOnMount: () => window.localStorage, // same storage the thread id lives in
   });
   const active = Boolean(threadId);
+
+  // "Open to answer" on the Runs page arrives with ?thread=<run id>: remember it, then tidy the address.
+  const wantedThread = searchParams.get("thread");
+  useEffect(() => {
+    if (wantedThread) {
+      remember(wantedThread);
+      router.replace("/deep");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on arrival
+  }, []);
   const keepAlive = { onDisconnect: "continue", streamResumable: true } as const;
 
   const startOver = () => {
@@ -75,7 +107,18 @@ export default function DeepResearchPage() {
   // The graph pauses (LangGraph `interrupt`) to ask questions / show the plan.
   // Only our own two interrupt shapes are acted on (LangGraph can also report a `{when: "breakpoint"}` pause).
   const raw = (stream.interrupt?.value ?? null) as { type?: string } | null;
-  const pending = raw && (raw.type === "clarify" || raw.type === "approve_plan") ? (raw as DeepInterrupt) : null;
+  const pending =
+    raw && (raw.type === "clarify" || raw.type === "approve_plan" || raw.type === "review_sources")
+      ? (raw as DeepInterrupt)
+      : null;
+
+  // Which candidate sources are ticked. Defaults come from the relevance score; the user's clicks override them.
+  // Kept per interrupt so a new list never inherits an old one's ticks (derived state, no effect needed).
+  const reviewKey = pending?.type === "review_sources" ? pending.candidates.map((c) => c.id).join("|") : "";
+  const [overrides, setOverrides] = useState<{ key: string; map: Record<string, boolean> }>({ key: "", map: {} });
+  const ticks = overrides.key === reviewKey ? overrides.map : {};
+  const isTicked = (c: ReviewCandidate, min: number) => ticks[c.id] ?? c.score >= min;
+  const setTick = (id: string, value: boolean) => setOverrides({ key: reviewKey, map: { ...ticks, [id]: value } });
   const slug = reportSlug(stream.values.report_path);
   const started = stream.isLoading || Boolean(stream.values.goal) || Boolean(pending);
 
@@ -118,11 +161,13 @@ export default function DeepResearchPage() {
       ? "Waiting for your answers"
       : pending?.type === "approve_plan"
         ? "Waiting for plan approval"
-        : stream.values.plan
-          ? "Extracting evidence and writing (this takes a while)"
-          : stream.isLoading
-            ? "Preparing"
-            : "";
+        : pending?.type === "review_sources"
+          ? "Waiting for you to choose sources"
+          : stream.values.plan
+            ? "Collecting sources, extracting evidence and writing (this takes a while)"
+            : stream.isLoading
+              ? "Preparing"
+              : "";
 
   return (
     <div className="flex flex-col gap-8">
@@ -157,10 +202,10 @@ export default function DeepResearchPage() {
             disabled={stream.isLoading || Boolean(pending) || active}
           />
           <span className="text-sm">
-            Fetch new open-access papers first
+            Find and collect new sources first
             <span className="block text-xs text-muted">
-              Searches arXiv and Europe PMC for each question after you approve the plan, keeps the relevant ones in your
-              library (adds a few minutes).
+              After you approve the plan, searches the web, arXiv and Europe PMC for each question and shows you what it
+              found. You choose which pages and papers to save into your library (adds a few minutes).
             </span>
           </span>
         </label>
@@ -188,6 +233,13 @@ export default function DeepResearchPage() {
         </div>
       ) : null}
 
+      {threadId && (
+        <Link href={`/runs/${threadId}`} className="flex w-fit items-center gap-1.5 text-xs font-medium text-accent hover:underline">
+          <Activity className="h-3.5 w-3.5" />
+          Watch this run in detail
+        </Link>
+      )}
+
       {started && stage && (
         <div role="status" aria-live="polite" className="flex items-center gap-3 text-sm text-muted">
           <span>
@@ -211,7 +263,8 @@ export default function DeepResearchPage() {
       )}
       {stream.values.collect_report && !stream.values.collect_report.error && (
         <div className="text-xs text-muted">
-          Fetched sources: {stream.values.collect_report.saved ?? 0} added to your library,{" "}
+          Collected sources: {stream.values.collect_report.saved ?? 0} added to your library
+          {stream.values.collect_report.pages !== undefined ? ` (${stream.values.collect_report.pages} web pages, ${stream.values.collect_report.papers ?? 0} papers)` : ""},{" "}
           {stream.values.collect_report.skipped ?? 0} skipped
           {stream.values.collect_report.failed ? `, ${stream.values.collect_report.failed} failed` : ""}
           {stream.values.collect_report.folder ? ` (details in ${stream.values.collect_report.folder}/manifest.json)` : ""}
@@ -247,6 +300,74 @@ export default function DeepResearchPage() {
           <button type="button" className={primary} disabled={stream.isLoading} onClick={() => sendAnswers(pending.questions)}>
             Continue <ArrowRight className="h-4 w-4" />
           </button>
+        </div>
+      )}
+
+      {pending?.type === "review_sources" && (
+        <div className={card}>
+          <div className="flex items-center gap-2 font-medium">
+            <Globe className="h-4 w-4 text-accent" />
+            Sources found for your questions
+          </div>
+          <p className="text-xs text-muted">
+            Nothing has been downloaded yet. Tick what you want in your library; the best matches are ticked already. At
+            most {pending.max_sources} will be collected, one at a time. Web pages are less reliable than papers.
+          </p>
+          {pending.error ? (
+            <p role="alert" className="text-xs text-warning">
+              {pending.error}
+            </p>
+          ) : null}
+          {Array.from(new Set(pending.candidates.map((c) => c.question_index))).map((qi) => {
+            const group = pending.candidates.filter((c) => c.question_index === qi);
+            return (
+              <div key={qi} className="flex flex-col gap-2 border-t border-border pt-3">
+                <div className="text-xs font-medium text-muted">{group[0].question}</div>
+                {group.map((c) => (
+                  <label key={c.id} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 accent-accent"
+                      checked={isTicked(c, pending.min_relevance)}
+                      onChange={(e) => setTick(c.id, e.target.checked)}
+                      disabled={stream.isLoading}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <a href={c.url} target="_blank" rel="noopener noreferrer nofollow" className="font-medium hover:text-accent hover:underline">
+                          {c.title}
+                        </a>
+                        <span className="flex items-center gap-1 rounded-full bg-surface-hover px-2 py-0.5 text-[11px] text-muted">
+                          {c.kind === "paper" ? <FileText className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
+                          {c.kind === "paper" ? "paper" : "web page"}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.score >= 3 ? "bg-success-soft text-success" : "bg-warning-soft text-warning"}`}>
+                          relevance {c.score}/3
+                        </span>
+                      </span>
+                      <span className="block truncate text-xs text-muted">{c.site}</span>
+                      {c.snippet ? <span className="mt-0.5 block text-xs text-muted">{c.snippet}</span> : null}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            );
+          })}
+          <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+            <button
+              type="button"
+              className={primary}
+              disabled={stream.isLoading}
+              onClick={() =>
+                resume({ selected: pending.candidates.filter((c) => isTicked(c, pending.min_relevance)).map((c) => c.id) })
+              }
+            >
+              Collect {pending.candidates.filter((c) => isTicked(c, pending.min_relevance)).length} selected <ArrowRight className="h-4 w-4" />
+            </button>
+            <button type="button" className={secondary} disabled={stream.isLoading} onClick={() => resume({ selected: [] })}>
+              Skip collecting
+            </button>
+          </div>
         </div>
       )}
 
@@ -325,5 +446,13 @@ export default function DeepResearchPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DeepResearchPage() {
+  return (
+    <Suspense fallback={null}>
+      <DeepResearchForm />
+    </Suspense>
   );
 }

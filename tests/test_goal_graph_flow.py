@@ -159,7 +159,8 @@ def test_model_failures_are_counted_in_the_stats_and_the_report(flow, monkeypatc
 
 def test_the_limitations_describe_what_was_actually_searched(flow):
     assert goal_graph._scope_note(None) == "" and goal_graph._scope_note({"error": "x"}) == ""
-    assert "3 new source(s) were fetched" in goal_graph._scope_note({"saved": 3, "skipped": 4})
+    note = goal_graph._scope_note({"saved": 3, "pages": 2, "papers": 1, "skipped": 4})
+    assert "3 new source(s) (2 web page(s), 1 paper(s)) were collected" in note and "less reliable" in note
     assert "found nothing new" in goal_graph._scope_note({"saved": 0})
 
 
@@ -170,14 +171,16 @@ def test_collect_warns_when_fewer_sources_were_indexed_than_saved(flow, monkeypa
     monkeypatch.setenv("KB_PATH", str(tmp_path / "kb2.sqlite"))
     monkeypatch.setattr(goal_graph, "make_embeddings", lambda *a, **k: Emb())
 
-    def fake_collect(questions, store, fx, llm, **kw):
+    def fake_collect(todo, store, fx, **kw):
         store.dir.mkdir(parents=True, exist_ok=True)
         (store.dir / "good.md").write_text("# Good\n\nHybrid retrieval reached 0.78 recall in this study of search.")
         (store.dir / "blank.md").write_text("")                     # saved but nothing indexable
-        return {"saved": 2, "skipped": 0, "failed": 0, "folder": str(store.dir)}
+        return {"saved": 2, "pages": 2, "papers": 0, "skipped": 0, "failed": 0, "folder": str(store.dir)}
 
-    monkeypatch.setattr(goal_graph.fetcher, "collect", fake_collect)
-    state = {"goal": "g", "plan": {"goal": "g", "title": "T", "sub_questions": ["q?"], "outline": []}}
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", fake_collect)
+    cand = goal_graph.collector._web_candidate(goal_graph.collector.Hit("P", "https://a.example/p", ""), "q?")
+    state = {"goal": "g", "plan": {"goal": "g", "title": "T", "sub_questions": ["q?"], "outline": []},
+             "candidates": [goal_graph.collector.to_dict(cand, 0)], "selected_ids": [f"web:{cand.id}"]}
     out = goal_graph.collect(state, {"configurable": {"collect_sources": True}})["collect_report"]
     assert out["saved"] == 2 and out["indexed"] == 1 and "only 1 were indexed" in out["warning"]
 
@@ -207,3 +210,191 @@ def test_two_library_folders_with_the_same_name_both_stay_indexed(tmp_path, monk
     for _ in range(2):                                              # the second run must not prune the first folder
         update = goal_graph.refresh_library({"goal": "g"}, {"configurable": {}})["library_update"]
     assert update["documents"] == 2 and update["removed"] == 0
+
+
+# ---- run record (what the dashboard's Runs page reads) ---------------------------------------------
+
+def _record(tmp_path, run_id="t"):
+    from research_assistant import runlog
+    return runlog.read_run(str(tmp_path / "vault"), run_id)
+
+
+def test_run_record_follows_the_whole_flow(flow):
+    g, cfg, _, tmp_path = flow
+    g.invoke({"goal": "Does hybrid help?"}, cfg)
+    rec = _record(tmp_path)
+    assert rec["status"] == "waiting" and rec["waiting_for"] == "clarify" and rec["goal"] == "Does hybrid help?"
+    g.invoke(Command(resume="any audience"), cfg)
+    assert _record(tmp_path)["waiting_for"] == "approve"
+    out = g.invoke(Command(resume={"approved": True}), cfg)
+    rec = _record(tmp_path)
+    assert rec["status"] == "done" and rec["report_path"] == out["report_path"] and rec["waiting_for"] is None
+    assert rec["progress"]["questions_done"] == 1 and rec["progress"]["questions_total"] == 1
+    assert rec["progress"]["sections_done"] == rec["progress"]["sections_total"]
+    texts = [e["text"] for e in rec["events"]]
+    assert any(t.startswith("Plan:") for t in texts) and "Report saved" in texts
+    assert not (tmp_path / "vault" / ".runs" / "t.evidence.json").exists()      # partial evidence cleaned up
+
+
+def test_a_failed_run_is_recorded_with_its_reason(flow, monkeypatch):
+    g, cfg, _, tmp_path = flow
+    to_first_plan(g, cfg)
+
+    def boom(*a, **k):
+        raise RuntimeError("the model fell over")
+
+    monkeypatch.setattr(deep_report, "gather_evidence", boom)
+    with pytest.raises(RuntimeError):
+        g.invoke(Command(resume={"approved": True}), cfg)
+    rec = _record(tmp_path)
+    assert rec["status"] == "failed" and "fell over" in rec["error"] and rec["step"] == "research"
+
+
+def test_a_retry_resumes_after_the_questions_already_finished(flow, monkeypatch):
+    g, cfg, _, tmp_path = flow
+    to_first_plan(g, cfg)
+    from research_assistant import runlog
+    log = runlog.RunLog(str(tmp_path / "vault"), "t")
+    seen = {}
+    real = deep_report.gather_evidence
+
+    def spy(*a, **k):
+        seen["resume"] = k.get("resume")
+        return real(*a, **k)
+
+    log.save_partial(1, [{"id": "E1", "claim": "Hybrid retrieval reached 0.78 recall",
+                          "quote": "Hybrid retrieval reached 0.78 recall", "source": "Hybrid Retrieval Guide",
+                          "heading": "", "sub_questions": [0]}])
+    monkeypatch.setattr(deep_report, "gather_evidence", spy)
+    g.invoke(Command(resume={"approved": True}), cfg)
+    assert seen["resume"][0] == 1 and seen["resume"][1][0].id == "E1"
+
+
+# ---- discover -> review -> collect (the source-collector steps) ------------------------------------------
+
+def _cand(i, score):
+    c = goal_graph.collector._web_candidate(goal_graph.collector.Hit(f"Page {i}", f"https://s{i}.example/p", "x"), "q")
+    c.relevance = score
+    return goal_graph.collector.to_dict(c, 0)
+
+
+def test_the_run_pauses_to_show_candidates_and_collects_only_the_chosen(flow, monkeypatch):
+    g, cfg, _, tmp_path = flow
+    cands = [_cand(1, 3), _cand(2, 2), _cand(3, 1)]
+    monkeypatch.setattr(goal_graph.collector, "discover", lambda *a, **k: cands)
+    got = {}
+
+    def fake_collect(todo, store, fx, **kw):
+        got["titles"] = [c.title for c in todo]
+        return {"saved": 0, "pages": 0, "papers": 0, "skipped": 0, "failed": 0, "folder": ""}
+
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", fake_collect)
+    cfg = {"configurable": {**cfg["configurable"], "collect_sources": True}}
+    g.invoke({"goal": "Does hybrid help?"}, cfg)
+    g.invoke(Command(resume="any audience"), cfg)
+    shown = interrupt_value(g.invoke(Command(resume={"approved": True}), cfg))
+    assert shown["type"] == "review_sources" and [c["title"] for c in shown["candidates"]] == ["Page 1", "Page 2", "Page 3"]
+    rec = _record(tmp_path)
+    assert rec["status"] == "waiting" and rec["waiting_for"] == "review"
+    out = g.invoke(Command(resume={"selected": [cands[1]["id"], "web:not-offered", cands[1]["id"]]}), cfg)
+    assert got["titles"] == ["Page 2"]                       # an id that was never offered is ignored; no duplicates
+    assert out["report_path"]
+
+
+def test_an_unreadable_choice_is_asked_again_then_collects_nothing(flow, monkeypatch):
+    g, cfg, _, _ = flow
+    monkeypatch.setattr(goal_graph.collector, "discover", lambda *a, **k: [_cand(1, 3)])
+    calls = []
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", lambda todo, *a, **k: calls.append(todo) or {
+        "saved": 0, "pages": 0, "papers": 0, "skipped": 0, "failed": 0, "folder": ""})
+    cfg = {"configurable": {**cfg["configurable"], "collect_sources": True}}
+    g.invoke({"goal": "g"}, cfg)
+    g.invoke(Command(resume=""), cfg)
+    g.invoke(Command(resume={"approved": True}), cfg)
+    again = interrupt_value(g.invoke(Command(resume="yes all of them"), cfg))
+    assert "Not understood" in again["error"]
+    g.invoke(Command(resume=["still wrong"]), cfg)
+    assert calls == []                                        # nothing was collected
+
+
+def test_with_review_off_everything_above_the_minimum_is_collected(flow, monkeypatch):
+    g, cfg, _, _ = flow
+    monkeypatch.setattr(goal_graph.collector, "discover", lambda *a, **k: [_cand(1, 3), _cand(2, 2)])
+    got = {}
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", lambda todo, *a, **k: got.update(t=[c.title for c in todo]) or {
+        "saved": 0, "pages": 0, "papers": 0, "skipped": 0, "failed": 0, "folder": ""})
+    cfg = {"configurable": {**cfg["configurable"], "collect_sources": True, "collect_review": False}}
+    g.invoke({"goal": "g"}, cfg)
+    g.invoke(Command(resume=""), cfg)
+    out = g.invoke(Command(resume={"approved": True}), cfg)
+    assert got["t"] == ["Page 1"] and out["report_path"]     # default minimum relevance is 3
+
+
+def test_discovery_failure_never_stops_the_run(flow, monkeypatch):
+    g, cfg, _, tmp_path = flow
+
+    def boom(*a, **k):
+        raise RuntimeError("search engine blocked us")
+
+    monkeypatch.setattr(goal_graph.collector, "discover", boom)
+    cfg = {"configurable": {**cfg["configurable"], "collect_sources": True}}
+    g.invoke({"goal": "g"}, cfg)
+    g.invoke(Command(resume=""), cfg)
+    out = g.invoke(Command(resume={"approved": True}), cfg)     # no review pause: nothing was found
+    assert out["report_path"]
+    assert any("Source search failed" in e["text"] for e in _record(tmp_path)["events"])
+
+
+def test_nothing_is_searched_unless_fetching_is_switched_on(flow, monkeypatch):
+    g, cfg, _, _ = flow
+
+    def boom(*a, **k):
+        raise AssertionError("must not search")
+
+    monkeypatch.setattr(goal_graph.collector, "discover", boom)
+    g.invoke({"goal": "g"}, cfg)
+    g.invoke(Command(resume=""), cfg)
+    assert g.invoke(Command(resume={"approved": True}), cfg)["report_path"]
+
+
+# ---- per-run options survive the pauses; Stop reaches a running call ---------------------------------------
+
+def test_options_sent_only_with_the_first_call_still_apply_after_each_pause(flow, monkeypatch):
+    """The dashboard sends collect_sources / seed_urls only when it starts the run; every resume carries no config."""
+    g, cfg, _, _ = flow
+    searched = []
+
+    def fake_discover(questions, **k):
+        searched.append(questions)
+        return [_cand(1, 3)]
+
+    monkeypatch.setattr(goal_graph.collector, "discover", fake_discover)
+    got = {}
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", lambda todo, *a, **k: got.update(t=[c.url for c in todo]) or {
+        "saved": 0, "pages": 0, "papers": 0, "skipped": 0, "failed": 0, "folder": ""})
+    start = {"configurable": {**cfg["configurable"], "collect_sources": True, "seed_urls": "https://seed.example/a"}}
+    resume = {"configurable": dict(cfg["configurable"])}              # what a resume really carries: no options
+    g.invoke({"goal": "Does hybrid help?"}, start)
+    g.invoke(Command(resume="any audience"), resume)
+    shown = interrupt_value(g.invoke(Command(resume={"approved": True}), resume))
+    assert searched and shown["type"] == "review_sources"           # the checkbox was remembered
+    g.invoke(Command(resume={"selected": [shown["candidates"][0]["id"]]}), resume)
+    assert "https://seed.example/a" in got["t"]                     # and so were the seed URLs
+
+
+def test_stop_ends_a_run_without_marking_it_failed(flow, monkeypatch):
+    from research_assistant import runlog
+    g, cfg, _, tmp_path = flow
+    to_first_plan(g, cfg)
+    log = runlog.RunLog(str(tmp_path / "vault"), "t")
+    real = deep_report.gather_evidence
+
+    def stop_then_ask(*a, **k):
+        log._mutate(lambda d: d.update(status="stopped"))           # what the dashboard's Stop button does
+        return real(*a, **k)
+
+    monkeypatch.setattr(deep_report, "gather_evidence", stop_then_ask)
+    with pytest.raises(deep_report.RunStopped):
+        g.invoke(Command(resume={"approved": True}), cfg)
+    assert runlog.read_run(str(tmp_path / "vault"), "t")["status"] == "stopped"      # not "failed"
+    deep_report.set_stop_check(None)

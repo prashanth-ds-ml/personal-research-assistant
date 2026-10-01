@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { History, PlusCircle, User, Sparkles, Telescope } from "lucide-react";
+import { Activity, FileText, PlusCircle, User, Sparkles, Telescope } from "lucide-react";
 
 const NAV_LINKS = [
-  { href: "/", label: "History", icon: History },
+  { href: "/", label: "Reports", icon: FileText },
+  { href: "/runs", label: "Runs", icon: Activity },
   { href: "/new", label: "New", icon: PlusCircle },
   { href: "/deep", label: "Deep", icon: Telescope },
   { href: "/profile", label: "Profile", icon: User },
@@ -24,7 +25,10 @@ export function MobileNav() {
       </div>
       <nav className="flex gap-1">
         {NAV_LINKS.map((link) => {
-          const active = pathname === link.href;
+          const active =
+            link.href === "/"
+              ? pathname === "/" || pathname.startsWith("/research")
+              : pathname === link.href || pathname.startsWith(`${link.href}/`);
           const Icon = link.icon;
           return (
             <Link

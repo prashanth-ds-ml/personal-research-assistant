@@ -17,6 +17,7 @@ so the whole pipeline is testable offline with a fake.
 
 import json
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -24,7 +25,73 @@ LLM = Callable[..., str]
 
 
 LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0}
-LLM_TIMEOUT = 300          # seconds for one model call: a hung Ollama must fail, not block the run forever
+LLM_TIMEOUT = 300          # seconds Ollama may stay silent: a hung server must fail, not block the run forever
+CALL_DEADLINE = 240        # wall-clock seconds for one call however many tokens keep arriving (a read timeout alone
+                           # never fires on a streaming response: every token resets it)
+JSON_MAX_TOKENS = 1_200    # the longest JSON answer any step needs (a batch of facts)
+TEXT_MAX_TOKENS = 2_500    # the longest prose answer (a section)
+CHARS_PER_TOKEN = 5        # generous: a stream longer than max_tokens * this is not an answer
+
+
+class RunStopped(Exception):
+    """The user stopped the run. Not an error: it is never retried and never reported as a failure."""
+
+
+STOP = {"check": None}   # set per run by the graph: a zero-argument function that says whether to stop
+
+
+def set_stop_check(fn) -> None:
+    STOP["check"] = fn
+
+
+def _stopped() -> bool:
+    fn = STOP["check"]
+    return bool(fn and fn())
+
+
+class RunawayGeneration(RuntimeError):
+    """The model kept generating without finishing: repeating itself, far too long, or past its deadline."""
+
+
+def _loops(tail: str) -> bool:
+    """True when the end of the output is one chunk (1-200 characters) repeated back to back for at least 80
+    characters and four repeats: a model stuck in a loop, typically newlines or the same phrase. The 80-character
+    floor keeps ordinary runs such as a table rule (|---|---|) from counting."""
+    for period in range(1, 201):
+        span = max(4 * period, 80)
+        if len(tail) < span:
+            break
+        unit = tail[-period:]
+        if tail[-span:] == (unit * (span // period + 1))[-span:]:
+            return True
+    return False
+
+
+def consume(chunks, max_chars: int, deadline_s: float, clock=time.monotonic, should_stop=None) -> str:
+    """Join a stream of text pieces, stopping a runaway. Raises RunawayGeneration when the output loops, grows past
+    ``max_chars`` or runs longer than ``deadline_s``; the stream is closed so the server stops generating."""
+    start, parts, total, tail = clock(), [], 0, ""
+    last_check = start
+    try:
+        for piece in chunks:
+            if should_stop and clock() - last_check >= 2.0:       # look for a Stop request every couple of seconds
+                last_check = clock()
+                if should_stop():
+                    raise RunStopped()
+            parts.append(piece)
+            total += len(piece)
+            tail = (tail + piece)[-1_000:]
+            if _loops(tail):
+                raise RunawayGeneration("the output was repeating itself")
+            if total > max_chars:
+                raise RunawayGeneration(f"the output passed {max_chars} characters without finishing")
+            if clock() - start > deadline_s:
+                raise RunawayGeneration(f"the call ran longer than {deadline_s:.0f} s")
+    finally:
+        close = getattr(chunks, "close", None)
+        if callable(close):
+            close()
+    return "".join(parts)
 
 
 class ModelUnavailable(RuntimeError):
@@ -67,10 +134,14 @@ def resilient(raw: Callable[[str, bool, int], str], retries: int = 2) -> LLM:
     / "empty section" rather than crashing.
     """
     def call(prompt: str, json_mode: bool = False) -> str:
+        if _stopped():
+            raise RunStopped()
         LLM_STATS["calls"] += 1
         for attempt in range(retries + 1):
             try:
                 return raw(prompt, json_mode, attempt)
+            except RunStopped:
+                raise
             except Exception as e:
                 print(f"Warning: LLM call failed (attempt {attempt + 1}/{retries + 1}): {str(e)[:120]}")
                 if attempt < retries:
@@ -88,10 +159,13 @@ def ollama_llm(model: str, base_url: str = "http://localhost:11434", temperature
     def raw(prompt: str, json_mode: bool, attempt: int) -> str:
         # Each retry samples hotter and penalises repetition harder, which is what
         # breaks the degenerate loops that trigger Ollama's repeat-limit abort.
+        max_tokens = JSON_MAX_TOKENS if json_mode else TEXT_MAX_TOKENS
         chat = ChatOllama(model=model, base_url=base_url, temperature=temperature + 0.2 * attempt,
-                          repeat_penalty=1.0 + 0.1 * attempt, num_ctx=num_ctx,
+                          repeat_penalty=1.0 + 0.1 * attempt, num_ctx=num_ctx, num_predict=max_tokens,
                           format="json" if json_mode else None, client_kwargs={"timeout": LLM_TIMEOUT})
-        return chat.invoke(prompt).content
+        # Stream, so a model that never stops can be cut off (invoke() would wait for the whole generation).
+        stream = (str(c.content) for c in chat.stream(prompt))
+        return consume(stream, max_chars=max_tokens * CHARS_PER_TOKEN, deadline_s=CALL_DEADLINE, should_stop=_stopped)
 
     return resilient(raw)
 
@@ -452,14 +526,22 @@ def retrieve(question: str, search: Callable[[str], list[dict]], llm: LLM | None
 
 def gather_evidence(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
                     on_progress: Callable[[str], None] = lambda s: None,
-                    query_llm: LLM | None = None, k: int = 8, per_doc: int = 3) -> list[Evidence]:
-    evidence: list[Evidence] = []
-    by_quote: dict[str, Evidence] = {}
-    claim_words: list[set[str]] = []          # parallel to `evidence`
+                    query_llm: LLM | None = None, k: int = 8, per_doc: int = 3,
+                    resume: tuple[int, list[Evidence]] | None = None,
+                    on_question_done: Callable[[int, int, list[Evidence]], None] | None = None) -> list[Evidence]:
+    """Facts for every sub-question. ``resume`` = (questions already done, their evidence) continues a run that
+    stopped part-way; ``on_question_done(done, total, evidence)`` is called after each question so the caller can save
+    progress (a failure at question 4 then keeps questions 1-3)."""
+    start_q, evidence = (resume[0], list(resume[1])) if resume else (0, [])
+    by_quote: dict[str, Evidence] = {_norm(e.quote): e for e in evidence}
+    claim_words: list[set[str]] = [set(re.findall(r"\w+", e.claim.lower())) for e in evidence]   # parallel to `evidence`
     merged = 0
+    total = len(plan.sub_questions)
     for qi, q in enumerate(plan.sub_questions):
+        if qi < start_q:
+            continue
         hits = retrieve(q, search, query_llm, k=k, per_doc=per_doc)
-        on_progress(f"Q{qi + 1}/{len(plan.sub_questions)}: {len(hits)} passages -> {q}")
+        on_progress(f"Q{qi + 1}/{total}: {len(hits)} passages -> {q}")
         for hit in hits:
             for f in extract_facts(q, hit, llm):
                 key = _norm(f["quote"])
@@ -479,6 +561,8 @@ def gather_evidence(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
                 by_quote[key] = ev
                 evidence.append(ev)
                 claim_words.append(words)
+        if on_question_done:
+            on_question_done(qi + 1, total, evidence)
     on_progress(f"Merged {merged} repeated facts")
     return evidence
 

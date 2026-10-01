@@ -140,7 +140,7 @@ def test_unchanged_folder_is_a_cheap_noop_and_can_be_switched_off(wired, monkeyp
     second = goal_graph.refresh_library(state, base)["library_update"]
     assert first["added"] == 1 and second["added"] == 0
     off = {"configurable": {**base["configurable"], "auto_ingest": False}}
-    assert goal_graph.refresh_library(state, off) == {"library_update": {}}
+    assert goal_graph.refresh_library(state, off)["library_update"] == {}
 
 
 def test_ingest_failure_never_blocks_the_run(wired, monkeypatch):
@@ -175,21 +175,30 @@ def test_collect_is_skipped_unless_asked_for(wired, monkeypatch):
     assert goal_graph.collect(_plan_state(), cfg) == {}                     # default: off, no seeds
 
 
+def _picked_state():
+    """A plan plus one candidate the user ticked in the review step."""
+    cand = goal_graph.collector._web_candidate(
+        goal_graph.collector.Hit("A useful page", "https://a.example/p", "snippet"), "Does hybrid help?")
+    cand.relevance = 3
+    return {**_plan_state(), "candidates": [goal_graph.collector.to_dict(cand, 0)],
+            "selected_ids": [f"web:{cand.id}"]}
+
+
 def test_collect_saves_then_indexes_so_the_same_run_can_cite_the_new_sources(wired, monkeypatch):
     _, cfg, _, tmp_path = wired
     kb = goal_graph.open_kb(None)
 
-    def fake_collect(questions, store, fx, llm, **kw):
-        assert questions == ["Does hybrid help?"] and kw["max_sources"] == 10
+    def fake_collect(todo, store, fx, **kw):
+        assert [c.title for c in todo] == ["A useful page"] and kw["max_sources"] == 10
         store.dir.mkdir(parents=True, exist_ok=True)
         (store.dir / "new.md").write_text("# New\n\nReranking lifted BM25 recall to 0.91 in our test.")
         (store.dir / "raw").mkdir()
         (store.dir / "raw" / "new.pdf").write_bytes(b"%PDF")              # original must NOT be indexed too
-        return {"saved": 1, "skipped": 0, "failed": 0, "folder": str(store.dir)}
+        return {"saved": 1, "pages": 1, "papers": 0, "skipped": 0, "failed": 0, "folder": str(store.dir)}
 
-    monkeypatch.setattr(goal_graph.fetcher, "collect", fake_collect)
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", fake_collect)
     cfg["configurable"].update(collect_sources=True)
-    out = goal_graph.collect(_plan_state(), cfg)
+    out = goal_graph.collect(_picked_state(), cfg)
     assert out["collect_report"]["saved"] == 1
     paths = [r[0] for r in kb.db.execute("SELECT path FROM docs").fetchall()]
     assert any(p.startswith("Library/") and p.endswith("new.md") for p in paths)
@@ -198,21 +207,26 @@ def test_collect_saves_then_indexes_so_the_same_run_can_cite_the_new_sources(wir
 
 def test_collect_failure_is_reported_not_raised(wired, monkeypatch):
     _, cfg, _, _ = wired
-    monkeypatch.setattr(goal_graph.fetcher, "collect", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("network down")))
+
+    def boom(*a, **k):
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", boom)
     cfg["configurable"].update(collect_sources=True)
-    assert "network down" in goal_graph.collect(_plan_state(), cfg)["collect_report"]["error"]
+    assert "network down" in goal_graph.collect(_picked_state(), cfg)["collect_report"]["error"]
 
 
 def test_seed_urls_alone_trigger_collect_and_bad_entries_are_ignored(wired, monkeypatch):
     _, cfg, _, _ = wired
     got = {}
 
-    def fake_collect(questions, store, fx, llm, **kw):
-        got.update(questions=questions, seeds=kw["seeds"])
-        return {"saved": 0, "skipped": 0, "failed": 0, "folder": ""}
+    def fake_collect(todo, store, fx, **kw):
+        got["urls"] = [c.url for c in todo]
+        got["sources"] = {c.source for c in todo}
+        return {"saved": 0, "pages": 0, "papers": 0, "skipped": 0, "failed": 0, "folder": ""}
 
-    monkeypatch.setattr(goal_graph.fetcher, "collect", fake_collect)
+    monkeypatch.setattr(goal_graph.collector, "collect_selected", fake_collect)
     cfg["configurable"].update(seed_urls="https://a.example/x; not-a-url\nhttps://b.example/y.pdf")
     goal_graph.collect(_plan_state(), cfg)
-    assert got["seeds"] == ["https://a.example/x", "https://b.example/y.pdf"]
-    assert got["questions"] == []                   # seeds only: no searching unless collect_sources is on
+    assert got["urls"] == ["https://a.example/x", "https://b.example/y.pdf"]
+    assert got["sources"] == {"seed"}               # seeds only: nothing was searched for or chosen

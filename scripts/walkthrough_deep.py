@@ -26,6 +26,10 @@ def main():
     ap.add_argument("goal")
     ap.add_argument("--api", default="http://localhost:3001/api")
     ap.add_argument("--feedback", default="add a section on cost and operational effort")
+    ap.add_argument("--fetch-web", action="store_true",
+                    help="tick 'find and collect new sources' (sent only on the first call, like the dashboard) and "
+                         "pick the best candidates at the review pause")
+    ap.add_argument("--max-pick", type=int, default=3, help="with --fetch-web: collect at most this many candidates")
     ap.add_argument("--plan-only", action="store_true", help="stop after the revised plan (fast check of planning)")
     a = ap.parse_args()
     t0 = time.time()
@@ -46,7 +50,10 @@ def main():
         intr = out.get("__interrupt__") if isinstance(out, dict) else None
         return intr[0]["value"] if intr else None
 
-    out = run({"input": {"goal": a.goal}})
+    first = {"input": {"goal": a.goal}}
+    if a.fetch_web:
+        first["config"] = {"configurable": {"collect_sources": True}}
+    out = run(first)
     q = interrupt_of(out)
     assert q and q["type"] == "clarify", f"expected clarify interrupt, got {json.dumps(out)[:300]}"
     pretty("PAUSE 1 clarify:", t0, json.dumps(q["questions"]))
@@ -72,6 +79,17 @@ def main():
         return 0
     pretty("approving; extraction + writing starts (takes several minutes)", t0)
     out = run({"command": {"resume": {"approved": True}}})
+    review = interrupt_of(out)
+    if review and review["type"] == "review_sources":
+        cands = review["candidates"]
+        pretty(f"PAUSE 3 sources: {len(cands)} candidates", t0,
+               " | ".join(f"{d['kind']}:{d['score']}:{d['site']}" for d in cands[:12]))
+        chosen = [d["id"] for d in sorted(cands, key=lambda d: -d["score"]) if d["score"] >= review["min_relevance"]]
+        chosen = chosen[: a.max_pick]
+        pretty(f"collecting {len(chosen)} of them", t0, str(chosen))
+        out = run({"command": {"resume": {"selected": chosen}}})
+    elif a.fetch_web:
+        pretty("WARNING: no review pause appeared although --fetch-web was set", t0)
     assert "__interrupt__" not in out, f"unexpected pause: {json.dumps(out)[:300]}"
     path = out.get("report_path")
     pretty("DONE:", t0, f"stats={out.get('stats')} report={path}")

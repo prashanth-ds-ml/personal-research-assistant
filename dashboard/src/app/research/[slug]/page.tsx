@@ -26,7 +26,7 @@ export default async function ResearchNotePage({
         className="flex w-fit items-center gap-1.5 text-sm text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        Back to history
+        Back to reports
       </Link>
 
       <div className="flex flex-col gap-3 border-b border-border pb-6">

@@ -14,6 +14,10 @@ export interface ResearchNote {
   loops: number;
   sourcesCount: number;
   status: string;
+  /** "deep-research" for goal-driven reports, "research" for quick notes. */
+  kind: string;
+  words: number;
+  evidence: number;
   content: string;
   mtimeMs?: number;
   feedbackRating?: "up" | "down";
@@ -64,6 +68,9 @@ function toNote(slug: string, raw: string, mtimeMs?: number): ResearchNote {
     loops: typeof data.loops === "number" ? data.loops : 0,
     sourcesCount: typeof data.sources_count === "number" ? data.sources_count : 0,
     status: typeof data.status === "string" ? data.status : "unknown",
+    kind: typeof data.kind === "string" && data.kind ? data.kind : "research",
+    words: typeof data.words === "number" ? data.words : 0,
+    evidence: typeof data.evidence === "number" ? data.evidence : 0,
     content,
     mtimeMs,
     ...feedbackOf(data),
