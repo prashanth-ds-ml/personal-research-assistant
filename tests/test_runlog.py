@@ -132,3 +132,21 @@ def test_add_and_remove_requests_still_work():
     assert d._notes_intent("drop the history of RAG")[0] == "remove"
     plan = d.Plan(goal="g", title="T", sub_questions=["q1"], outline=[{"title": "S", "questions": [0]}])
     assert any("Cost" in s["title"] for s in d.enforce_notes(plan, "add a section on cost").outline)
+
+
+# ---- a plan always ends with the recommendations section -------------------------------------------
+
+def test_a_plan_always_ends_with_a_synthesis_section():
+    outline = [{"title": "A", "questions": [0], "brief": "a"}, {"title": "B", "questions": [1], "brief": "b"}]
+    llm = lambda prompt, json_mode=False: json.dumps({"title": "T", "sub_questions": ["q1", "q2"], "outline": outline})  # noqa: E731
+    plan = d.make_plan("goal", llm)
+    assert plan.outline[-1]["synthesis"] is True and plan.outline[-1]["questions"] == []
+    assert [s["title"] for s in plan.outline[:2]] == ["A", "B"] and not plan.outline[0]["synthesis"]
+    assert sorted(i for s in plan.outline for i in s["questions"]) == [0, 1]    # every question still in one section
+
+
+def test_a_model_supplied_synthesis_section_is_not_duplicated():
+    outline = [{"title": "A", "questions": [0, 1], "brief": "a"}, {"title": "Recommendations", "questions": [], "brief": "r"}]
+    llm = lambda prompt, json_mode=False: json.dumps({"title": "T", "sub_questions": ["q1", "q2"], "outline": outline})  # noqa: E731
+    plan = d.make_plan("goal", llm)
+    assert [s["title"] for s in plan.outline] == ["A", "Recommendations"] and plan.outline[-1]["synthesis"]

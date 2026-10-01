@@ -249,7 +249,7 @@ the user's ticking is the real quality filter. An optional domain allow-list (WH
 covers high-stakes topics. The pause can be switched off for unattended runs.
 
 ## A streaming model call can never time out, so one bad call hung a whole run
-(Found 2026-10-01 from a real run; fix designed, not yet built.)
+(Found 2026-10-01 from a real run; **fixed the same day**, see the end of this entry.)
 
 LangSmith showed a deep-research run as "incomplete". The cause was not LangSmith: the run had sat for about
 1.5 hours inside one model call in the `research` step. Ollama's log showed a single request that had generated
@@ -275,3 +275,30 @@ GuideLLM (performance only, no quality, no cost); capacity and cost by calculato
 "Runs inside the customer's environment" is therefore not a differentiator. No single tool was found that joins
 measured quality, measured speed and cost into one recommendation, but the search was limited. Decision: do not build
 a new eval engine; run a model-selection study inside project 6 with the existing tools and publish one report.
+
+### Fix, and what the fix turned up (2026-10-01)
+- Model calls now stream through `consume()`, which stops one that repeats itself (any 1-200 character unit repeated
+  for 80+ characters), passes a character cap, runs past 240 s, or after Stop; output is also capped with `num_predict`
+  (1,200 tokens for JSON, 2,500 for prose). A stopped or runaway call is retried (runaway) or ends the run (stop).
+- Every run writes a record to `<vault>/.runs/<thread id>.json` (`runlog.py`): step, counters, activity log, outcome.
+  The dashboard's Runs page and live view read it, and also ask the backend whether the thread still exists, so a
+  record that says "running" is shown as stopped, lost or possibly stuck when it is not. Evidence is also saved after
+  every question, and a retry resumes after the last finished one.
+- **Stop is cooperative.** Cancelling a LangGraph run does not interrupt a node that is running in a worker thread: it
+  keeps going (and kept the GPU busy) until the step ends. The dashboard's Stop now also writes `stopped` into the
+  run record; every model call and the streaming loop check it, so a run stops within a few seconds (measured: 21 s
+  to a fully idle Ollama).
+- **Per-run options were being lost.** The dashboard sends `collect_sources` and `seed_urls` only with the call that
+  starts a run; each resume after a pause carries no config, so those settings silently reverted to their defaults and
+  the "fetch new sources" checkbox did nothing since it was added. Found because the new discover step finished
+  instantly with no search. They are now stored in the run's state when it starts (`options`) and read from there.
+- **Threads survive a backend restart.** `langgraph dev` saves its state to `.langgraph_api/` and restores it, so
+  paused runs were not lost when the backend was restarted (an earlier note here and in the session said they were:
+  wrong). What persisted is invisible on the Runs page unless a record exists, so `scripts/backfill_runs.py` creates
+  records for threads that predate run records. A thread that was busy when its server was killed stays marked busy
+  (a ghost); the record for it says stopped.
+- **A plan always ends with a recommendations section.** It used to exist only if the model left its last section with
+  no questions; otherwise the report had no recommendations. `make_plan` now appends one when the model did not.
+- **Feedback that steers is not a topic.** "Keep it focused on X" and "make it shorter" were turned into a new
+  section and a research question. Such notes (keep, make, stay, be, use, prefer, avoid, shorten, lengthen,
+  simplify) are now passed to the planner and not enforced as sections.

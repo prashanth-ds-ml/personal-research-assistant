@@ -212,15 +212,23 @@ The library and your feedback are what make it better over time; no retraining i
   `Library/` holds your PDFs and anything the fetcher saves. At the start of every deep-research run
   the assistant indexes any new or changed files in both (unchanged files are skipped by hash, so
   it is free when nothing changed): drop a PDF into `Library/`, start a run, and it is searchable.
-- **Optional source fetching.** Tick *Fetch new open-access papers first* on the Deep Research page
-  (or run `python scripts/collect.py "<question>"`). After you approve the plan it searches arXiv
-  and Europe PMC (official APIs; arXiv paced at one request per 3 seconds; Europe PMC open-access
-  full text only), has the local model score each candidate 0-3 *before* downloading, keeps only the
-  ones that directly answer the question (score 3; configurable, since a looser bar lets tangential
-  papers into the library for good) with provenance (source, date, question, licence note) in `Library/<date>-<goal>/`,
-  keeps the original PDFs in `raw/`, writes a `manifest.json` listing every candidate and why it was
-  kept or skipped, and never saves the same paper twice. You can also paste page or PDF URLs
-  (robots.txt is honoured; login/paywalled pages are skipped). It is not a general crawler.
+- **Optional source collecting.** Tick *Find and collect new sources first* on the Deep Research page
+  (or run `python scripts/collect.py "<question>"` for papers only). After you approve the plan, a collector
+  searches the web (DuckDuckGo, or your own SearXNG), arXiv and Europe PMC for each question, one question
+  after another, and has the local model score every result 0-3. The run then **pauses and shows you the
+  list**: titles, sites, relevance, page or paper. Nothing is downloaded yet. You tick what you want, and
+  the chosen ones are fetched one at a time (robots.txt honoured, public addresses only, login or paywalled
+  pages skipped, arXiv paced at one request per 3 seconds), converted to markdown (web pages with
+  trafilatura, PDFs with Docling) and saved with provenance in `Library/<date>-<goal>/`, with a
+  `manifest.json` that says why anything was skipped. They are indexed immediately so the same run can cite
+  them. Never the same source twice. Limit it to trusted sites with `COLLECT_ALLOW_DOMAINS`
+  (for example `who.int;cdc.gov;*.gov.in`). Web pages are less reliable than papers, and the report's
+  Limitations section says how many of each were used. You can also paste page or PDF URLs to add first.
+- **Watching a run.** The **Runs** page lists every deep-research run (also ones that are waiting for you,
+  stopped or failed) and the run page shows live progress: the stage, questions answered, facts kept,
+  sections written, and an activity log. Each run is recorded in `<vault>/.runs/`, so it still shows after
+  a backend restart. **Stop** ends a run within seconds, even in the middle of a model call.
+  The **Reports** page lists finished reports (Deep / Quick filter).
 - **One-click feedback.** Each report page asks *Was this report useful?* (plus an optional note).
   The rating is stored in the report's own frontmatter, and the planner is told about your last five
   ratings next time ("the report X was not useful: too generic, wanted numbers").

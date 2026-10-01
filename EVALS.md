@@ -221,3 +221,12 @@ added as distractors.
 Hybrid still wins at every cutoff and keeps recall@6 at 96%. Top-rank precision
 drops a few points as the library grows, which is why the pipeline retrieves 6-8
 passages per question instead of trusting the first hit.
+
+## Live run with web collecting (2026-10-01)
+Goal: "What do practitioners recommend for chunking documents in RAG systems?" with *Find and collect new sources first*.
+Discovery found 40 candidates in about 150 s (web pages and papers from arXiv and Europe PMC); 3 were chosen, 1 returned HTTP 403
+and was skipped, 2 papers were saved and indexed; research then used the library of 100 documents. Result: 7 questions, 6
+sections, 45 verified facts, 3,241 words, 5 distinct sources cited, 1 section without evidence, 0 model retries, 123 model
+calls, about 13 minutes in total. One run, one goal: it shows the pipeline works end to end, not that web pages improve
+reports. The candidate list included low-quality sites (forums, social posts), which is why the review step and
+`COLLECT_ALLOW_DOMAINS` exist.

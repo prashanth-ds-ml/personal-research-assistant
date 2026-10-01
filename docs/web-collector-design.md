@@ -1,6 +1,13 @@
 # Web collector - design (not built yet)
 
-Status: **designed 2026-10-01, ready to build.** This is the last planned piece of project 4.
+Status: **built 2026-10-01** (`src/research_assistant/collector.py`, tests in `tests/test_collector.py`, graph steps
+`discover` -> `review` -> `collect`, dashboard review card on `/deep`). Live-tested on a real goal: 40 candidates
+found in about 2.5 minutes, 3 chosen, 2 saved and indexed, report written.
+
+Differences from the design below: seed URLs are collected through the same sequential path (as `seed` candidates);
+the candidate list is capped per question (an equal share of the total) so early questions cannot use it all up;
+per-run options are saved in the run's state (the dashboard sends them only with the first call; resumes carry
+none); `scripts/collect.py` still collects papers only (no `--web` yet). Not built: recursive crawling inside a site.
 Decision record: see "The web collector is one agent, and we write our own fetching" in `DECISIONS.md`.
 
 ## 1. Problem

@@ -415,6 +415,8 @@ def make_plan(goal: str, llm: LLM, notes: str = "", lessons: str = "") -> Plan:
         sec["synthesis"] = False
     if len(outline) > 1 and not outline[-1]["questions"]:
         outline[-1]["synthesis"] = True
+    else:                                    # the model gave every section questions: a plan still ends with recommendations
+        outline.append({**SYNTHESIS_SECTION, "questions": [], "synthesis": True})
     orphans = [i for i in range(len(qs)) if i not in claimed]
     if orphans:
         target = next((sec for sec in reversed(outline) if not sec["synthesis"]), outline[-1])

@@ -102,7 +102,7 @@ almost no text is treated as scanned and converted again with OCR automatically.
 | Job killed / machine unresponsive during long runs | Memory pressure (Docling + models + other apps) | Close heavy apps; run models one at a time; `ollama stop <model>` between stages; Docker Desktop idle costs about 1 GB |
 | Ollama "connection attempt failed" on `/tokenize` mid-run with qwen3:8b | Model server stalled under load | Re-run; prefer llama3.1:8b for extraction, which was the most stable |
 | PDF ingest is very slow | Docling runs on CPU-only PyTorch | Expected (1-4 min/PDF); a CUDA build of PyTorch would speed it up |
-| A section says "No supporting evidence" | The library really has none for that question | Add documents (or tick *Fetch new open-access papers first*), or narrow the goal; this is intentional, the system will not invent |
+| A section says "No supporting evidence" | The library really has none for that question | Add documents (or tick *Find and collect new sources first* and choose from what it finds), or narrow the goal; this is intentional, the system will not invent |
 | Fetcher saved nothing | Every candidate scored under 2, or the sites blocked/limited you | Read `manifest.json` in the run's `Library/` folder: each skip has a reason (relevance, robots.txt, paywall, duplicate, too little text) |
 
 ## Security notes

@@ -109,7 +109,7 @@ def test_can_run_fully_autonomous_without_interrupts(wired):
     g, cfg, _, _ = wired
     cfg["configurable"].update(ask_clarifying_questions=False, require_plan_approval=False)
     out = g.invoke({"goal": "Should we use hybrid retrieval?"}, cfg)
-    assert "__interrupt__" not in out and out["stats"]["sections"] == 1
+    assert "__interrupt__" not in out and out["stats"]["sections"] == 2     # the evidence section + recommendations
 
 
 def test_new_files_are_indexed_at_the_start_of_a_run(wired, monkeypatch):
