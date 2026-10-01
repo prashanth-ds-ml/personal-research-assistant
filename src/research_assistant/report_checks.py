@@ -22,7 +22,9 @@ class Standards:
 
 
 # Text this module writes itself (never labelled or rewritten by later passes).
-GENERATED_MARKERS = ("*The library does not have enough evidence", "*This report cannot give a recommendation")
+GENERATED_MARKERS = ("*The library does not have enough evidence", "*This report cannot give a recommendation",
+                     "*The model failed to write", "*No findings were available", "*No supporting evidence")
+FAILED_MARKER = "*The model failed to write"
 
 
 def is_generated(body: str) -> bool:
@@ -56,10 +58,22 @@ def is_gap_report(supports, standards: Standards) -> bool:
     return bool(items) and sum(s["status"] == "supported" for s in items) / len(items) < standards.min_share
 
 
+def mark_failed(supports: dict, sections: list[tuple[str, str]], outline: list[dict]) -> list[str]:
+    """Sections whose text is the "model failed to write" note: their status becomes "failed" (the evidence existed, the
+    writing did not). Returns their titles."""
+    failed = []
+    for i, (title, body) in enumerate(sections):
+        if i in supports and body.lstrip().startswith(FAILED_MARKER):
+            supports[i]["status"] = "failed"
+            failed.append(title)
+    return failed
+
+
 def status_table(supports: list[dict], standards: Standards) -> str:
     rows = ["| Section | Facts | Documents | Status |", "|---|---|---|---|"]
     for s in supports:
         label = ("supported" if s["status"] == "supported"
+                 else "writing failed (the facts are in the appendix)" if s["status"] == "failed"
                  else f"thin (needs {standards.min_facts} facts from {standards.min_docs} documents)" if s["status"] == "thin"
                  else "no evidence found")
         rows.append(f"| {s['title']} | {s['facts']} | {s['documents']} | {label} |")

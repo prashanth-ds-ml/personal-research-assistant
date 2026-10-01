@@ -28,8 +28,10 @@ LLM = Callable[..., str]
 
 LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0, "off_topic": 0}
 LLM_TIMEOUT = 300          # seconds Ollama may stay silent: a hung server must fail, not block the run forever
-CALL_DEADLINE = 240        # wall-clock seconds for one call however many tokens keep arriving (a read timeout alone
-                           # never fires on a streaming response: every token resets it)
+CALL_DEADLINE = 240        # wall-clock seconds for one short JSON call however many tokens keep arriving (a read
+                           # timeout alone never fires on a streaming response: every token resets it)
+TEXT_DEADLINE = 1_200      # a whole section of prose: on a machine short of memory it can take 10+ minutes and still be
+                           # healthy, so the loop and length checks are the guard, and this is only a last resort
 JSON_MAX_TOKENS = 1_200    # the longest JSON answer any step needs (a batch of facts)
 TEXT_MAX_TOKENS = 2_500    # the longest prose answer (a section)
 CHARS_PER_TOKEN = 5        # generous: a stream longer than max_tokens * this is not an answer
@@ -53,6 +55,10 @@ def _stopped() -> bool:
 
 class RunawayGeneration(RuntimeError):
     """The model kept generating without finishing: repeating itself, far too long, or past its deadline."""
+
+
+class DeadlineExceeded(RunawayGeneration):
+    """A call ran past its wall-clock limit. Not retried: a retry on the same machine meets the same limit."""
 
 
 def _loops(tail: str) -> bool:
@@ -88,7 +94,7 @@ def consume(chunks, max_chars: int, deadline_s: float, clock=time.monotonic, sho
             if total > max_chars:
                 raise RunawayGeneration(f"the output passed {max_chars} characters without finishing")
             if clock() - start > deadline_s:
-                raise RunawayGeneration(f"the call ran longer than {deadline_s:.0f} s")
+                raise DeadlineExceeded(f"the call ran longer than {deadline_s:.0f} s")
     finally:
         close = getattr(chunks, "close", None)
         if callable(close):
@@ -146,6 +152,8 @@ def resilient(raw: Callable[[str, bool, int], str], retries: int = 2) -> LLM:
                 raise
             except Exception as e:
                 print(f"Warning: LLM call failed (attempt {attempt + 1}/{retries + 1}): {str(e)[:120]}")
+                if isinstance(e, DeadlineExceeded):
+                    break
                 if attempt < retries:
                     LLM_STATS["retries"] += 1
         LLM_STATS["gave_up"] += 1
@@ -167,7 +175,7 @@ def ollama_llm(model: str, base_url: str = "http://localhost:11434", temperature
                           format="json" if json_mode else None, client_kwargs={"timeout": LLM_TIMEOUT})
         # Stream, so a model that never stops can be cut off (invoke() would wait for the whole generation).
         stream = (str(c.content) for c in chat.stream(prompt))
-        return consume(stream, max_chars=max_tokens * CHARS_PER_TOKEN, deadline_s=CALL_DEADLINE, should_stop=_stopped)
+        return consume(stream, max_chars=max_tokens * CHARS_PER_TOKEN, deadline_s=CALL_DEADLINE if json_mode else TEXT_DEADLINE, should_stop=_stopped)
 
     return resilient(raw)
 
@@ -881,7 +889,8 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
     valid = {e.id for e in evidence}
     by_id = {e.id: e for e in evidence}
     supports = rc.plan_support(plan.outline, evidence, standards)
-    gap_mode = rc.is_gap_report(supports.values(), standards)
+    failed = rc.mark_failed(supports, sections, plan.outline)
+    gap_mode = rc.is_gap_report(supports.values(), standards) and len(failed) * 2 < len(supports)
     weak = [s for s in supports.values() if s["status"] != "supported"]
 
     sections = [(t, b if rc.is_generated(b) else rc.strip_filler(b)) for t, b in rc.dedupe_sections(sections)]
@@ -889,7 +898,11 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
                                 if sec.get("synthesis") and not rc.is_generated(b)), "")
     warnings: list[str] = []
 
-    if gap_mode:
+    if failed and len(failed) * 2 >= len(supports):
+        summary = (f"The model failed to write {len(failed)} of {len(supports)} sections ({', '.join(failed)}), so this "
+                   "report has no summary or recommendation. The verified facts for those sections are listed in the "
+                   "evidence appendix. This usually means the machine ran out of memory or time: free memory and run again.")
+    elif gap_mode:
         names = [s["title"] for s in supports.values() if s["status"] == "supported"]
         summary = (f"The library does not hold enough evidence to answer this goal, so this report gives no recommendation. "
                    f"{len(names)} of {len(supports)} sections have enough evidence"
@@ -919,11 +932,13 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
     if standards.claim_labels:
         known = rc.evidence_numbers(evidence)
         sections = [(t, b if rc.is_generated(b) else rc.label_text(b, by_id, known)) for t, b in sections]
-        if not gap_mode:
+        if not gap_mode and not (failed and len(failed) * 2 >= len(supports)):
             summary = rc.label_text(summary, by_id, known)
 
     bodies = [b for _, b in sections] + [summary]
     cited = {int(n) for body in bodies for n in re.findall(r"\[E(\d+)\]", body)}
+    failed_questions = {q for s in supports.values() if s["status"] == "failed" for q in s["questions"]}
+    cited |= {int(e.id[1:]) for e in evidence if failed_questions & set(e.sub_questions)}   # their facts go in the appendix
 
     thin = [plan.sub_questions[i] for i in range(len(plan.sub_questions))
             if sum(i in e.sub_questions for e in evidence) < 2]
