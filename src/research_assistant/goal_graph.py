@@ -93,6 +93,18 @@ def open_kb(cfg: Configuration) -> KnowledgeBase:
                          embedding_model=cfg.embedding_model)
 
 
+def library_search(kb: KnowledgeBase, cfg: Configuration, k: int = 6):
+    """The search function deep research uses. The quick assistant archives what it found into Sources/. Real web pages
+    there are good evidence, but copies of your own local documents (doc:// pages) are not web sources and only repeat
+    files already in the library, so those are left out unless the user asked for them."""
+    prefix = f"{cfg.sources_subdir}/"
+
+    def skip(path: str, source_kind: str) -> bool:
+        return not cfg.include_archived_pages and path.startswith(prefix) and source_kind in ("document", "")
+
+    return lambda q: kb.search(q, k=k, skip=skip)
+
+
 def library_folders(cfg: Configuration) -> list[Path]:
     """Configured folders (or <vault>/Sources and <vault>/Library), existing ones only."""
     if cfg.library_folders.strip():
@@ -403,9 +415,13 @@ def research(state: DeepState, config: RunnableConfig) -> dict:
 
     with open_kb(cfg) as kb:
         ev = deep_report.gather_evidence(
-            plan_, lambda q: kb.search(q, k=6), llms["extractor"], on_progress=note,
+            plan_, library_search(kb, cfg), llms["extractor"], on_progress=note,
             query_llm=llms["planner"], k=cfg.docs_retrieval_k, resume=resume, on_question_done=question_done)
     deep_report.check_model_health(deep_report.snapshot_stats(), len(ev))   # raises if the model was down
+    dropped = deep_report.snapshot_stats()["off_topic"]
+    if dropped:
+        log.event(f"Left out {dropped} fact(s) that were true but not about the question")
+    log.progress(off_topic=dropped)
     log.clear_partial()
     return {"evidence": [e.__dict__ for e in ev]}
 

@@ -186,4 +186,4 @@ def test_stats_reset_between_runs():
     dead_llm()("x")
     assert d.snapshot_stats()["gave_up"] == 1
     d.reset_stats()
-    assert d.snapshot_stats() == {"calls": 0, "retries": 0, "gave_up": 0}
+    assert d.snapshot_stats() == {"calls": 0, "retries": 0, "gave_up": 0, "off_topic": 0}

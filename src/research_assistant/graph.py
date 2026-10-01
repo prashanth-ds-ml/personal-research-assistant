@@ -436,7 +436,9 @@ def web_research(state: SummaryState, config: RunnableConfig):
     )
 
     archived_sources = []
-    if configurable.archive_full_sources:
+    # Pages found in your own documents (doc://...) are not web sources: archiving them filled the vault's Sources
+    # folder with copies of the same files and polluted deep research.
+    if configurable.archive_full_sources and search_api != "local_docs":
         archived_sources = vault.archive_sources(
             vault_path=configurable.vault_path,
             sources_subdir=configurable.sources_subdir,

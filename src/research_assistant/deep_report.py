@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 LLM = Callable[..., str]
 
 
-LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0}
+LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0, "off_topic": 0}
 LLM_TIMEOUT = 300          # seconds Ollama may stay silent: a hung server must fail, not block the run forever
 CALL_DEADLINE = 240        # wall-clock seconds for one call however many tokens keep arriving (a read timeout alone
                            # never fires on a streaming response: every token resets it)
@@ -459,13 +459,27 @@ Supporting quote: "{quote}"
 Does the passage directly support the claim? The claim may name its subject using context from the
 passage (e.g. the paper's model), that is fine. Answer false if the claim attributes a number, result or
 property to the WRONG subject, states something the passage does not say, or exaggerates it.
-Return JSON: {{"reason": "one short sentence", "supported": true or false}}"""
+{topic_line}Return JSON: {{"reason": "one short sentence", "supported": true or false, "on_topic": true or false}}"""
+
+TOPIC_LINE = (
+    'Also answer "on_topic": the research question is "{question}". on_topic is true only if the claim is about what '
+    "that question asks about. A true fact about a different model, size class, task or field is NOT on topic "
+    "(for example numbers for a 200M-parameter encoder when the question is about 4B-8B language models).\n")
 
 
-def _entailed(claim: str, quote: str, passage: str, llm: LLM) -> bool:
-    raw = _obj(_json(llm(ENTAIL_PROMPT.format(claim=claim, quote=quote, passage=_clip(passage, MAX_PASSAGE_CHARS)),
-                         json_mode=True), {}))
-    return str(raw.get("supported")).lower() == "true"
+def _judge(claim: str, quote: str, passage: str, llm: LLM, question: str = "") -> tuple[bool, bool]:
+    """(supported by the passage, on topic for the question). One model call answers both. A missing "on_topic"
+    answer counts as on topic: the filter removes what the model says is off topic, never what it fails to say."""
+    topic_line = TOPIC_LINE.format(question=question.replace('"', "'")) if question else ""
+    raw = _obj(_json(llm(ENTAIL_PROMPT.format(claim=claim, quote=quote, passage=_clip(passage, MAX_PASSAGE_CHARS),
+                                              topic_line=topic_line), json_mode=True), {}))
+    supported = str(raw.get("supported")).lower() == "true"
+    on_topic = str(raw.get("on_topic", "true")).lower() != "false"
+    return supported, on_topic
+
+
+def _entailed(claim: str, quote: str, passage: str, llm: LLM, question: str = "") -> bool:
+    return _judge(claim, quote, passage, llm, question)[0]
 
 
 def extract_facts(question: str, hit: dict, llm: LLM, check_entailment: bool = True) -> list[dict]:
@@ -483,7 +497,13 @@ def extract_facts(question: str, hit: dict, llm: LLM, check_entailment: bool = T
             continue
         claim, quote = _sanitize_claim(str(f.get("claim", ""))), str(f.get("quote", "")).strip()
         if claim and len(quote) >= 12 and len(quote.split()) <= MAX_QUOTE_WORDS and _norm(quote) in haystack:
-            if not check_entailment or _entailed(claim, quote, passage, llm):
+            if not check_entailment:
+                facts.append({"claim": claim, "quote": quote})
+                continue
+            supported, on_topic = _judge(claim, quote, passage, llm, question)
+            if supported and not on_topic:
+                LLM_STATS["off_topic"] += 1             # true, but about something else: not evidence for this question
+            elif supported:
                 facts.append({"claim": claim, "quote": quote})
     return facts
 

@@ -612,15 +612,20 @@ class KnowledgeBase:
         ).fetchall()
         return [r[0] for r in rows]
 
-    def search(self, query: str, k: int = 6, pool: int = 30) -> list[dict]:
-        """Hybrid search. Returns [{score, text, heading, page, kind, title, path, source_url}]."""
+    def search(self, query: str, k: int = 6, pool: int = 30, skip=None) -> list[dict]:
+        """Hybrid search. Returns [{score, text, heading, page, kind, title, path, source_url, source_kind}].
+        ``skip(path, source_kind) -> bool`` leaves a document out of the results."""
+        if skip:
+            pool *= 3                           # leave room: some of the best matches will be filtered out
         with self._lock:
             fused: dict[int, float] = {}
             for ranking in (self._vector_rank(query, pool), self._keyword_rank(query, pool)):
                 for rank, cid in enumerate(ranking):
                     fused[cid] = fused.get(cid, 0.0) + 1.0 / (60 + rank)  # RRF
             out = []
-            for cid, score in sorted(fused.items(), key=lambda kv: -kv[1])[:k]:
+            for cid, score in sorted(fused.items(), key=lambda kv: -kv[1]):
+                if len(out) >= k:
+                    break
                 row = self.db.execute(
                     "SELECT c.text, c.heading, c.page, c.kind, d.title, d.path, d.source_url, d.source_kind "
                     "FROM chunks c JOIN docs d ON d.id=c.doc_id WHERE c.id=?",
@@ -629,6 +634,8 @@ class KnowledgeBase:
                 if row is None:                 # deleted by another connection since the matrix was cached
                     continue
                 text, heading, page, kind, title, path, url, source_kind = row
+                if skip and skip(path, source_kind or ""):
+                    continue
                 out.append({"score": score, "text": text, "heading": heading, "page": page,
                             "kind": kind, "title": title, "path": path, "source_url": url or "",
                             "source_kind": source_kind or ""})

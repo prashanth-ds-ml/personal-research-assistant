@@ -23,7 +23,7 @@ PER_RUN_KEYS = frozenset({
     "max_comparison_entities", "planner_model", "extractor_model", "writer_model",
     "ask_clarifying_questions", "require_plan_approval", "auto_ingest", "collect_sources", "seed_urls",
     "fetch_max_sources", "fetch_min_relevance", "docs_retrieval_k", "docs_top_k", "docs_chunk_size",
-    "contact_email", "collect_review",
+    "contact_email", "collect_review", "include_archived_pages",
 })
 
 
@@ -205,6 +205,10 @@ class Configuration(BaseModel):
         default=3, title="Min Relevance",
         description="Keep a fetched source only if the local model scores it at least this (0-3). 3 = directly answers "
                     "the question; 2 lets in tangential papers that then stay in the library")
+    include_archived_pages: bool = Field(
+        default=False, title="Include Archived Pages",
+        description="Deep research leaves out copies of your own documents that the quick assistant archived into the "
+                    "vault's Sources folder (they only repeat files already in the library). Turn on to search them too")
     search_backend: Literal["ddgs", "searxng"] = Field(
         default="ddgs", title="Web Search Backend",
         description="Where the source collector finds web pages: DuckDuckGo (ddgs) or your SearXNG instance")
