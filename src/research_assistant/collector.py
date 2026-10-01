@@ -11,6 +11,7 @@ per-host delay, size cap). Links found inside a fetched page are never followed:
 Design: docs/web-collector-design.md.
 """
 
+import hashlib
 import itertools
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -89,7 +90,9 @@ def split_domains(text: str) -> list[str]:
 
 def _web_candidate(hit: Hit, question: str) -> Candidate:
     host = _host(hit.url)
-    return Candidate(source="web", id=fetcher.slugify(f"{host}-{hit.title or hit.url}"[:70]), title=hit.title or hit.url,
+    digest = hashlib.sha1(fetcher.normalize_url(hit.url).encode("utf-8")).hexdigest()[:8]    # two pages, one title
+    return Candidate(source="web", id=f"{fetcher.slugify(f'{host}-{hit.title or hit.url}', 60)}-{digest}",
+                     title=hit.title or hit.url,
                      summary=hit.snippet, url=hit.url, page_url=hit.url, question=question,
                      licence="web page; private use")
 

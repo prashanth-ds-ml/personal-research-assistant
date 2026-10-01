@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import { ResumeBanner } from "@/components/resume-banner";
 import { useRunThread } from "@/lib/use-run-thread";
+import { apiUrl } from "@/lib/api-url";
+import { safeHref } from "@/lib/safe-href";
 import { Activity, AlertCircle, ArrowRight, CheckCircle2, FileText, Globe, MessageCircleQuestion, ListChecks } from "lucide-react";
 
 // State shape of the `deep_research` graph (src/research_assistant/goal_graph.py).
@@ -56,7 +58,6 @@ type ReviewInterrupt = {
 type DeepInterrupt = ClarifyInterrupt | ApproveInterrupt | ReviewInterrupt;
 
 // Must be absolute - useStream does `new URL(apiUrl)` internally.
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
 function reportSlug(reportPath?: string): string | null {
   const file = reportPath?.split(/[\\/]/).pop();
@@ -84,7 +85,7 @@ function DeepResearchForm() {
   // Remember the run's thread so leaving this page does not cancel it (see use-run-thread.ts).
   const { threadId, remember, forget } = useRunThread("deep-research-thread");
   const stream = useStream<DeepState>({
-    apiUrl: API_URL,
+    apiUrl: apiUrl(),
     assistantId: "deep_research",
     threadId,
     onThreadId: remember,
@@ -174,7 +175,9 @@ function DeepResearchForm() {
         : pending?.type === "review_sources"
           ? "Waiting for you to choose sources"
           : stream.values.plan
-            ? "Collecting sources, extracting evidence and writing (this takes a while)"
+            ? stream.isLoading
+              ? "Collecting sources, extracting evidence and writing (this takes a while)"
+              : "Stopped, or ended without a report. Open the run page (Watch this run in detail) to see what happened"
             : stream.isLoading
               ? "Preparing"
               : "";
@@ -337,7 +340,7 @@ function DeepResearchForm() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-center gap-2">
-                            <a href={c.url} target="_blank" rel="noopener noreferrer nofollow" className="font-medium hover:text-accent hover:underline">
+                            <a href={safeHref(c.url)} target="_blank" rel="noopener noreferrer nofollow" className="font-medium hover:text-accent hover:underline">
                               {c.title}
                             </a>
                             <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.score >= 3 ? "bg-success-soft text-success" : "bg-warning-soft text-warning"}`}>

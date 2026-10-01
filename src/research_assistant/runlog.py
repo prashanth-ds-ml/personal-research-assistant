@@ -13,6 +13,7 @@ import json
 import os
 import re
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -51,19 +52,40 @@ class RunLog:
         except (OSError, ValueError):
             return {}
 
+    def _load(self) -> dict | None:
+        """The record for a write: None when there is none yet or its contents are corrupt (start afresh). A read that FAILS
+        (OSError, for example a sharing violation while the dashboard has the file open) raises, so the write is skipped
+        instead of replacing the history with an empty record."""
+        try:
+            text = self.path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return None
+        try:
+            data = json.loads(text)
+        except ValueError:
+            return None
+        return data if isinstance(data, dict) else None
+
     def _mutate(self, fn) -> None:
         if not self.enabled:
             return
         with _LOCK:
             try:
                 self.dir.mkdir(parents=True, exist_ok=True)
-                data = self._read() or {"id": self.run_id, "status": "running", "started_at": _now(),
+                data = self._load() or {"id": self.run_id, "status": "running", "started_at": _now(),
                                         "progress": {}, "events": []}
                 fn(data)
                 data["updated_at"] = _now()
                 tmp = self.path.with_suffix(".tmp")
                 tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-                os.replace(tmp, self.path)
+                for attempt in range(4):                      # Windows: the dashboard may be reading the file this instant
+                    try:
+                        os.replace(tmp, self.path)
+                        break
+                    except PermissionError:
+                        if attempt == 3:
+                            raise
+                        time.sleep(0.05)
             except (OSError, ValueError, TypeError):
                 pass                                                 # never let bookkeeping break a run
 
@@ -82,7 +104,9 @@ class RunLog:
     def step(self, name: str, text: str = "") -> None:
         """Entering a pipeline step (status goes back to running)."""
         def f(d):
-            d["step"], d["status"], d["waiting_for"] = name, "running", None
+            d["step"], d["waiting_for"] = name, None
+            if d.get("status") != "stopped":              # a Stop pressed between steps must survive the next step
+                d["status"] = "running"
             if text:
                 _add_event(d, text)
         self._mutate(f)

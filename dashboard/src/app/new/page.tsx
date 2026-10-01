@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import { ResumeBanner } from "@/components/resume-banner";
 import { useRunThread } from "@/lib/use-run-thread";
+import { apiUrl } from "@/lib/api-url";
 import { CheckCircle2, Search as SearchIcon, ArrowRight, AlertCircle } from "lucide-react";
 import { PipelineStepper, type Stage } from "@/components/pipeline-stepper";
 
@@ -19,8 +20,6 @@ interface ResearchState {
 
 const ASSISTANT_ID =
   process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID ?? "research_assistant";
-// Must be absolute - useStream does `new URL(apiUrl)` internally.
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
 function reportSlug(reportPath?: string): string | null {
   if (!reportPath) return null;
@@ -47,7 +46,7 @@ function NewResearchForm() {
   // Remember the run's thread so leaving this page does not cancel it (see use-run-thread.ts).
   const { threadId, remember, forget } = useRunThread("quick-research-thread");
   const stream = useStream<ResearchState>({
-    apiUrl: API_URL,
+    apiUrl: apiUrl(),
     assistantId: ASSISTANT_ID,
     threadId,
     onThreadId: remember,

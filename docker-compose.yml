@@ -22,7 +22,7 @@ services:
       # Per-role models for the deep_research graph; blank means "use LOCAL_LLM".
       PLANNER_MODEL: ${DOCKER_PLANNER_MODEL:-}
       EXTRACTOR_MODEL: ${DOCKER_EXTRACTOR_MODEL:-}
-      WRITER_MODEL: ${DOCKER_WRITER_MODEL:-}
+      WRITER_MODEL: ${DOCKER_WRITER_MODEL:-gemma4:e4b}
       EMBEDDING_MODEL: ollama:qwen3-embedding:0.6b
       VAULT_PATH: /vault
       DOCS_PATH: /docs

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Circle, FileText, Globe, Loader2, RotateCcw, Square } from "lucide-react";
 import type { CollectedRow, RunDetail, UsedSource } from "@/lib/runs";
+import { safeHref } from "@/lib/safe-href";
 import { RunBadge, ago, duration, isActive } from "@/components/run-status";
 
 // The pipeline as the user thinks of it. Each backend step belongs to one stage.
@@ -38,7 +39,7 @@ const isPdf = (kind: string) => kind === "pdf" || kind === "paper";
 
 function Link2Row({ title, url }: { title: string; url: string }) {
   return url ? (
-    <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="font-medium hover:text-accent hover:underline">
+    <a href={safeHref(url)} target="_blank" rel="noopener noreferrer nofollow" className="font-medium hover:text-accent hover:underline">
       {title}
     </a>
   ) : (
@@ -115,11 +116,13 @@ export function RunView({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [stopping, setStopping] = useState(false);
   const [, setTick] = useState(0);
+  const gone = useRef(false); // the run does not exist (404): stop asking
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/runs/${encodeURIComponent(id)}`, { cache: "no-store" });
       if (res.status === 404) {
+        gone.current = true;
         setError("This run was not found. It may have been started before runs were recorded.");
         return null;
       }
@@ -139,7 +142,7 @@ export function RunView({ id }: { id: string }) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const loop = async () => {
       const body = await load();
-      if (!alive) return;
+      if (!alive || gone.current) return;
       timer = setTimeout(loop, body && !isActive(body.status) ? 30000 : 3000);
     };
     loop();

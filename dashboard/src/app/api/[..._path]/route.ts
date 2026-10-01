@@ -57,7 +57,7 @@ async function handler(request: Request, ctx: Ctx): Promise<Response> {
     return json(502, { error: "The research backend is not reachable", detail: String(e).slice(0, 200) });
   }
 
-  const out = new Headers({ "cache-control": "no-store" });
+  const out = new Headers({ "cache-control": "no-store, no-transform" });
   for (const name of RETURN_HEADERS) {
     const value = upstream.headers.get(name);
     if (value) out.set(name, value);

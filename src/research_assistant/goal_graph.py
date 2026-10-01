@@ -148,6 +148,8 @@ def tracked(step: str, label: str = ""):
         def wrapper(state: DeepState, config: RunnableConfig):
             log = _run_log(config)
             log.start(state.get("goal", ""))
+            if log.is_stopped():                                 # Stop was pressed before this step began
+                raise deep_report.RunStopped()
             log.step(step, label)
             deep_report.set_stop_check(log.is_stopped if log.enabled else None)   # lets Stop reach a running model call
             try:
@@ -184,6 +186,8 @@ def refresh_library(state: DeepState, config: RunnableConfig) -> dict:
             total["documents"] = kb.stats()["documents"]
         _run_log(config).event(f"Library: {total['documents']} documents ({total['added']} new)")
         return {"library_update": total, **_opts(config)}
+    except (GraphBubbleUp, deep_report.RunStopped):      # a pause or the user's Stop is not an error
+        raise
     except Exception as e:  # e.g. Ollama (embeddings) down: the run can still use the existing index
         return {"library_update": {"error": str(e)[:300]}, **_opts(config)}
 
@@ -263,6 +267,8 @@ def check_coverage(state: DeepState, config: RunnableConfig) -> dict:
     try:
         with open_kb(cfg) as kb:
             rows = deep_report.coverage(_plan_obj(state["plan"]), library_search(kb, cfg, k=8), build_llms(cfg)["planner"])
+    except (GraphBubbleUp, deep_report.RunStopped):      # a pause or the user's Stop is not an error
+        raise
     except Exception as e:
         log.event(f"Coverage check failed: {str(e)[:150]}", level="error")
         return {"coverage": []}
@@ -310,7 +316,7 @@ def route_after_approval(state: DeepState) -> str:
 def _pdf_to_markdown(raw: bytes, name: str) -> str:
     """Downloaded PDF bytes -> markdown via the same converter the ingest uses (Docling, OCR off)."""
     with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / f"{name[:60]}.pdf"
+        path = Path(tmp) / f"{fetcher.slugify(name, 60)}.pdf"       # an old-style arXiv id contains a slash
         path.write_bytes(raw)
         return convert_to_markdown(path)
 
@@ -332,6 +338,8 @@ def discover(state: DeepState, config: RunnableConfig) -> dict:
     log = _run_log(config)
     questions = state["plan"]["sub_questions"]
     indexes = list(range(len(questions)))
+    if mode == "gaps" and not state.get("coverage"):
+        log.event("No coverage information is available, so every question will be searched")
     if mode == "gaps" and state.get("coverage"):
         indexes = [r["index"] for r in state["coverage"] if r["status"] != "answered"]
         if not indexes:
@@ -350,6 +358,8 @@ def discover(state: DeepState, config: RunnableConfig) -> dict:
                 block=collector.split_domains(cfg.collect_block_domains), on_progress=log.event)
         log.event(f"Found {len(found)} candidate sources")
         return {"candidates": found, "selected_ids": []}
+    except (GraphBubbleUp, deep_report.RunStopped):      # a pause or the user's Stop is not an error
+        raise
     except Exception as e:
         log.event(f"Source search failed: {str(e)[:150]}", level="error")
         return {"candidates": [], "selected_ids": [], "collect_report": {"error": str(e)[:300]}}
@@ -395,9 +405,9 @@ def collect(state: DeepState, config: RunnableConfig) -> dict:
         return {}
     try:
         library, store = _source_store(cfg, state["plan"])
-        todo = [fetcher.Candidate(source="seed", id=fetcher.slugify(u), title=u, url=u, page_url=u,
-                                  licence="user-supplied URL; private use") for u in seeds]
-        todo += [collector.from_dict(d) for d in picked]
+        todo = [collector.from_dict(d) for d in picked]                # what you chose comes first
+        todo += [fetcher.Candidate(source="seed", id=fetcher.slugify(u), title=u, url=u, page_url=u,
+                                   licence="user-supplied URL; private use") for u in seeds]
         with httpx.Client() as http:
             fx = fetcher.Fetcher(http=http, contact=cfg.contact_email)
             summary = collector.collect_selected(todo, store, fx, convert_pdf=_pdf_to_markdown,
@@ -415,6 +425,8 @@ def collect(state: DeepState, config: RunnableConfig) -> dict:
         log.event(f"Collected {summary['saved']} sources ({summary['skipped']} skipped, {summary['failed']} failed)")
         log.record(collected=[_collected_row(m) for m in store.manifest])
         return {"collect_report": summary}
+    except (GraphBubbleUp, deep_report.RunStopped):      # a pause or the user's Stop is not an error
+        raise
     except Exception as e:
         log.event(f"Collecting sources failed: {str(e)[:150]}", level="error")
         return {"collect_report": {"error": str(e)[:300]}}

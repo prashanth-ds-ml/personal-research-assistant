@@ -935,7 +935,7 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
     where += " " + (scope_note or "Nothing was searched on the web.")
     limits = [
         where,
-        "Each claim passed two automatic checks: its quote appears verbatim in the passage, and a second model "
+        "Each claim was checked twice: by code (its quote appears verbatim in the passage) and by a second model "
         "call judged that the passage supports it and is about the question asked. These checks do not catch a source "
         "that is itself wrong or deliberately misleading, or a mistake in how several findings were combined.",
         "Written by a small local model: verify important conclusions against the cited quotes.",
@@ -943,7 +943,8 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
         *warnings,
     ]
     if standards.claim_labels:
-        limits.append("Every sentence is labelled: [established] (cited, from 2 or more documents), [single source], "
+        limits.append("Every prose sentence of four or more words is labelled: [established] (cited, from 2 or more "
+                      "documents), [cited; figure not in the cited evidence], [single source], "
                       "[inference] (no citation) or [inference: figures not from sources].")
     if weak:
         limits.append(f"{len(weak)} of {len(supports)} evidence section(s) did not have enough evidence and say so: "

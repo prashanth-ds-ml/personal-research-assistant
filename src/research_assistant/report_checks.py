@@ -116,7 +116,15 @@ def _sentences(text: str) -> list[str]:
         parts.append(text[start:m.start()])
         start = m.end()
     parts.append(text[start:])
-    return [p for p in parts if p.strip()]
+    merged: list[str] = []
+    for part in parts:
+        lead = re.match(r"\s*((?:\[E\d+\])+)[.\s]*", part)
+        if merged and lead:                                  # "Foo bar. [E3] Next one.": [E3] belongs to "Foo bar."
+            merged[-1] = merged[-1].rstrip() + " " + lead.group(1)
+            part = part[lead.end():]
+        if part.strip():
+            merged.append(part)
+    return merged
 
 
 def strip_filler(text: str) -> str:
@@ -194,7 +202,10 @@ def label_text(text: str, by_id: dict, known_numbers: set[str]) -> str:
                 continue
             ids = {int(n) for n in _CITE.findall(sent)}
             docs = {by_id[f"E{n}"].source for n in ids if f"E{n}" in by_id}
-            if len(docs) >= 2:
+            cited_numbers = evidence_numbers([by_id[f"E{n}"] for n in ids if f"E{n}" in by_id])
+            if docs and _numbers(_CITE.sub("", sent)) - cited_numbers:
+                tag = "[cited; figure not in the cited evidence]"      # a citation does not make an invented number true
+            elif len(docs) >= 2:
                 tag = "[established]"
             elif len(docs) == 1:
                 tag = "[single source]"

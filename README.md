@@ -147,7 +147,7 @@ downstream (summarize, reflect, archive to the vault, cite) is unchanged.
 One command runs the backend (port 2025) and dashboard (port 3001):
 
 ```bash
-ollama pull llama3.1:8b && ollama pull qwen3-embedding:0.6b   # Ollama runs on the host
+ollama pull llama3.1:8b && ollama pull gemma4:e4b && ollama pull qwen3-embedding:0.6b   # Ollama runs on the host
 docker compose up --build
 ```
 
