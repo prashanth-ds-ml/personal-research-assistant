@@ -211,3 +211,19 @@ def test_candidate_dict_roundtrip():
     cand.relevance = 2
     back = c.from_dict(c.to_dict(cand, 3))
     assert (back.source, back.id, back.url, back.question, back.relevance) == ("web", cand.id, cand.url, "q", 2)
+
+
+def test_every_question_gets_a_share_of_the_candidate_list(tmp_path):
+    fx, _ = make_fetcher(routes)
+
+    def search(query, n):
+        return [c.Hit(f"{query} hybrid page {i}", f"https://{query}-{i}.example/p", "hybrid") for i in range(10)]
+
+    out = c.discover(["alpha", "beta", "gamma", "delta"], search=search, fx=fx, store=store_in(tmp_path),
+                     llm=lambda p, json_mode=False: json.dumps({"score": 3, "query": p.split("Question: ")[-1][:5]}),
+                     include_papers=False, max_candidates=8, per_question=10)
+    by_question = {}
+    for d in out:
+        by_question[d["question_index"]] = by_question.get(d["question_index"], 0) + 1
+    assert len(out) == 8 and set(by_question) == {0, 1, 2, 3}      # nobody is starved by the earlier questions
+    assert max(by_question.values()) <= 2                          # an equal share: 8 candidates over 4 questions

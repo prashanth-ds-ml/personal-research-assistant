@@ -121,6 +121,8 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
     allow, block = allow or [], block or []
     seen_urls: set[str] = set()
     out: list[dict] = []
+    # Each question gets an equal share of the total, so the first questions cannot use up the whole list.
+    quota = max(1, -(-max_candidates // max(len(questions), 1)))
     for qi, q in enumerate(questions):
         if len(out) >= max_candidates:
             break
@@ -156,7 +158,7 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
                 found.append(to_dict(c, qi))
         found.sort(key=lambda d: -d["score"])
         on_progress(f"Q{qi + 1}: {len(found)} candidates worth showing")
-        out.extend(found[: max(0, max_candidates - len(out))])
+        out.extend(found[: min(quota, max(0, max_candidates - len(out)))])
         fx.sleep(search_pause)                                  # be gentle with the search engine
     return out
 

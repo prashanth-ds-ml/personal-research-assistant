@@ -288,18 +288,22 @@ _LEAD_IN = re.compile(r"^(please\s+)?(also\s+)?(add|include|cover|insert|put in)
                       r"(new\s+)?(section|chapter|part)?\s*(on|about|for|covering)?\s*", re.I)
 _REMOVE_LEAD = re.compile(r"^(please\s+)?(also\s+)?(drop|remove|exclude|skip|omit|leave out|cut|delete|without|"
                           r"no more|less)\b\s*(the\s+|a\s+|any\s+)?(section\s+)?(on|about|of|for)?\s*", re.I)
+# "keep it focused on X", "make it shorter": guidance for the planner, not a topic to add as a section.
+_STEER_LEAD = re.compile(r"^(please\s+)?(also\s+)?(keep|make|stay|be|use|prefer|avoid|shorten|lengthen|simplify)\b", re.I)
 _NOTE_STOP = {"the", "and", "for", "add", "section", "sections", "about", "from", "with", "that", "this", "into",
               "more", "also", "please", "some", "include", "cover", "drop", "remove", "exclude", "skip", "omit",
               "than", "less", "its", "are", "was", "our", "your"}
 
 
 def _notes_intent(notes: str) -> tuple[str, str]:
-    """('add' | 'remove', topic): 'add a section on cost' -> ('add', 'cost');
-    'drop the history of RAG' -> ('remove', 'history of RAG')."""
+    """('add' | 'remove' | 'steer', topic): 'add a section on cost' -> ('add', 'cost');
+    'drop the history of RAG' -> ('remove', 'history of RAG'); 'keep it focused on X' -> ('steer', ...)."""
     n = notes.strip()
     m = _REMOVE_LEAD.match(n)
     if m:
         return "remove", n[m.end():].strip(" .")
+    if _STEER_LEAD.match(n):
+        return "steer", n
     return "add", _LEAD_IN.sub("", n).strip(" .")
 
 
@@ -351,6 +355,8 @@ def enforce_notes(plan: "Plan", notes: str) -> "Plan":
     and a section (before the synthesis section). 'drop X': remove the questions and sections about X.
     """
     intent, topic = _notes_intent(notes)
+    if intent == "steer":
+        return plan                                   # the planner was given the note; nothing to enforce
     want = _stem_words(topic)
     if not want:
         return plan

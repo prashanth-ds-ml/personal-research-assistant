@@ -114,3 +114,21 @@ def test_resume_skips_finished_questions_and_keeps_their_evidence():
     assert [e.id for e in out] == ["E1", "E2", "E3"]
     assert all("q1" not in c and "q2" not in c for c in calls if "Question" in c)
     assert len(out) == 3
+
+
+# ---- plan feedback that steers rather than adds ---------------------------------------------------
+
+def test_steering_feedback_does_not_become_a_section():
+    plan = d.Plan(goal="g", title="T", sub_questions=["q1"], outline=[{"title": "S", "questions": [0]}])
+    for note in ("keep it focused on retrieval quality", "make it shorter", "Please be more concrete", "avoid jargon"):
+        assert d._notes_intent(note)[0] == "steer"
+        out = d.enforce_notes(d.Plan(goal="g", title="T", sub_questions=list(plan.sub_questions),
+                                     outline=[dict(s) for s in plan.outline]), note)
+        assert out.sub_questions == ["q1"] and [s["title"] for s in out.outline] == ["S"]
+
+
+def test_add_and_remove_requests_still_work():
+    assert d._notes_intent("add a section on cost")[0] == "add"
+    assert d._notes_intent("drop the history of RAG")[0] == "remove"
+    plan = d.Plan(goal="g", title="T", sub_questions=["q1"], outline=[{"title": "S", "questions": [0]}])
+    assert any("Cost" in s["title"] for s in d.enforce_notes(plan, "add a section on cost").outline)
