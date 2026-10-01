@@ -306,8 +306,9 @@ function DeepResearchForm() {
             Sources found for your questions
           </div>
           <p className="text-xs text-muted">
-            Nothing has been downloaded yet. Tick what you want in your library; the best matches are ticked already. At
-            most {pending.max_sources} will be collected, one at a time. Web pages are less reliable than papers.
+            Nothing has been downloaded yet. Tick what you want in your library; the best matches are ticked already.{" "}
+            {pending.max_sources > 0 ? `At most ${pending.max_sources}` : "All of them"} will be collected, one at a time. Web pages are less
+            reliable than papers.
           </p>
           {pending.error ? (
             <p role="alert" className="text-xs text-warning">
@@ -357,7 +358,7 @@ function DeepResearchForm() {
               })}
             </div>
           ))}
-          {pending.candidates.filter((c) => isTicked(c, pending.min_relevance)).length > pending.max_sources ? (
+          {pending.max_sources > 0 && pending.candidates.filter((c) => isTicked(c, pending.min_relevance)).length > pending.max_sources ? (
             <p role="status" className="rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">
               You ticked {pending.candidates.filter((c) => isTicked(c, pending.min_relevance)).length}, but at most {pending.max_sources} are
               collected: the best match of each question first, taking turns across the questions. Untick the weaker ones, or raise

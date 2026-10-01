@@ -201,7 +201,29 @@ class Configuration(BaseModel):
         title="Seed URLs",
         description="Pages or PDFs to fetch into the library before researching, separated by whitespace or ';'",
     )
-    fetch_max_sources: int = Field(default=10, title="Max New Sources", description="Cap on sources saved per run")
+    fetch_max_sources: int = Field(
+        default=0, title="Max New Sources",
+        description="Cap on sources saved per run. 0 = no limit (you choose what to collect in the review step)")
+    collect_max_candidates: int = Field(
+        default=0, title="Max Candidates",
+        description="Cap on the total number of candidates shown for review. 0 = no cap (each question still gets "
+                    "its own search; more candidates means more relevance checks and a longer list to review)")
+    collect_europepmc: bool = Field(
+        default=True, title="Search Europe PMC",
+        description="Search Europe PMC (open-access biomedical papers). Turn off for AI or software topics: it only adds "
+                    "unrelated medical papers there")
+    collect_huggingface: bool = Field(
+        default=True, title="Search Hugging Face",
+        description="Also search Hugging Face Papers, model cards and dataset cards for each question")
+    collect_ai_sites: bool = Field(
+        default=True, title="Search AI Engineering Sites",
+        description="Also run site-restricted web searches over the sites listed in collect_extra_sites")
+    collect_extra_sites: str = Field(
+        default=";".join(["huggingface.co", "github.com", "docs.langchain.com", "anthropic.com", "openai.com",
+                          "lilianweng.github.io", "eugeneyan.com", "huyenchip.com", "hamel.dev", "simonwillison.net",
+                          "pinecone.io", "ai.google.dev"]),
+        title="AI Engineering Sites",
+        description="Sites for the extra searches, separated by ';' (the first 12 are used). Edit to taste")
     fetch_min_relevance: int = Field(
         default=3, title="Min Relevance",
         description="Keep a fetched source only if the local model scores it at least this (0-3). 3 = directly answers "

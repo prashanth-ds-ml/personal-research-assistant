@@ -190,7 +190,7 @@ def test_collect_saves_then_indexes_so_the_same_run_can_cite_the_new_sources(wir
     kb = goal_graph.open_kb(None)
 
     def fake_collect(todo, store, fx, **kw):
-        assert [c.title for c in todo] == ["A useful page"] and kw["max_sources"] == 10
+        assert [c.title for c in todo] == ["A useful page"] and kw["max_sources"] == 0
         store.dir.mkdir(parents=True, exist_ok=True)
         (store.dir / "new.md").write_text("# New\n\nReranking lifted BM25 recall to 0.91 in our test.")
         (store.dir / "raw").mkdir()

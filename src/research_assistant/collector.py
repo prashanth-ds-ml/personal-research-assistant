@@ -21,9 +21,16 @@ import httpx
 
 from research_assistant import fetcher
 from research_assistant.fetcher import Candidate, Fetcher, SourceStore
+from research_assistant.knowledge import split_front_matter
 
 LLM = Callable[..., str]
 PAPER_SOURCES = {"arxiv", "europepmc"}
+HF_CARDS = {"hf-model", "hf-dataset"}
+
+# Where AI engineers actually publish. Used for ONE extra, site-restricted web search per group of six, and fully configurable
+# (COLLECT_EXTRA_SITES). Review the list: it is a starting point, not an endorsement.
+AI_SITES = ["huggingface.co", "github.com", "docs.langchain.com", "anthropic.com", "openai.com", "lilianweng.github.io",
+            "eugeneyan.com", "huyenchip.com", "hamel.dev", "simonwillison.net", "pinecone.io", "ai.google.dev"]
 
 
 @dataclass
@@ -101,7 +108,7 @@ def to_dict(c: Candidate, question_index: int) -> dict:
     """What the dashboard shows and sends back (the id is what the user ticks)."""
     return {"id": f"{c.source}:{c.id}", "title": c.title, "url": c.page_url or c.url, "site": _host(c.page_url or c.url),
             "kind": "paper" if c.source in PAPER_SOURCES or (c.page_url or c.url).lower().split("?")[0].endswith(".pdf")
-            else "page", "question": c.question,
+            else "page", "question": c.question, "via": c.note,
             "question_index": question_index, "score": c.relevance, "snippet": c.summary[:300], "source": c.source,
             "pdf_url": c.url if c.source == "arxiv" else "", "authors": c.authors, "published": c.published,
             "licence": c.licence}
@@ -112,7 +119,21 @@ def from_dict(d: dict) -> Candidate:
     return Candidate(source=source, id=str(d["id"]).split(":", 1)[-1], title=d.get("title", ""),
                      summary=d.get("snippet", ""), url=d.get("pdf_url") or d.get("url", ""), page_url=d.get("url", ""),
                      authors=d.get("authors", ""), published=d.get("published", ""), licence=d.get("licence", ""),
-                     relevance=int(d.get("score", -1)), question=d.get("question", ""))
+                     relevance=int(d.get("score", -1)), question=d.get("question", ""), note=d.get("via", ""))
+
+
+def shrinking(finder):
+    """Hugging Face model and dataset search matches repository NAMES, so a long query finds nothing. Try the full query, then
+    its last three words, then the last two (the specific nouns usually come last), and keep the first that returns something."""
+    def run(terms: str, count: int):
+        words = terms.split()
+        for query in dict.fromkeys([terms, " ".join(words[-3:]), " ".join(words[-2:])]):
+            if query:
+                found = finder(query, count)
+                if found:
+                    return found
+        return []
+    return run
 
 
 def paper_key(c: Candidate) -> str | None:
@@ -132,7 +153,8 @@ def fair_order(candidates: list[dict]) -> list[dict]:
 def discover(questions: list[str], *, search: Search, fx: Fetcher, store: SourceStore, llm: LLM,
              per_question: int = 8, max_candidates: int = 40, min_score: int = 1, allow: list[str] | None = None,
              block: list[str] | None = None, include_papers: bool = True, search_pause: float = 1.0,
-             question_indexes: list[int] | None = None,
+             question_indexes: list[int] | None = None, huggingface: bool = False, extra_sites: list[str] | None = None,
+             europepmc: bool = True,
              on_progress: Callable[[str], None] = lambda s: None) -> list[dict]:
     """Candidates for every question, one question at a time, each judged 0-3 for relevance. Returns dicts ready for
     the dashboard, best first within each question, anything scoring below ``min_score`` left out.
@@ -153,6 +175,12 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
         groups: list[list[Candidate]] = []
         try:
             hits = search(terms, per_question * 2)             # ask for extra: some are filtered out below
+            for i in range(0, min(len(extra_sites or []), 12), 6):    # AI-engineering sites: one search per group of six
+                group = (extra_sites or [])[i:i + 6]
+                try:
+                    hits += search(f"{terms} (" + " OR ".join(f"site:{s}" for s in group) + ")", per_question)
+                except Exception as e:
+                    on_progress(f"site search failed: {str(e)[:100]}")
             web = []
             for h in hits:
                 key = fetcher.normalize_url(h.url)
@@ -160,13 +188,19 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
                     continue
                 seen_urls.add(key)
                 web.append(_web_candidate(h, q))
-            groups.append(web[:per_question])
+            groups.append(web[: per_question * (1 + -(-min(len(extra_sites or []), 12) // 6))])     # room for each site group
         except Exception as e:                  # a search outage must not stop the run: papers may still be found
             on_progress(f"web search failed: {str(e)[:100]}")
         if include_papers:
-            for label, finder in (("arXiv", fx.search_arxiv), ("Europe PMC", fx.search_europepmc)):
+            finders = [("arXiv", fx.search_arxiv, 3)]
+            if europepmc:
+                finders.append(("Europe PMC", fx.search_europepmc, 3))
+            if huggingface:
+                finders += [("Hugging Face Papers", fx.search_hf_papers, 3), ("Hugging Face models", shrinking(fx.search_hf_models), 2),
+                            ("Hugging Face datasets", shrinking(fx.search_hf_datasets), 2)]
+            for label, finder, count in finders:
                 try:
-                    groups.append([c for c in finder(terms, 3) if domain_ok(c.page_url or c.url, allow, block)])
+                    groups.append([c for c in finder(terms, count) if domain_ok(c.page_url or c.url, allow, block)])
                 except Exception as e:
                     on_progress(f"{label} search failed: {str(e)[:100]}")
         mixed = [c for group in itertools.zip_longest(*groups) for c in group if c is not None]
@@ -195,6 +229,10 @@ def fetch_one(c: Candidate, fx: Fetcher, convert_pdf: Callable[[bytes, str], str
     """Returns (markdown, pdf_bytes_or_None, skip_reason). A non-empty reason means nothing usable was fetched."""
     if c.source == "europepmc":
         return fx.europepmc_fulltext(c.id), None, ""
+    if c.source in HF_CARDS:
+        resp = fx.get(c.url)
+        resp.raise_for_status()
+        return split_front_matter(resp.text)[1], None, ""       # the card's own YAML header is metadata, not content
     if c.source == "arxiv":
         resp = fx.get(c.url)
         resp.raise_for_status()
@@ -214,13 +252,13 @@ def fetch_one(c: Candidate, fx: Fetcher, convert_pdf: Callable[[bytes, str], str
 
 
 def collect_selected(candidates: list[Candidate], store: SourceStore, fx: Fetcher, *,
-                     convert_pdf: Callable[[bytes, str], str] | None = None, max_sources: int = 20,
+                     convert_pdf: Callable[[bytes, str], str] | None = None, max_sources: int | None = None,
                      on_progress: Callable[[str], None] = lambda s: None) -> dict:
     """Fetch the chosen candidates one after another and save each as markdown. A source that fails is recorded and
     skipped. Returns the same summary shape as ``fetcher.collect`` plus how many were pages and how many papers."""
     saved = pages = papers = 0
     for i, c in enumerate(candidates):
-        if saved >= max_sources:
+        if max_sources and saved >= max_sources:            # 0 or None: no limit
             store.record(c, "skipped", f"limit of {max_sources} sources reached")
             continue
         on_progress(f"Fetching {i + 1}/{len(candidates)}: {c.title[:70]}")

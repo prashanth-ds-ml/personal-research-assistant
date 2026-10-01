@@ -351,7 +351,9 @@ def discover(state: DeepState, config: RunnableConfig) -> dict:
         with httpx.Client() as http:
             fx = fetcher.Fetcher(http=http, contact=cfg.contact_email)
             found = collector.discover(
-                [questions[i] for i in indexes], question_indexes=indexes,
+                [questions[i] for i in indexes], question_indexes=indexes, huggingface=cfg.collect_huggingface, europepmc=cfg.collect_europepmc,
+                extra_sites=collector.split_domains(cfg.collect_extra_sites) if cfg.collect_ai_sites else None,
+                max_candidates=cfg.collect_max_candidates or 100_000,
                 search=collector.make_search(cfg.search_backend, cfg.searxng_url, http),
                 fx=fx, store=store, llm=build_llms(cfg)["planner"], per_question=cfg.collect_candidates_per_question,
                 allow=collector.split_domains(cfg.collect_allow_domains),

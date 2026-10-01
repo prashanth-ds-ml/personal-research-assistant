@@ -214,14 +214,15 @@ The library and your feedback are what make it better over time; no retraining i
   it is free when nothing changed): drop a PDF into `Library/`, start a run, and it is searchable.
 - **Optional source collecting.** Tick *Find and collect new sources first* on the Deep Research page
   (or run `python scripts/collect.py "<question>"` for papers only). After you approve the plan, a collector
-  searches the web (DuckDuckGo, or your own SearXNG), arXiv and Europe PMC for each question, one question
+  searches the web (DuckDuckGo, or your own SearXNG), arXiv, Hugging Face (Papers, model cards, dataset cards), a configurable list of AI-engineering sites (HF blog, GitHub, LangChain, Anthropic, OpenAI, well-known engineering blogs; `COLLECT_EXTRA_SITES`) and, if you leave it on, Europe PMC, for each question, one question
   after another, and has the local model score every result 0-3. The run then **pauses and shows you the
   list**: titles, sites, relevance, page or paper. Nothing is downloaded yet. You tick what you want, and
   the chosen ones are fetched one at a time (robots.txt honoured, public addresses only, login or paywalled
   pages skipped, arXiv paced at one request per 3 seconds), converted to markdown (web pages with
   trafilatura, PDFs with Docling) and saved with provenance in `Library/<date>-<goal>/`, with a
   `manifest.json` that says why anything was skipped. They are indexed immediately so the same run can cite
-  them. Never the same source twice. Limit it to trusted sites with `COLLECT_ALLOW_DOMAINS`
+  them. Never the same source twice (an arXiv paper found as a PDF and as a web page counts once). There is no
+  limit on how many you collect unless you set `FETCH_MAX_SOURCES`; when you do, the questions take turns so none is starved. Limit it to trusted sites with `COLLECT_ALLOW_DOMAINS`
   (for example `who.int;cdc.gov;*.gov.in`). Web pages are less reliable than papers, and the report's
   Limitations section says how many of each were used. You can also paste page or PDF URLs to add first.
 - **Watching a run.** The **Runs** page lists every deep-research run (also ones that are waiting for you,

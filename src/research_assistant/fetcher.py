@@ -213,6 +213,26 @@ class Fetcher:
         r.raise_for_status()
         return parse_europepmc(r.json())
 
+    # ---- Hugging Face: papers (collected as the arXiv PDF), model cards and dataset cards ----
+    # Public API, no key. The host is fixed and trusted, like the arXiv and Europe PMC APIs.
+
+    def search_hf_papers(self, query: str, n: int = 5) -> list[Candidate]:
+        r = self.get("https://huggingface.co/api/papers/search", params={"q": query})
+        r.raise_for_status()
+        return parse_hf_papers(r.json(), n)
+
+    def search_hf_models(self, query: str, n: int = 5) -> list[Candidate]:
+        r = self.get("https://huggingface.co/api/models",
+                     params={"search": query, "sort": "downloads", "direction": "-1", "limit": n})
+        r.raise_for_status()
+        return parse_hf_repos(r.json(), n, "model")
+
+    def search_hf_datasets(self, query: str, n: int = 5) -> list[Candidate]:
+        r = self.get("https://huggingface.co/api/datasets",
+                     params={"search": query, "sort": "downloads", "direction": "-1", "limit": n})
+        r.raise_for_status()
+        return parse_hf_repos(r.json(), n, "dataset")
+
     def europepmc_fulltext(self, pmcid: str) -> str:
         if not _PMCID.match(pmcid):
             raise ValueError(f"not a PMC id: {pmcid!r}")
@@ -289,6 +309,58 @@ def parse_arxiv(xml_text: str) -> list[Candidate]:
             authors=", ".join(a.findtext("a:name", "", _ATOM) for a in e.findall("a:author", _ATOM)),
             published=(e.findtext("a:published", "", _ATOM) or "")[:10],
             licence="arXiv; licence varies by paper; private use only"))
+    return out
+
+
+_HF_ID = re.compile(r"^[\w.\-]+(/[\w.\-]+)?$")
+_ARXIV_NEW = re.compile(r"^\d{4}\.\d{4,5}$")
+
+
+def parse_hf_papers(payload, n: int = 5) -> list[Candidate]:
+    """Hugging Face Papers search results as arXiv candidates (the PDF is fetched from arXiv). Defensive: any record
+    that is not a well-formed paper with an arXiv id is skipped."""
+    out: list[Candidate] = []
+    for item in payload if isinstance(payload, list) else []:
+        paper = item.get("paper") if isinstance(item, dict) else None
+        pid = paper.get("id") if isinstance(paper, dict) else None
+        if not isinstance(pid, str) or not _ARXIV_NEW.match(pid):
+            continue
+        names = [a.get("name", "") for a in paper.get("authors", []) if isinstance(a, dict) and a.get("name")]
+        out.append(Candidate(
+            source="arxiv", id=pid, title=" ".join(str(paper.get("title") or pid).split()),
+            summary=" ".join(str(paper.get("summary") or "").split()), url=f"https://arxiv.org/pdf/{pid}",
+            page_url=f"https://arxiv.org/abs/{pid}", authors=", ".join(names[:6]),
+            published=str(paper.get("publishedAt") or "")[:10], licence="arXiv; licence varies by paper; private use only",
+            note="found on Hugging Face Papers"))
+        if len(out) >= n:
+            break
+    return out
+
+
+def parse_hf_repos(payload, n: int, kind: str) -> list[Candidate]:
+    """Hugging Face model or dataset search results as candidates whose text is the repository's card (README.md)."""
+    out: list[Candidate] = []
+    prefix = "datasets/" if kind == "dataset" else ""
+    for item in payload if isinstance(payload, list) else []:
+        if not isinstance(item, dict) or item.get("private") or item.get("gated"):
+            continue
+        rid = item.get("id")
+        if not isinstance(rid, str) or not _HF_ID.match(rid):
+            continue
+        tags = [t for t in item.get("tags", []) if isinstance(t, str)]
+        licence = next((t.split(":", 1)[1] for t in tags if t.startswith("license:")), "")
+        if kind == "model":
+            about = (f"{item.get('pipeline_tag') or 'model'}; downloads {item.get('downloads', 0):,}; likes {item.get('likes', 0)}; "
+                     + ", ".join(t for t in tags if ":" not in t and t not in ("safetensors", "endpoints_compatible"))[:200])
+        else:
+            about = " ".join(str(item.get("description") or "").split())[:400] or f"dataset; likes {item.get('likes', 0)}"
+        out.append(Candidate(
+            source=f"hf-{kind}", id=rid, title=f"{rid} ({kind} card)", summary=about,
+            url=f"https://huggingface.co/{prefix}{rid}/raw/main/README.md", page_url=f"https://huggingface.co/{prefix}{rid}",
+            published=str(item.get("createdAt") or item.get("lastModified") or "")[:10],
+            licence=f"{licence} (see the card)" if licence else "see the card; private use", note="Hugging Face"))
+        if len(out) >= n:
+            break
     return out
 
 
