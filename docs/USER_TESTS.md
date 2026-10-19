@@ -21,7 +21,7 @@ and fresh eyes. Claude keeps it current; you tick and add notes.
 
 | ID | Sprint | Test | How | Expected | Blocking | Status | Notes |
 |---|---|---|---|---|---|---|---|
-| U-01 | S0 | Read the October code-fix review | Claude's summary before the commit | You agree with keep / change | yes | doing | Review given 2026-10-19 |
+| U-01 | S0 | Read the October code-fix review | Claude's summary before the commit | You agree with keep / change | yes | pass | 2026-10-19: keep the helpful fixes; all kept |
 | U-02 | S1 | Label ~50 claims | Labelling sheet: ok / wrong + first failing stage | All labelled; disagreements with Claude discussed | yes | todo | ~2 h |
 | U-03 | S2 | Fact viewer readable? | Open its output on the mini fixture | You can judge a fact in < 30 s | no | todo | |
 | U-04 | S2 | Keep or archive v1 quick mode | Decide; if archived, click through the remaining dashboard pages | Decision recorded; nothing you use is gone | yes | todo | |

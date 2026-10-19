@@ -14,6 +14,7 @@ minutes, not hours. No big model needed.
   Labelled by the user and by Claude separately; disagreements discussed. Result: a breakdown table in `EVALS.md` and a re-prioritised 1b/1c task order.
 - [ ] **Eval set (P0.2).**
   - Retrieval: existing `evals/retrieval_qa.json` re-run as the baseline.
+  - Held-out goal (E-010): one gold goal the prompts were never tuned on, scored alongside the SLM goal.
   - Extraction: `evals/subject_facts.jsonl`, ~40 passage → expected (subject, size, stage) cases, including E7/E8, E79, E76/E40.
   - Writing: `evals/faithfulness_sheet.csv`; the user settles the 8 disputed labels (ids 2, 9, 11, 16, 25, 31, 34, 39).
   - LLM judge calibrated against the user's labels (agreement rate recorded; judge used only if ≥ 85%).

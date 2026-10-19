@@ -28,6 +28,10 @@ runs the same loop, and the next one starts only after the gate passes.
    updated, measurements in `EVALS.md`, sprint log in `CASE_STUDY.md`.
 7. Every failure or finding → `ERROR_LOG.md` → fix → regression test.
 
+## Branches
+
+One branch per phase (`phase-1a0`, `phase-1a`, …), merged into `main` at the phase gate, so `main` always holds a passed gate.
+
 ## Testing split: test everything possible
 
 | Who | Tests | Where tracked |

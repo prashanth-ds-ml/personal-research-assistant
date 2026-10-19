@@ -1,12 +1,12 @@
 # Status
 
-**Current phase:** Sprint 0 (housekeeping) in progress, 2026-10-19 → then Phase 1a-0 (Sprints 1-2)
+**Current phase:** Phase 1a-0, Sprint 1 next (Sprint 0 done 2026-10-19) · branch `phase-1a0`
 **Last updated:** 2026-10-19
 **Build order:** [BUILD_ORDER.md](BUILD_ORDER.md) · **Your tests:** [USER_TESTS.md](USER_TESTS.md) · **Case study:** [CASE_STUDY.md](CASE_STUDY.md)
 
 | Phase | Doc | Status | Gate passed | Open Critical/High |
 |---|---|---|---|---|
-| 1a-0 Measure first | [phase-1a0](phases/phase-1a0-measure-first.md) | Sprint 0 in progress | — | 0 |
+| 1a-0 Measure first | [phase-1a0](phases/phase-1a0-measure-first.md) | in progress (S0 done) | — | 0 (E-008, E-010, E-012 Low/Medium) |
 | 1a Foundations + model test | [phase-1a](phases/phase-1a-foundations-model-test.md) | not started | — | 1 (E-004) |
 | 1b Collecting + reading + chat preview | [phase-1b](phases/phase-1b-reading.md) | not started | — | 1 (E-001) |
 | 1c Writing + claim check view | [phase-1c](phases/phase-1c-writing.md) | not started | — | (E-001) |

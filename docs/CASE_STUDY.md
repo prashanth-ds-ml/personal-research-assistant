@@ -125,3 +125,4 @@ One entry per sprint: what was built, what the tests showed, what surprised us, 
 | Sprint | Dates | Built | Tests (auto / manual) | Finding or surprise | Links |
 |---|---|---|---|---|---|
 | — | 2026-10-12 → 10-19 | Scope v2 → v2.2, process docs, build order | 328 offline + 19 dashboard pass | Free RAM stays ~5 GB even after a reboot; blocks the model test | DECISIONS scope entries |
+| 0 | 2026-10-19 | Reviewed + committed the October fixes (plans stay on the goal, fetcher back-off), docs, dashboard snapshot; branch per phase | 🤖 328 pytest, ruff, 19 dashboard, tsc, eslint, secret scan · 🧑 U-01 pass | The review found prompt examples copied from the one test goal (E-010): a prompt fix tuned on the failing case can flatter the eval. Added a held-out goal to Sprint 1 | ERROR_LOG E-008..E-012; commits fb0d896, 4c9b6c2, 5373c9e |

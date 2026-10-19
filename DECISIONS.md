@@ -390,3 +390,8 @@ maintained alongside the other project docs. Process change, not a scope change 
 - `docs/USER_TESTS.md` lists the person-only tests (U-P1..P4 any time, U-01..U-20 per sprint) with status; blocking ones gate their sprint.
 - `docs/CASE_STUDY.md` is a living document: a sprint-log entry every sprint, final form at v1.0 (Sprint 11).
 - `BUILD_ORDER.md` now lists Claude's tests and the user's tests per sprint and a common end-of-sprint routine.
+
+## Sprint 0 closed; branch per phase (2026-10-19)
+The user reviewed the October fixes (U-01) and kept them; committed separately from the docs and the dashboard snapshot. Commits go on
+one branch per phase (`phase-1a0` now), merged into `main` at each phase gate, so `main` always holds a passed gate. The review's
+E-010 (prompt examples copied from the one test goal) adds a held-out gold goal to the Sprint 1 eval set.
