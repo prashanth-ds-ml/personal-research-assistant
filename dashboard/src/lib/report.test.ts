@@ -112,4 +112,5 @@ test("markCites turns the v3 check flags into flag tags", () => {
   assert.match(out, /\[check subject\]\(#label-flag\)/);
   assert.match(out, /\[check figure\]\(#label-flag\)/);
   assert.equal(countLabels("x [cited; subject not in the cited evidence] y [inference]").inference, 2);
+  assert.match(markCites("z [E3] [cited; wording not found in the cited evidence]."), /\[check wording\]\(#label-flag\)\./);
 });

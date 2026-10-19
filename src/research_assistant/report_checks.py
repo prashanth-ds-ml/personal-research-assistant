@@ -238,11 +238,81 @@ def _variant(name: str) -> str:
     return re.sub(r"(instruct|inst|chat|base|it)\.?$", "", _squash(name))
 
 
+# ---- does the cited passage carry the sentence's words? (v3) --------------------------------------------------------
+
+_STOP = frozenset("""the a an and or of to in for on with by from as at is are was were be been being this that these those it
+its which who whom whose than then into over under between such can may might will would should could also not no more most
+other some any each both all their there they them we our you your have has had do does did using used use via while however
+whereas although because thus therefore etc""".split())
+_TOKEN = re.compile(r"[a-z0-9][a-z0-9\-.]*[a-z0-9]|[a-z0-9]")
+REPAIR_MIN = 0.5        # another passage must carry at least half the sentence's content words ...
+REPAIR_MARGIN = 0.25    # ... and a quarter more of them than the cited passage, before the citation is moved
+MIN_SUPPORT = 0.2       # below this share no cited passage carries the sentence: flagged (measured on 2026-10-19 reports)
+
+
+def content_words(text: str) -> set[str]:
+    text = re.sub(r"\[[^\]]*\]", " ", text.lower())
+    return {w for w in _TOKEN.findall(text) if len(w) > 2 and w not in _STOP}
+
+
+def coverage(sentence: str, passage: str) -> float:
+    """Share of the sentence's content words that occur in the passage (0-1)."""
+    words = content_words(sentence)
+    return len(words & content_words(passage)) / max(len(words), 1)
+
+
+def _passage_text(e) -> str:
+    return f"{e.claim} {e.quote} {e.source}"
+
+
+def repair_citations(text: str, evidence: list, stats: dict | None = None) -> str:
+    """Move a citation to the passage that actually carries the sentence. The small writer often cites a neighbouring
+    chunk of the same paper (E8 for what E7 says). For each cited prose sentence: when another passage given to this
+    section covers at least REPAIR_MIN of its content words and REPAIR_MARGIN more than every cited passage, the
+    sentence's citations are replaced by that passage. ``stats`` counts cited sentences and repairs. Tables are left alone
+    (they must cite per row; see deep_report)."""
+    by_id = {e.id: e for e in evidence}
+    texts = {e.id: _passage_text(e) for e in evidence}
+    out = []
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("|", "#", ">", "```")):
+            out.append(line)
+            continue
+        fixed = []
+        for sent in _sentences(line):
+            ids = [i for i in dict.fromkeys(f"E{n}" for n in _CITE.findall(sent)) if i in by_id]
+            if ids:
+                if stats is not None:
+                    stats["cited"] = stats.get("cited", 0) + 1
+                cited = max(coverage(sent, texts[i]) for i in ids)
+                best = max(texts, key=lambda i: coverage(sent, texts[i]))
+                score = coverage(sent, texts[best])
+                if best not in ids and score >= REPAIR_MIN and score - cited >= REPAIR_MARGIN:
+                    sent = _CITE.sub("", sent)
+                    sent = re.sub(r"\s+([.!?])\s*$", r"\1", sent.rstrip())
+                    sent = re.sub(r"([.!?])$", f" [{best}]\\1", sent) if re.search(r"[.!?]$", sent) else f"{sent} [{best}]"
+                    if stats is not None:
+                        stats["repaired"] = stats.get("repaired", 0) + 1
+            fixed.append(sent.strip())
+        out.append(" ".join(fixed))
+    return "\n".join(out)
+
+
+def _tag(sent: str, tag: str, before_stop: bool) -> str:
+    """Append a label. v3 (``before_stop``) puts it before the closing full stop, so it reads as part of its own sentence."""
+    sent = sent.rstrip()
+    if before_stop and sent[-1:] in ".!?":
+        return f"{sent[:-1]} {tag}{sent[-1]}"
+    return f"{sent} {tag}"
+
+
 def label_text(text: str, by_id: dict, known_numbers: set[str], flags_only: bool = False) -> str:
     """Append a support label to every sentence of prose: [established] (cited, 2+ documents), [single source] (1 document),
     [inference] (no citation) or [inference: figures not from sources] (no citation and a number that appears in no evidence).
     A cited sentence whose number or model name/size is not in the cited evidence gets a flag instead. With ``flags_only``
-    a cited sentence that passes the checks gets no tag. Tables, headings and quotes are left alone."""
+    (v3) a cited sentence that passes the checks gets no tag, a cited sentence whose words are barely in any cited passage
+    is flagged too, and tags go before the closing full stop. Tables, headings and quotes are left alone."""
     out = []
     for line in text.split("\n"):
         stripped = line.strip()
@@ -262,6 +332,8 @@ def label_text(text: str, by_id: dict, known_numbers: set[str], flags_only: bool
                 tag = "[cited; figure not in the cited evidence]"      # a citation does not make an invented number true
             elif docs and missing_subjects(sent, cited):
                 tag = "[cited; subject not in the cited evidence]"     # E-001: the right number on the wrong model
+            elif docs and flags_only and max(coverage(sent, _passage_text(e)) for e in cited) < MIN_SUPPORT:
+                tag = "[cited; wording not found in the cited evidence]"
             elif docs and flags_only:
                 labelled.append(sent)
                 continue
@@ -273,6 +345,6 @@ def label_text(text: str, by_id: dict, known_numbers: set[str], flags_only: bool
                 tag = "[inference: figures not from sources]"
             else:
                 tag = "[inference]"
-            labelled.append(f"{sent.rstrip()} {tag}")
+            labelled.append(_tag(sent, tag, flags_only))
         out.append(" ".join(labelled))
     return "\n".join(out)

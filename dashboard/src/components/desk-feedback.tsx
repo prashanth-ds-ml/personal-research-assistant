@@ -95,6 +95,7 @@ export function ChunkRating({ desk, eid, section }: { desk: Desk; eid: string; s
 const FLAG_TEXT: Record<string, string> = {
   figure: "a number is not in the cited source",
   subject: "a model name or size is not in the cited source",
+  wording: "the sentence's words are barely in the cited source",
   inference: "no citation",
 };
 

@@ -27,7 +27,8 @@ from research_assistant import report_checks as rc
 LLM = Callable[..., str]
 
 
-LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0, "off_topic": 0}
+LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0, "off_topic": 0,
+             "cited_sentences": 0, "citations_repaired": 0, "tables_dropped": 0}   # the last three: v3 report checks
 LLM_TIMEOUT = 300          # seconds Ollama may stay silent: a hung server must fail, not block the run forever
 CALL_DEADLINE = 240        # wall-clock seconds for one short JSON call however many tokens keep arriving (a read
                            # timeout alone never fires on a streaming response: every token resets it)
@@ -1090,7 +1091,44 @@ def write_section(section: dict, plan: Plan, evidence: list[Evidence], llm: LLM)
     if not body.strip():
         return "*The model failed to write this section; the supporting evidence is listed in the appendix.*"
     body = _keep_valid_citations(body, {e.id for e in own})
+    if own[0].passage:
+        stats: dict = {}
+        body = rc.repair_citations(_strict_tables(_clean_prose(body, section["title"]), own), own, stats)
+        LLM_STATS["cited_sentences"] += stats.get("cited", 0)
+        LLM_STATS["citations_repaired"] += stats.get("repaired", 0)
+        return _tidy(body)
     return _tidy(_drop_unsupported_tables(_clean_prose(body, section["title"])))
+
+
+def _strict_tables(text: str, evidence: list[Evidence]) -> str:
+    """v3: a table stays only if EVERY data row cites a passage given to the section and every number in the row appears
+    in what that row cites. A table copied from a passage without citations (a speed benchmark presented under
+    "Training Methodology", 2026-10-19) is removed: the prose around it still carries its cited facts."""
+    by_id = {e.id: e for e in evidence}
+    lines, out, i = text.splitlines(), [], 0
+    is_row = lambda ln: ln.strip().startswith("|")  # noqa: E731
+    while i < len(lines):
+        if not is_row(lines[i]):
+            out.append(lines[i])
+            i += 1
+            continue
+        j = i
+        while j < len(lines) and is_row(lines[j]):
+            j += 1
+        table = lines[i:j]
+        rows = [r for r in table if not re.fullmatch(r"\|[\s:|-]+\|", r.strip())][1:]
+        ok = bool(rows)
+        for r in rows:
+            cited = [by_id[f"E{n}"] for n in re.findall(r"\[E(\d+)\]", r) if f"E{n}" in by_id]
+            if not cited or rc._numbers(re.sub(r"\[E\d+\]", "", r)) - rc.evidence_numbers(cited):
+                ok = False
+                break
+        if ok:
+            out.extend(table)
+        else:
+            LLM_STATS["tables_dropped"] += 1
+        i = j
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
 
 
 SYNTH_PROMPT = """Write the report section "{title}" ({brief}).
@@ -1225,6 +1263,37 @@ def same_recommendation(a: str, b: str, llm: LLM) -> bool:
     return str(raw.get("same", "true")).lower() != "false"      # when the model gives no answer, do not raise an alarm
 
 
+def _first_cited_sentence(body: str, min_words: int = 8) -> str:
+    """The first prose sentence of a section that cites evidence and says something (8+ words)."""
+    for line in body.splitlines():
+        if not line.strip() or line.lstrip().startswith(("|", "#", ">", "*The")):
+            continue
+        for sent in rc._sentences(line.strip().lstrip("-*0123456789. ")):
+            if re.search(r"\[E\d+\]", sent) and len(sent.split()) >= min_words:
+                return sent.strip()
+    return ""
+
+
+def extractive_summary(plan: Plan, sections: list[tuple[str, str]], weak: list[str]) -> str:
+    """v3: the executive summary only repeats sentences the sections already say, with their citations. A model-written
+    summary stitched claims from several sources into one sentence (2026-10-19 review); copying cannot add a claim."""
+    lines = []
+    rec = next((b for (_, b), sec in zip(sections, plan.outline, strict=False)
+                if sec.get("synthesis") and not rc.is_generated(b)), "")
+    first = _first_cited_sentence(rec)
+    if first:
+        lines += [f"**Recommendation:** {first}", ""]
+    for (title, body), sec in zip(sections, plan.outline, strict=False):
+        if sec.get("synthesis") or rc.is_generated(body):
+            continue
+        sent = _first_cited_sentence(body)
+        if sent:
+            lines.append(f"- **{title}:** {sent}")
+    if weak:
+        lines += ["", "Evidence is thin or missing for: " + "; ".join(weak) + "."]
+    return "\n".join(lines).strip() or "*No section had enough evidence to summarise.*"
+
+
 def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidence], llm: LLM,
              library_size: int = 0, notes: list[str] | None = None, scope_note: str = "",
              standards: rc.Standards | None = None) -> str:
@@ -1233,6 +1302,7 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
     standards = standards or rc.Standards()
     valid = {e.id for e in evidence}
     by_id = {e.id: e for e in evidence}
+    passages = bool(evidence) and evidence[0].passage
     supports = rc.plan_support(plan.outline, evidence, standards)
     failed = rc.mark_failed(supports, sections, plan.outline)
     gap_mode = rc.is_gap_report(supports.values(), standards) and len(failed) * 2 < len(supports)
@@ -1254,6 +1324,8 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
                    + (f" ({', '.join(names)})" if names else "") + ". Not covered: " +
                    (", ".join(s["title"] for s in weak) or "nothing") + ". Collect sources for the uncovered questions "
                    "and run again (the plan approval step offers this).")
+    elif passages:
+        summary = extractive_summary(plan, sections, [s["title"] for s in weak])
     else:
         rec = extract_recommendation(recommendation_body, llm) if recommendation_body else ""
         prompt = SUMMARY_PROMPT.format(
@@ -1294,7 +1366,6 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
     where = f"Evidence comes from {n_docs} document(s) in the local library" + (f" ({'; '.join(parts)})" if parts else "")
     where += f" ({library_size} indexed)." if library_size else "."
     where += " " + (scope_note or "Nothing was searched on the web.")
-    passages = bool(evidence) and evidence[0].passage
     checks = ("Every cited sentence rests on a library passage shown in full in the appendix; a model call kept only "
               "passages useful for their question. Code checks that each number and each model name or size in a cited "
               "sentence appears in the passage it cites. These checks do not catch a source that is itself wrong, or a "

@@ -78,7 +78,7 @@ def test_M1_T05_subject_check_flags_the_E001_sentence_and_passes_honest_ones():
     by_id = {e.id: e for e in ev}
     known = rc.evidence_numbers(ev)
     bad = rc.label_text("For pretraining a 4B model, use a weight decay of 0.001 [E1].", by_id, known, flags_only=True)
-    assert bad.endswith("[cited; subject not in the cited evidence]")                 # E-001: 4B is not in E1
+    assert bad.endswith("[E1] [cited; subject not in the cited evidence].")           # E-001: 4B is not in E1; tag before the stop
     ok = rc.label_text("A post-training study used a weight decay of 0.001 [E1].", by_id, known, flags_only=True)
     assert ok == "A post-training study used a weight decay of 0.001 [E1]."            # passes: no tag at all
     named = rc.label_text("Qwen3-4B was pretrained on 36T tokens [E2].", by_id, known, flags_only=True)
@@ -86,7 +86,7 @@ def test_M1_T05_subject_check_flags_the_E001_sentence_and_passes_honest_ones():
     wrong_number = rc.label_text("Qwen3-4B was pretrained on 18T tokens [E2].", by_id, known, flags_only=True)
     assert "[cited; figure not in the cited evidence]" in wrong_number
     uncited = rc.label_text("Small models need careful data selection.", by_id, known, flags_only=True)
-    assert uncited.endswith("[inference]")
+    assert uncited.endswith("[inference].")
     full = rc.label_text("A post-training study used a weight decay of 0.001 [E1].", by_id, known)
     assert full.endswith("[single source]")                                            # v2 labels unchanged without flags_only
 
