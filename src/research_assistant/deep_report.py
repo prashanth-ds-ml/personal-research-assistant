@@ -249,9 +249,36 @@ class Plan:
     title: str
     sub_questions: list[str]
     outline: list[dict] = field(default_factory=list)  # {title, question: idx list, brief}
+    dropped: list[str] = field(default_factory=list)   # questions removed because they are not part of the goal
 
 
 # ---- plan -----------------------------------------------------------------
+
+_CLARIFICATIONS = "Clarifications from the user:"
+
+
+def model_goal(goal: str) -> str:
+    """The goal as the MODELS should read it: the user's goal plus the user's own answers, without the assistant's clarifying
+    questions. The saved goal keeps the questions (so the report shows what was asked), but a model that reads a question such as
+    "any hate-speech detection requirements?" treats that topic as a requirement even when the user answered "text only"."""
+    head, sep, tail = goal.partition(_CLARIFICATIONS)
+    if not sep:
+        return goal
+    lines = [ln.strip() for ln in tail.splitlines() if ln.strip()]
+    said = []
+    for i, line in enumerate(lines):
+        if line.startswith("->"):
+            if line[2:].strip():
+                said.append(line[2:].strip())
+        elif i + 1 < len(lines) and lines[i + 1].startswith("->"):
+            continue                                   # an assistant's question: it is followed by the user's answer
+        else:
+            said.append(line)                          # "Audience: clinicians": the user's own statement
+    if not said:
+        return head.strip()
+    bullets = "\n".join(f"- {a}" for a in said)
+    return f"{head.strip()}\n\nThe user also said (in answer to follow-up questions):\n{bullets}"
+
 
 PLAN_PROMPT = """You are a research methodologist. Plan a research report for this goal:
 
@@ -262,6 +289,13 @@ Rules:
 - Every topic the goal lists must get at least one sub-question.
 - Sub-questions must be specific and answerable from technical documents (papers, docs), not opinions.
 - Each sub-question belongs to exactly ONE outline section; sections must not overlap.
+- Anything the user said they do NOT need or want must not appear in any sub-question.
+- Do not add a topic, task or modality the goal does not ask for, even if it sounds related.
+- If the goal names alternatives (for example "either X or Y", "X vs Y", "should we A or B"), give EACH alternative its own
+  sub-question (how it works, what it needs, what the evidence says), and make the final synthesis section a DECISION
+  between them: which to choose and why, or that the evidence cannot decide. Example: for "pretraining or fine-tuning" write
+  one question about pretraining from scratch (data, compute, cost), one about continued pretraining of an existing model,
+  one about fine-tuning (methods, data), and let the synthesis choose.
 
 Return JSON: {{"title": str, "sub_questions": [5-8 questions],
 "outline": [{{"title": str, "questions": [indexes into sub_questions, 0-based], "brief": one sentence}}]}}
@@ -395,10 +429,104 @@ def format_lessons(items: list[dict]) -> str:
     return "\n".join(lines)
 
 
+SCOPE_PROMPT = """A user asked for a research report. Their goal, including what they said when asked to clarify it:
+
+{goal}
+
+One question the research plan wants to answer:
+"{question}"
+
+Is this question needed to deliver the goal AS THE USER DESCRIBED IT, and consistent with anything they said they do
+not need? Answer false if the question is about a topic,
+task or modality the user did not ask for or excluded (for example speech or hate-speech detection, when they said text
+only and never asked for it), even if it sounds related.
+Return JSON: {{"needed": true or false, "reason": "one short sentence"}}"""
+
+MIN_SCOPED_QUESTIONS = 3
+
+
+def scope_filter(plan: Plan, goal: str, llm: LLM) -> Plan:
+    """Drop plan questions that cannot be traced back to the goal and the user's answers. A plan drifts when the model is
+    handed context that is not the goal (library titles, earlier runs); this puts the goal back in charge. If a judgement
+    fails, the question stays (never remove on a model error); and at least MIN_SCOPED_QUESTIONS are always kept."""
+    keep, dropped = [], []
+    for i, q in enumerate(plan.sub_questions):
+        try:
+            raw = _obj(_json(llm(SCOPE_PROMPT.format(goal=_clip(goal, 1500), question=q.replace('"', "'")), json_mode=True), {}))
+            needed = str(raw.get("needed", "true")).lower() != "false"
+        except Exception:                      # noqa: BLE001 - a failed judgement must not remove a question
+            needed = True
+        (keep if needed else dropped).append(i)
+    if not dropped or len(keep) < MIN_SCOPED_QUESTIONS:
+        return plan
+    remap = {old: new for new, old in enumerate(keep)}
+    outline = []
+    for sec in plan.outline:
+        qs = [remap[i] for i in sec["questions"] if i in remap]
+        if qs or sec.get("synthesis"):            # a section with no question left disappears; the synthesis stays
+            outline.append({**sec, "questions": qs})
+    return Plan(goal=plan.goal, title=plan.title, sub_questions=[plan.sub_questions[i] for i in keep], outline=outline,
+                dropped=[plan.sub_questions[i] for i in dropped])
+
+
+TOPICS_PROMPT = """A user asked for a research report. The goal, as they wrote it:
+
+{goal}
+
+List the distinct things this goal asks for: each topic, capability, requirement or choice it names. Copy each one as a short
+phrase using the goal's OWN words (3 to 8 words). Do not add anything the goal does not say.
+Return JSON: {{"topics": [strings]}}"""
+
+MAX_ADDED_TOPICS = 2
+
+
+def add_missing_topics(plan: Plan, goal: str, llm: LLM) -> Plan:
+    """The planner sometimes drops half of a goal (a "reasoning and tool calling" goal planned with no tool-calling question).
+    The model only LISTS the topics the goal sentence names (each must appear in that sentence, word for word); plain
+    word-matching then decides whether any question covers each one, and a question and section are added for each that
+    none does, before the synthesis. A model error or a nothing-missing answer changes nothing."""
+    asked = goal.split("\n\nThe user also said")[0]
+    try:
+        raw = _obj(_json(llm(TOPICS_PROMPT.format(goal=_clip(asked, 1200)), json_mode=True), {}))
+    except Exception:                                  # noqa: BLE001 - never lose a plan over this check
+        return plan
+    haystack = _norm(asked)
+    have = [_stem_words(q) for q in plan.sub_questions] + [_stem_words(s["title"]) for s in plan.outline]
+    added = []
+    for item in raw.get("topics") if isinstance(raw.get("topics"), list) else []:
+        topic = item.strip() if isinstance(item, str) else ""
+        if len(topic) < 4 or _norm(topic) not in haystack:       # it must be the goal's own words
+            continue
+        want = _stem_words(topic)
+        if want and not any(_covers(want, h) for h in have):
+            added.append(topic)
+    if not added:
+        return plan
+    sub, outline = list(plan.sub_questions), [dict(sec) for sec in plan.outline]
+    synthesis = [sec for sec in outline if sec.get("synthesis")]
+    body = [sec for sec in outline if not sec.get("synthesis")]
+    for topic in added[:MAX_ADDED_TOPICS]:
+        sub.append(f"What does the evidence say about {topic}, for the goal as described?")
+        body.append({"title": topic[:1].upper() + topic[1:], "questions": [len(sub) - 1], "brief": "", "synthesis": False})
+    return Plan(goal=plan.goal, title=plan.title, sub_questions=sub, outline=body + synthesis, dropped=plan.dropped)
+
+
+def _question_text(item) -> str:
+    """A sub-question as text. Small models sometimes return {"question": "..."} objects instead of plain strings."""
+    if isinstance(item, str):
+        return item.strip()
+    if isinstance(item, dict):
+        for key in ("question", "sub_question", "text", "q"):
+            if isinstance(item.get(key), str):
+                return item[key].strip()
+    return ""
+
+
 def make_plan(goal: str, llm: LLM, notes: str = "", lessons: str = "") -> Plan:
     """``notes`` carries the user's revision feedback when they reject a plan;
     ``lessons`` is feedback on earlier reports (see ``format_lessons``)."""
-    prompt = PLAN_PROMPT.format(goal=goal)
+    seen_goal = model_goal(goal)
+    prompt = PLAN_PROMPT.format(goal=seen_goal)
     if lessons:
         prompt += ("\n\nThe user gave this feedback on earlier reports. Plan so the new report avoids what "
                    "was criticised and keeps what worked (do not mention the feedback):\n" + lessons)
@@ -406,14 +534,14 @@ def make_plan(goal: str, llm: LLM, notes: str = "", lessons: str = "") -> Plan:
         prompt += f"\n\nThe user reviewed a previous plan and asked for these changes - apply them:\n{notes}"
     raw = _obj(_json(llm(prompt, json_mode=True), {}))
     sub_questions = raw.get("sub_questions")
-    qs = [q.strip() for q in sub_questions if isinstance(q, str) and q.strip()] if isinstance(sub_questions, list) else []
+    qs = [t for t in (_question_text(q) for q in sub_questions) if t] if isinstance(sub_questions, list) else []
     qs = qs or [goal]
     outline = _parse_outline(raw.get("outline"), len(qs))
     if not outline and len(qs) > 1:
         # One big JSON call sometimes returns questions without an outline (seen when the goal carries
         # long clarification text). A focused second call that only groups the questions is reliable.
         numbered = "\n".join(f"{i}. {q}" for i, q in enumerate(qs))
-        again = _obj(_json(llm(OUTLINE_PROMPT.format(goal=goal, numbered=numbered), json_mode=True), {}))
+        again = _obj(_json(llm(OUTLINE_PROMPT.format(goal=seen_goal, numbered=numbered), json_mode=True), {}))
         outline = _parse_outline(again.get("outline"), len(qs))
     if not outline:  # still nothing: one section per question, plus the synthesis section
         outline = [{"title": q, "questions": [i], "brief": ""} for i, q in enumerate(qs)]
@@ -434,6 +562,9 @@ def make_plan(goal: str, llm: LLM, notes: str = "", lessons: str = "") -> Plan:
         target = next((sec for sec in reversed(outline) if not sec["synthesis"]), outline[-1])
         target["questions"] += orphans
     plan = Plan(goal=goal, title=raw.get("title") or goal, sub_questions=qs, outline=outline)
+    if len(qs) > MIN_SCOPED_QUESTIONS:
+        plan = scope_filter(plan, seen_goal, llm)
+    plan = add_missing_topics(plan, seen_goal, llm)
     return enforce_notes(plan, notes) if notes else plan
 
 
@@ -475,12 +606,18 @@ TOPIC_LINE = (
     'Also answer "on_topic": the research question is "{question}". on_topic is true only if the claim is about what '
     "that question asks about. A true fact about a different model, size class, task or field is NOT on topic "
     "(for example numbers for a 200M-parameter encoder when the question is about 4B-8B language models).\n")
+GOAL_LINE = (
+    'It must also fit the overall goal of the report: "{goal}". Facts about a different kind of system (type, size class, '
+    "task, language or modality) than the goal asks about are NOT on topic, even when they answer the question's words "
+    "(for example speech or classification results for a text-generation goal).\n")
 
 
-def _judge(claim: str, quote: str, passage: str, llm: LLM, question: str = "") -> tuple[bool, bool]:
+def _judge(claim: str, quote: str, passage: str, llm: LLM, question: str = "", goal: str = "") -> tuple[bool, bool]:
     """(supported by the passage, on topic for the question). One model call answers both. A missing "on_topic"
     answer counts as on topic: the filter removes what the model says is off topic, never what it fails to say."""
     topic_line = TOPIC_LINE.format(question=question.replace('"', "'")) if question else ""
+    if question and goal:
+        topic_line += GOAL_LINE.format(goal=_clip(goal, 700).replace('"', "'"))
     raw = _obj(_json(llm(ENTAIL_PROMPT.format(claim=claim, quote=quote, passage=_clip(passage, MAX_PASSAGE_CHARS),
                                               topic_line=topic_line), json_mode=True), {}))
     supported = str(raw.get("supported")).lower() == "true"
@@ -492,7 +629,7 @@ def _entailed(claim: str, quote: str, passage: str, llm: LLM, question: str = ""
     return _judge(claim, quote, passage, llm, question)[0]
 
 
-def extract_facts(question: str, hit: dict, llm: LLM, check_entailment: bool = True) -> list[dict]:
+def extract_facts(question: str, hit: dict, llm: LLM, check_entailment: bool = True, goal: str = "") -> list[dict]:
     """Facts from one retrieved chunk, verified twice: the quote must appear
     verbatim in the chunk (deterministic, and no longer than a quote should be), and the
     passage must support the claim (LLM entailment check). Claims are sanitised of links and images."""
@@ -510,7 +647,7 @@ def extract_facts(question: str, hit: dict, llm: LLM, check_entailment: bool = T
             if not check_entailment:
                 facts.append({"claim": claim, "quote": quote})
                 continue
-            supported, on_topic = _judge(claim, quote, passage, llm, question)
+            supported, on_topic = _judge(claim, quote, passage, llm, question, goal)
             if supported and not on_topic:
                 LLM_STATS["off_topic"] += 1             # true, but about something else: not evidence for this question
             elif supported:
@@ -618,7 +755,7 @@ def gather_evidence(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
         hits = retrieve(q, search, query_llm, k=k, per_doc=per_doc)
         on_progress(f"Q{qi + 1}/{total}: {len(hits)} passages -> {q}")
         for hit in hits:
-            for f in extract_facts(q, hit, llm):
+            for f in extract_facts(q, hit, llm, goal=model_goal(plan.goal)):
                 key = _norm(f["quote"])
                 words = set(re.findall(r"\w+", f["claim"].lower()))
                 existing = by_quote.get(key) or next(
@@ -651,7 +788,8 @@ Overall goal of the report: {goal}
 Use ONLY the evidence below. Cite every factual sentence with its id in square brackets, e.g. [E3].
 Do not state anything the evidence does not support. Where sources disagree, say so. If a comparison
 across sources or methods is possible, include a markdown table in which EVERY row names its subject
-and the numbers come from the evidence. Do not repeat a point you have already made. Do not recommend or rank options
+and the numbers come from the evidence. Do not repeat a point you have already made. When a finding is about a different kind of system than the goal's
+(for example a small classifier, when the goal is a 4B-8B generative model), say so in that sentence. Do not recommend or rank options
 and do not announce what the section will do: say what the evidence shows (recommendations are written in a separate
 final section). Write 3-6 substantial paragraphs
 (plus any table) of clear, specific prose - no filler, no headings.
@@ -719,6 +857,57 @@ def _drop_unsupported_tables(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
+_FILLER_START = re.compile(
+    r"^(?:(?:a|the)\s+(?:following|below|above)\s+table\b|"
+    r"(?:a\s+)?(?:comparison|summary|overview)\s+of\s+the\s+(?:observed|key|main|cited|reported)\b.{0,160}?"
+    r"\b(?:reveals?|shows?|highlights?|illustrates?)\b|"
+    r"(?:this|the)\s+table\s+(?:summari[sz]es|shows?|compares?|illustrates?|presents?)\b|"
+    r"as\s+(?:shown|seen)\s+in\s+the\s+table\b)", re.I)
+
+
+def _drop_filler_sentences(text: str) -> str:
+    """Remove sentences that only announce a table or restate that a comparison exists ("A comparison of the observed
+    characteristics reveals specific patterns"). They carry no fact and no citation. A sentence with a citation stays."""
+    out = []
+    for line in text.splitlines():
+        if line.strip().startswith("|") or not line.strip():
+            out.append(line)
+            continue
+        parts = re.split(r"(?<=[.!?])\s+(?=[A-Z])", line)
+        kept = [p for p in parts if not (_FILLER_START.match(p.strip()) and not re.search(r"\[E\d+\]", p))]
+        if kept:
+            out.append(" ".join(kept))
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+
+
+def _drop_restating_tables(text: str) -> str:
+    """Remove a table whose cells only repeat sentences already in the prose around it. A table earns its place by
+    adding structure (numbers across subjects), not by listing the same claims again with their ids."""
+    lines, out, i = text.splitlines(), [], 0
+    is_row = lambda ln: ln.strip().startswith("|")  # noqa: E731
+    prose = _norm(" ".join(ln for ln in lines if not is_row(ln)))
+    while i < len(lines):
+        if not is_row(lines[i]):
+            out.append(lines[i])
+            i += 1
+            continue
+        j = i
+        while j < len(lines) and is_row(lines[j]):
+            j += 1
+        table = lines[i:j]
+        data = [r for r in table if not re.fullmatch(r"\|[\s:|-]+\|", r.strip())][1:]
+        cells = [c for r in data for c in (x.strip() for x in r.strip().strip("|").split("|")) if len(c) > 25 and not re.fullmatch(r"(\[E\d+\]\s*)+", c)]
+        repeated = sum(1 for c in cells if _norm(re.sub(r"\[E\d+\]", "", c)) in prose)
+        if not cells or repeated * 10 < len(cells) * 7:       # fewer than 70% of the cells are repeats: keep it
+            out.extend(table)
+        i = j
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+
+
+def _tidy(text: str) -> str:
+    return _drop_restating_tables(_drop_filler_sentences(text))
+
+
 def _keep_valid_citations(text: str, valid: set[str]) -> str:
     """Expand ranges like [E6-E9], then drop any citation to an id the model made up."""
     text = _expand_citation_ranges(text)
@@ -745,11 +934,11 @@ def write_section(section: dict, plan: Plan, evidence: list[Evidence], llm: LLM)
     if not own:
         return "*No supporting evidence was found in the knowledge base for this section.*"
     body = llm(SECTION_PROMPT.format(title=section["title"], brief=section.get("brief", ""),
-                                     goal=plan.goal, evidence=_evidence_block(own)))
+                                     goal=model_goal(plan.goal), evidence=_evidence_block(own)))
     if not body.strip():
         return "*The model failed to write this section; the supporting evidence is listed in the appendix.*"
     body = _keep_valid_citations(body, {e.id for e in own})
-    return _drop_unsupported_tables(_clean_prose(body, section["title"]))
+    return _tidy(_drop_unsupported_tables(_clean_prose(body, section["title"])))
 
 
 SYNTH_PROMPT = """Write the report section "{title}" ({brief}).
@@ -761,6 +950,10 @@ do first, and what remains uncertain or is not covered by the sources. Keep the 
 never cite an id that is not in the findings. Write 3-6 substantial paragraphs or a numbered list with
 explanations - no filler, no headings. State ONE recommendation clearly in the first paragraph and keep every
 later paragraph consistent with it. Do not give any number (cost, time, size) that is not in the findings.
+If the goal names alternatives (for example "X or Y"), compare them and say which to choose and why, or say plainly that
+the evidence does not allow a choice. Recommend only what rests on evidence about the SAME kind of system as the goal
+(type, size class, task, language, modality). If the findings are about a different kind of system, say they do not transfer
+and what is missing. Never recommend a model or method that the findings only mention as a baseline or for another task.
 {uncovered}
 FINDINGS:
 {findings}"""
@@ -776,11 +969,11 @@ def write_synthesis(section: dict, plan: Plan, prior: list[tuple[str, str]], llm
     note = ("These areas of the goal have NO usable evidence in the library: " + "; ".join(uncovered) +
             ". Say plainly that your guidance does not cover them and do not guess about them.\n") if uncovered else ""
     body = llm(SYNTH_PROMPT.format(title=section["title"], brief=section.get("brief", ""),
-                                   goal=plan.goal, findings=findings, uncovered=note))
+                                   goal=model_goal(plan.goal), findings=findings, uncovered=note))
     if not body.strip():
         return "*The model failed to write this section.*"
     body = _keep_valid_citations(body, valid)
-    return _drop_unsupported_tables(_clean_prose(body, section["title"]))
+    return _tidy(_drop_unsupported_tables(_clean_prose(body, section["title"])))
 
 
 def write_all(plan: Plan, evidence: list[Evidence], llm: LLM,

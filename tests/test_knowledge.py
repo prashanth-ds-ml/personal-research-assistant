@@ -285,3 +285,17 @@ def test_ocr_is_skipped_for_born_digital_and_used_for_scans(tmp_path):
     scanned = lambda ocr: _FakeConv("OCR TEXT " * 100 if ocr else "", [1, 2, 3], log, ocr)  # noqa: E731
     assert "OCR TEXT" in knowledge.convert_with_ocr_fallback(pdf, scanned)
     assert log == [False, True]                             # empty without OCR -> retried with OCR
+
+
+def test_remove_drops_one_document_and_its_chunks(tmp_path):
+    kb = knowledge.KnowledgeBase(tmp_path / "kb.sqlite", KeywordEmbeddings())
+    kb.ingest_text("Library/a.md", MD, title="A")
+    kb.ingest_text("Library/b.md", MD + "\nExtra retrieval notes about reranking.", title="B")
+    before = kb.stats()
+    assert kb.remove("Library/a.md") is True
+    assert kb.remove("Library/a.md") is False          # already gone
+    assert kb.remove("nope.md") is False
+    after = kb.stats()
+    assert after["documents"] == before["documents"] - 1
+    assert all(hit["path"] != "Library/a.md" for hit in kb.search("chunk size", k=10))
+    kb.close()

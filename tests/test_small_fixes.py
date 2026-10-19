@@ -179,3 +179,16 @@ def test_the_limitations_do_not_overclaim():
                         standards=rc.Standards(3, 2, 0.5))
     assert "checked twice: by code" in report and "Every prose sentence of four or more words" in report
     assert "passed two automatic checks" not in report
+
+
+def test_qa_pairs_turns_the_dashboard_answer_text_back_into_pairs():
+    from research_assistant.goal_graph import qa_pairs
+
+    qs = ["Which part matters most?", "What documents?", "One recommendation or a comparison?"]
+    text = "Which part matters most?\n  -> Strategy, then quality\nWhat documents?\n  -> Mostly PDFs with tables"
+    assert qa_pairs(qs, text) == [
+        {"question": qs[0], "answer": "Strategy, then quality"},
+        {"question": qs[1], "answer": "Mostly PDFs with tables"},
+        {"question": qs[2], "answer": ""},          # not answered: left to the assistant
+    ]
+    assert [p["answer"] for p in qa_pairs(qs, "")] == ["", "", ""]    # "Skip all"

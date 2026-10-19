@@ -444,3 +444,30 @@ def test_null_titles_and_arxiv_error_feeds_do_not_break_a_search():
     error_feed = """<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>http://arxiv.org/api/errors#incorrect_id</id>
     <title>Error</title><summary>bad</summary></entry></feed>"""
     assert f.parse_arxiv(error_feed) == []
+
+
+def test_a_429_is_waited_out_then_retried_and_the_host_is_paced_slower():
+    calls = []
+
+    def busy_then_ok(request):
+        calls.append(1)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"retry-after": "7"}, text="slow down")
+        return httpx.Response(200, text="ok")
+
+    fetcher, clock = make_fetcher(busy_then_ok)
+    assert fetcher.get("https://export.arxiv.org/api/query?x=1").text == "ok" and len(calls) == 2
+    assert 7.0 in [round(x, 1) for x in clock.slept]                      # waited what it asked
+    assert fetcher._slow["arxiv"] >= 8.0                              # and keeps a wider gap from now on
+
+
+def test_a_server_that_keeps_refusing_gives_up_after_a_few_tries():
+    calls = []
+
+    def always_busy(request):
+        calls.append(1)
+        return httpx.Response(429, text="no")
+
+    fetcher, _ = make_fetcher(always_busy)
+    assert fetcher.get("https://export.arxiv.org/api/query?x=1").status_code == 429
+    assert len(calls) == 3                                           # not forever

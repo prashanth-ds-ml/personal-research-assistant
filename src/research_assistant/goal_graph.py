@@ -194,11 +194,12 @@ def refresh_library(state: DeepState, config: RunnableConfig) -> dict:
 
 CLARIFY_PROMPT = """A user wants a deep research report. Goal: {goal}
 
-The report will be built ONLY from a private library of documents on: {library}
-
 Ask up to 4 short clarifying questions whose answers would materially change the research: scope,
-audience, depth, region/population, what decision it supports, what to exclude. Do not ask things the goal
+audience, depth, region/population, constraints, what decision it supports, what to exclude. Do not ask things the goal
 already answers. If the goal is already specific enough, return no questions.
+Only ask about the goal as written. NEVER bring in a topic, task, modality or application the goal does not mention
+(for example do not ask about speech, safety, classification or specific tools unless the goal does): a question like that
+sends the whole research off course.
 Return JSON: {{"questions": [strings]}}"""
 
 
@@ -211,14 +212,28 @@ def make_questions(state: DeepState, config: RunnableConfig) -> dict:
     cfg = _cfg(state, config)
     if not cfg.ask_clarifying_questions:
         return {"questions": []}
-    with open_kb(cfg) as kb:
-        titles = ", ".join(r[0] for r in kb.db.execute("SELECT title FROM docs LIMIT 12").fetchall())
+    # The library's titles are deliberately NOT shown here: they pulled the questions towards whatever earlier runs had
+    # collected (hate-speech papers became a "requirement"), instead of the user's goal.
     llm = build_llms(cfg)["planner"]
-    raw = deep_report._obj(deep_report._json(
-        llm(CLARIFY_PROMPT.format(goal=state["goal"], library=titles or "(empty)"), json_mode=True), {}))
+    raw = deep_report._obj(deep_report._json(llm(CLARIFY_PROMPT.format(goal=state["goal"]), json_mode=True), {}))
     asked = raw.get("questions")
     questions = [q.strip() for q in asked if isinstance(q, str) and q.strip()][:4] if isinstance(asked, list) else []
     return {"questions": questions}
+
+
+def qa_pairs(questions: list[str], text: str) -> list[dict]:
+    """The user's answers back as [{question, answer}], for the run record. The dashboard sends the answers as text:
+    ``<question>\n  -> <answer>`` for each answered question; an unanswered one is simply absent (answer = "")."""
+    pairs = []
+    for q in questions:
+        answer = ""
+        at = text.find(q)
+        if at >= 0:
+            rest = text[at + len(q):].lstrip(" \n")
+            if rest.startswith("->"):
+                answer = rest[2:].split("\n")[0].strip()
+        pairs.append({"question": q, "answer": answer})
+    return pairs
 
 
 @tracked("clarify")
@@ -228,10 +243,13 @@ def clarify(state: DeepState, config: RunnableConfig) -> dict:
     if not questions:
         return {"refined_goal": goal, "revisions": 0}
 
-    _run_log(config).waiting("clarify")
+    log = _run_log(config)
+    log.record(clarify_questions=questions)             # shown on the Runs screen while the run waits for answers
+    log.waiting("clarify")
     answers = interrupt({"type": "clarify", "goal": goal, "questions": questions})
     text = answers if isinstance(answers, str) else "\n".join(f"{k}: {v}" for k, v in (answers or {}).items())
     text = text.strip()
+    log.record(clarifications=qa_pairs(questions, text))
     refined = goal if not text else f"{goal}\n\nClarifications from the user:\n{text}"
     return {"clarifications": text, "refined_goal": refined, "revisions": 0}
 
@@ -244,7 +262,12 @@ def plan(state: DeepState, config: RunnableConfig) -> dict:
         lessons = deep_report.format_lessons(vault.recent_feedback(cfg.vault_path, cfg.research_subdir, 5))
     p = deep_report.make_plan(state.get("refined_goal") or state["goal"], build_llms(cfg)["planner"],
                               notes=state.get("plan_notes", ""), lessons=lessons)
-    _run_log(config).event(f"Plan: {len(p.sub_questions)} questions, {len(p.outline)} sections")
+    log = _run_log(config)
+    log.event(f"Plan: {len(p.sub_questions)} questions, {len(p.outline)} sections")
+    if p.dropped:
+        log.event(f"Left out {len(p.dropped)} question(s) that are not part of your goal: " + "; ".join(p.dropped)[:300])
+    log.record(plan={"title": p.title, "questions": list(p.sub_questions), "dropped": list(p.dropped),
+                     "outline": [str(o.get("title", "")) for o in p.outline if isinstance(o, dict)]})
     return {"plan": {"goal": p.goal, "title": p.title, "sub_questions": p.sub_questions, "outline": p.outline}}
 
 
@@ -463,6 +486,7 @@ def research(state: DeepState, config: RunnableConfig) -> dict:
 
     def question_done(done: int, total: int, ev: list) -> None:
         log.progress(questions_done=done, questions_total=total, evidence=len(ev))
+        log.record(question_facts=[sum(1 for e in ev if i in e.sub_questions) for i in range(total)])
         log.save_partial(done, [e.__dict__ for e in ev])
 
     def note(message: str) -> None:

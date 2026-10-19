@@ -227,3 +227,12 @@ def test_every_question_gets_a_share_of_the_candidate_list(tmp_path):
         by_question[d["question_index"]] = by_question.get(d["question_index"], 0) + 1
     assert len(out) == 8 and set(by_question) == {0, 1, 2, 3}      # nobody is starved by the earlier questions
     assert max(by_question.values()) <= 2                          # an equal share: 8 candidates over 4 questions
+
+
+def test_search_notes_say_what_happened_not_just_failed():
+    from research_assistant.collector import search_note
+
+    assert "nothing found" in search_note("AI-engineering sites", RuntimeError("No results found."))
+    assert "slow down" in search_note("arXiv", RuntimeError("Client error '429 Too Many Requests' for url 'https://export.arxiv.org/'"))
+    assert "did not answer in time" in search_note("arXiv", RuntimeError("The read operation timed out"))
+    assert "failed" in search_note("Europe PMC", RuntimeError("boom"))

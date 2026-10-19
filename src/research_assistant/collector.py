@@ -13,6 +13,7 @@ Design: docs/web-collector-design.md.
 
 import hashlib
 import itertools
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -45,6 +46,19 @@ Search = Callable[[str, int], list[Hit]]
 
 
 # ---- search backends (a plain function each; the collector does not care which) --------------------------
+
+
+def search_note(label: str, error: Exception) -> str:
+    """One honest line for the run log when a source search did not give results. An empty search is not a failure, and a
+    rate limit is the other side asking us to slow down, not something broken."""
+    text = str(error)
+    if re.search(r"no results", text, re.I):
+        return f"{label}: nothing found for this question"
+    if re.search(r"\b429\b|too many requests", text, re.I):
+        return f"{label}: busy, asked us to slow down (skipped for this question; later ones will be paced slower)"
+    if re.search(r"timed? ?out", text, re.I):
+        return f"{label}: did not answer in time (skipped for this question)"
+    return f"{label} search failed: {text[:100]}"
 
 def ddgs_search(query: str, n: int) -> list[Hit]:
     from ddgs import DDGS
@@ -181,7 +195,7 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
                 try:
                     hits += search(f"{terms} (" + " OR ".join(f"site:{s}" for s in group) + ")", per_question)
                 except Exception as e:
-                    on_progress(f"site search failed: {str(e)[:100]}")
+                    on_progress(search_note("AI-engineering sites", e))
             web = []
             for h in hits:
                 key = fetcher.normalize_url(h.url)
@@ -203,7 +217,7 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
                 try:
                     groups.append([c for c in finder(terms, count) if domain_ok(c.page_url or c.url, allow, block)])
                 except Exception as e:
-                    on_progress(f"{label} search failed: {str(e)[:100]}")
+                    on_progress(search_note(label, e))
         mixed = [c for group in itertools.zip_longest(*groups) for c in group if c is not None]
         mixed.sort(key=lambda c: c.source != "arxiv")            # a paper found twice: keep the PDF, not its abstract page
         found: list[dict] = []

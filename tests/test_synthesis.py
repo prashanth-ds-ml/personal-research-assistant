@@ -59,7 +59,8 @@ def test_plan_without_outline_gets_a_focused_second_call():
         return json.dumps({"title": "T", "sub_questions": ["a?", "b?"]})   # no outline key
 
     plan = d.make_plan("goal", llm)
-    assert len(calls) == 2
+    planning = [c for c in calls if "research methodologist" in c or "Group these research sub-questions" in c]
+    assert len(planning) == 2                                    # the plan, then the focused outline call (other checks may add calls)
     assert [s["title"] for s in plan.outline] == ["Findings", "Recommendations"]
     assert plan.outline[-1]["synthesis"] is True
 
@@ -135,7 +136,8 @@ def test_lessons_reach_the_planner_prompt():
     seen = {}
 
     def llm(prompt, json_mode=False):
-        seen["prompt"] = prompt
+        if "research methodologist" in prompt:                         # the plan prompt (other checks make their own calls)
+            seen["prompt"] = prompt
         return json.dumps({"title": "T", "sub_questions": ["a?", "b?"],
                            "outline": [{"title": "F", "questions": [0, 1], "brief": ""},
                                        {"title": "R", "questions": [], "brief": ""}]})

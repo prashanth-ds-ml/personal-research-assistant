@@ -522,6 +522,17 @@ class KnowledgeBase:
         self.db.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
         self.db.execute("DELETE FROM docs WHERE id=?", (doc_id,))
 
+    def remove(self, path: str) -> bool:
+        """Drop one document (and its chunks) from the index. The file itself is not touched here. Returns False
+        when no such document is indexed."""
+        with self._lock, self.db:
+            row = self.db.execute("SELECT id FROM docs WHERE path=?", (path,)).fetchone()
+            if not row:
+                return False
+            self._delete_doc(row[0])
+            self._bump_generation()
+            return True
+
     def set_title(self, path: str, title: str) -> None:
         with self._lock, self.db:
             self.db.execute("UPDATE docs SET title=? WHERE path=?", (title, path))

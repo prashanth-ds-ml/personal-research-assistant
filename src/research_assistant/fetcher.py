@@ -46,6 +46,15 @@ _ARXIV_ID = re.compile(r"^[A-Za-z0-9.\-]+(/[A-Za-z0-9.\-]+)?$")
 _PMCID = re.compile(r"^PMC\d+$")
 
 
+def _retry_after(resp: httpx.Response, default: float = 10.0, cap: float = 30.0) -> float:
+    """Seconds a server asked us to wait (Retry-After as a number of seconds), within sane bounds."""
+    raw = resp.headers.get("retry-after", "")
+    try:
+        return max(1.0, min(cap, float(raw)))
+    except ValueError:
+        return default
+
+
 class UnsafeURL(ValueError):
     """The URL is not one we will fetch (not http(s), or it points at a non-public address)."""
 
@@ -91,6 +100,7 @@ class Fetcher:
     now: Callable[[], float] = time.monotonic
     resolve: Callable[[str], list[str]] = _default_resolve
     _last: dict[str, float] = field(default_factory=dict)
+    _slow: dict[str, float] = field(default_factory=dict)      # hosts that asked us to slow down: the gap we now keep
     _robots: dict[str, robotparser.RobotFileParser | None] = field(default_factory=dict)
 
     # ---- politeness ---------------------------------------------------------
@@ -98,7 +108,7 @@ class Fetcher:
     def wait(self, host: str, extra: float = 0.0) -> None:
         """Block until the host's minimum interval has passed since our last request to it."""
         bucket = RATE_BUCKET.get(host, host)
-        gap = max(BUCKET_INTERVAL.get(bucket, DEFAULT_INTERVAL), extra)
+        gap = max(BUCKET_INTERVAL.get(bucket, DEFAULT_INTERVAL), extra, self._slow.get(bucket, 0.0))
         last = self._last.get(bucket)
         if last is not None:
             remaining = gap - (self.now() - last)
@@ -110,14 +120,24 @@ class Fetcher:
         """Fetch from a TRUSTED fixed host (the arXiv / Europe PMC APIs). Never use this for a
         user-supplied URL: see get_public."""
         host = urlparse(url).netloc
-        for attempt in (1, 2):                      # one retry: a slow server is common, a dead one is not
+        bucket = RATE_BUCKET.get(host, host)
+        for attempt in (1, 2, 3):                   # a retry or two: a slow or busy server is common, a dead one is not
             self.wait(host, extra=self.crawl_delay(url))
             try:
-                return self.http.get(url, headers={"User-Agent": user_agent(self.contact)}, follow_redirects=True,
+                resp = self.http.get(url, headers={"User-Agent": user_agent(self.contact)}, follow_redirects=True,
                                      timeout=30, **kw)
             except httpx.TimeoutException:
-                if attempt == 2:
+                if attempt >= 2:                    # timeouts keep their single retry
                     raise
+                continue
+            if resp.status_code in (429, 503) and attempt < 3:
+                # The server is telling us to slow down. Do what it says (Retry-After, capped), and keep a wider gap
+                # for this host from now on, so the rest of the run does not hammer it into refusing everything.
+                wait = _retry_after(resp)
+                self._slow[bucket] = min(30.0, max(self._slow.get(bucket, 0.0), wait, 8.0))
+                self.sleep(wait)
+                continue
+            return resp
         raise AssertionError("unreachable")
 
     # ---- safe fetching of user-supplied URLs --------------------------------
