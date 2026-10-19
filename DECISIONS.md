@@ -412,3 +412,9 @@ Context: during Sprint 1 the user said the plan had become too complicated (50-c
   into plain RAG.
 - **Process:** milestones M1-M5 instead of sprints; v2.2 plan docs moved to `docs/archive/v2.2/` (nothing deleted). Daily use by the
   builder starts at M2. Sprint 1 tooling stays; its labelling tasks (U-02, U-P2) are dropped.
+
+## Thinking when planning: a setting, default off (2026-10-19)
+qwen3.5:4b thinks without end at temperature 0 (E-014); with Qwen's thinking settings (temperature 0.6, top_p 0.95, top_k 20)
+a plan takes 76-93 s instead of 8 s, is of similar quality, and varies between runs. The user chose a setting, default off:
+`PLAN_THINKING` / `plan_thinking` (per run), used only by the planning step ("thinker" role). Passage judging, writing and the
+other small calls never think (it would turn a 4-minute report into an hour).

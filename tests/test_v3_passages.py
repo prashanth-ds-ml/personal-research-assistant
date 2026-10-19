@@ -113,7 +113,10 @@ def test_M1_T08_one_model_in_every_role_thinking_off(monkeypatch):
     monkeypatch.setattr(deep_report, "ollama_llm", lambda model, url, **kw: calls.append((model, kw)) or (lambda p: ""))
     goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b"))
     assert {m for m, _ in calls} == {"qwen3.5:4b"}
-    assert [kw["reasoning"] for _, kw in calls] == [False, False, False]               # E-014: thinking emptied the plan
+    assert [kw["reasoning"] for _, kw in calls] == [False, False, False, False]        # planner, extractor, writer, thinker
+    calls.clear()
+    goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b", plan_thinking=True))
+    assert [kw["reasoning"] for _, kw in calls] == [False, False, False, True]         # only the planning step thinks
     assert deep_report.NUM_CTX == 16_384
 
 
@@ -140,3 +143,29 @@ def test_M1_T12_release_suffix_variants_are_the_same_model():
                                sub_questions=[0], passage=True)]
     assert not rc.missing_subjects("Qwen3-4B-Instruct reached 0.948 [E1].", ev)
     assert rc.missing_subjects("Qwen3-8B-Instruct reached 0.948 [E1].", ev) == {"Qwen3-8B-Instruct", "8B"}
+
+
+def test_M1_T13_thinking_uses_qwen_sampling_a_big_budget_and_a_long_deadline(monkeypatch):
+    import langchain_ollama
+    seen = {}
+
+    class FakeChat:
+        def __init__(self, **kw):
+            seen.update(kw)
+
+        def stream(self, prompt):
+            class C:
+                content = '{"ok": true}'
+            yield C()
+
+    monkeypatch.setattr(langchain_ollama, "ChatOllama", FakeChat)
+    deadlines = []
+    real = deep_report.consume
+    monkeypatch.setattr(deep_report, "consume", lambda s, **kw: deadlines.append(kw["deadline_s"]) or real(s, **kw))
+    deep_report.ollama_llm("qwen3.5:4b", temperature=0, reasoning=True)("plan", json_mode=True)
+    assert seen["temperature"] == 0.6 and seen["top_p"] == 0.95 and seen["top_k"] == 20      # never greedy when thinking
+    assert seen["num_predict"] == deep_report.JSON_MAX_TOKENS + deep_report.THINK_TOKENS
+    assert deadlines == [deep_report.THINK_DEADLINE]
+    seen.clear()
+    deep_report.ollama_llm("qwen3.5:4b", temperature=0, reasoning=False)("plan", json_mode=True)
+    assert seen["temperature"] == 0 and "top_k" not in seen and seen["num_predict"] == deep_report.JSON_MAX_TOKENS

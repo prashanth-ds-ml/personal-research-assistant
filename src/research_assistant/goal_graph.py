@@ -79,14 +79,17 @@ class DeepOutput(TypedDict, total=False):
 # ---- factories (module-level so tests can substitute fakes) ---------------
 
 def build_llms(cfg: Configuration) -> dict[str, deep_report.LLM]:
-    """v3: one model (``local_llm``) in three roles; the *_model settings can still override a role. Thinking is off in
-    every role: with thinking on, qwen3.5:4b returned an empty plan after 56 s; off, a good plan in 8 s (E-014)."""
+    """v3: one model (``local_llm``) in every role; the *_model settings can still override a role. Thinking is off
+    (a good plan in 8 s) except, when ``plan_thinking`` is on, for the planning step itself ("thinker": ~85 s per call
+    with qwen3.5:4b, plans vary between runs; E-014). The many small calls never think."""
     url = cfg.ollama_base_url.rstrip("/")
     return {
         # temperature 0: the same goal should give the same plan (it varied between 5 and 7 sections)
         "planner": deep_report.ollama_llm(cfg.planner_model or cfg.local_llm, url, temperature=0, reasoning=False),
         "extractor": deep_report.ollama_llm(cfg.extractor_model or cfg.local_llm, url, temperature=0, reasoning=False),
         "writer": deep_report.ollama_llm(cfg.writer_model or cfg.local_llm, url, reasoning=False),
+        "thinker": deep_report.ollama_llm(cfg.planner_model or cfg.local_llm, url, temperature=0,
+                                          reasoning=cfg.plan_thinking),
     }
 
 
@@ -262,7 +265,7 @@ def plan(state: DeepState, config: RunnableConfig) -> dict:
     lessons = ""
     if cfg.vault_path:
         lessons = deep_report.format_lessons(vault.recent_feedback(cfg.vault_path, cfg.research_subdir, 5))
-    p = deep_report.make_plan(state.get("refined_goal") or state["goal"], build_llms(cfg)["planner"],
+    p = deep_report.make_plan(state.get("refined_goal") or state["goal"], build_llms(cfg)["thinker"],
                               notes=state.get("plan_notes", ""), lessons=lessons)
     log = _run_log(config)
     log.event(f"Plan: {len(p.sub_questions)} questions, {len(p.outline)} sections")

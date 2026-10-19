@@ -60,7 +60,7 @@ def wired(tmp_path, monkeypatch):
 
     kb = KnowledgeBase(tmp_path / "kb.sqlite", KeywordEmbeddings())
     kb.ingest_text("guide.md", MD, title="Hybrid Retrieval Guide")
-    monkeypatch.setattr(goal_graph, "build_llms", lambda cfg: {"planner": llm, "extractor": llm, "writer": llm})
+    monkeypatch.setattr(goal_graph, "build_llms", lambda cfg: {"planner": llm, "extractor": llm, "writer": llm, "thinker": llm})
     kb.close = lambda: None          # the fake open_kb hands the SAME instance to every node; a real one is closed per node
     monkeypatch.setattr(goal_graph, "open_kb", lambda cfg: kb)
     g = goal_graph._graph(InMemorySaver())

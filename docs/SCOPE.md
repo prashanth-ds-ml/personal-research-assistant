@@ -34,7 +34,7 @@ The fact-extraction step and the LLM judge are **removed**: the writer reads the
 
 | Role | Model | Notes |
 |---|---|---|
-| Plan, write, chat (the only LLM) | `qwen3.5:4b` | 3.4 GB, fits the 8 GB GPU; context 16k; thinking off (E-014: it emptied the plan) |
+| Plan, write, chat (the only LLM) | `qwen3.5:4b` | 3.4 GB, fits the 8 GB GPU; context 16k; thinking off, with an optional *Think when planning* setting (default off, ~85 s per plan) |
 | Embeddings | `qwen3-embedding:0.6b` | unchanged (library built with it) |
 | Reranker (M3) | `bge-reranker-v2-m3` (multilingual) | via sentence-transformers; measured before it is switched on |
 

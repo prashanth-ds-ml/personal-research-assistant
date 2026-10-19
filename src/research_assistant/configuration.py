@@ -24,7 +24,7 @@ PER_RUN_KEYS = frozenset({
     "ask_clarifying_questions", "require_plan_approval", "auto_ingest", "collect_sources", "seed_urls",
     "fetch_max_sources", "fetch_min_relevance", "docs_retrieval_k", "docs_top_k", "docs_chunk_size",
     "contact_email", "collect_review", "include_archived_pages", "coverage_check", "claim_labels",
-    "min_section_facts", "min_section_documents", "min_supported_share",
+    "min_section_facts", "min_section_documents", "min_supported_share", "plan_thinking",
 })
 
 
@@ -237,6 +237,10 @@ class Configuration(BaseModel):
         default=0.5, title="Supported Share",
         description="If fewer than this share of the evidence sections are supported, the report is a gap report: it gives "
                     "no recommendation and lists what to collect")
+    plan_thinking: bool = Field(
+        default=False, title="Think When Planning",
+        description="Let the model think before writing the plan (about 85 s per planning call instead of 8 s with "
+                    "qwen3.5:4b; plans then vary between runs). Other steps never think.")
     claim_labels: bool = Field(
         default=True, title="Label Claims",
         description="Mark every sentence [established], [single source], [inference] or [inference: figures not from sources]")

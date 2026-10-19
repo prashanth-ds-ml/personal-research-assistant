@@ -57,7 +57,7 @@ def flow(tmp_path, monkeypatch):
     kb.close = lambda: None
     raw = fake_llm(prompts)
     llm = deep_report.resilient(lambda prompt, json_mode, attempt: raw(prompt, json_mode))   # counts calls like the real one
-    monkeypatch.setattr(goal_graph, "build_llms", lambda cfg: {"planner": llm, "extractor": llm, "writer": llm})
+    monkeypatch.setattr(goal_graph, "build_llms", lambda cfg: {"planner": llm, "extractor": llm, "writer": llm, "thinker": llm})
     monkeypatch.setattr(goal_graph, "open_kb", lambda cfg: kb)
     monkeypatch.setenv("VAULT_PATH", str(tmp_path / "vault"))
     g = goal_graph._graph(InMemorySaver())
@@ -128,7 +128,7 @@ def test_the_answers_survive_even_if_the_model_would_now_ask_nothing(flow, monke
     inner = fake_llm(prompts)
     quiet = lambda p, json_mode=False: (  # noqa: E731
         json.dumps({"questions": []}) if "clarifying questions" in p else inner(p, json_mode))
-    monkeypatch.setattr(goal_graph, "build_llms", lambda c: {"planner": quiet, "extractor": quiet, "writer": quiet})
+    monkeypatch.setattr(goal_graph, "build_llms", lambda c: {"planner": quiet, "extractor": quiet, "writer": quiet, "thinker": quiet})
     g.invoke(Command(resume="Audience: clinicians"), cfg)
     plan_prompt = next(p for p in prompts if "research methodologist" in p)
     assert "Audience: clinicians" in plan_prompt
@@ -143,7 +143,7 @@ def test_a_dead_model_fails_the_run_loudly_instead_of_writing_an_empty_report(fl
         raise ConnectionError("Ollama is not running")
 
     dead = deep_report.resilient(boom, retries=1)
-    monkeypatch.setattr(goal_graph, "build_llms", lambda c: {"planner": dead, "extractor": dead, "writer": dead})
+    monkeypatch.setattr(goal_graph, "build_llms", lambda c: {"planner": dead, "extractor": dead, "writer": dead, "thinker": dead})
     cfg["configurable"].update(ask_clarifying_questions=False, require_plan_approval=False)
     with pytest.raises(deep_report.ModelUnavailable, match="Ollama is running"):
         g.invoke({"goal": "Does hybrid help?"}, cfg)

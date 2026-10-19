@@ -36,7 +36,9 @@ JSON_MAX_TOKENS = 1_200    # the longest JSON answer any step needs (a batch of 
 TEXT_MAX_TOKENS = 2_500    # the longest prose answer (a section)
 CHARS_PER_TOKEN = 5        # generous: a stream longer than max_tokens * this is not an answer
 NUM_CTX = 16_384           # v3: one small model (qwen3.5:4b) fits the 8 GB GPU with this window
-THINK_TOKENS = 3_000       # extra generation room when the model thinks before answering (planning only)
+THINK_TOKENS = 10_000      # extra generation room when the model thinks first: a qwen3.5:4b plan took 6-7k tokens (E-014)
+THINK_DEADLINE = 600       # wall-clock seconds for one call that thinks first (a plan took 82-93 s at 115 W)
+THINK_SAMPLING = {"temperature": 0.6, "top_p": 0.95, "top_k": 20}   # Qwen's thinking settings; at temperature 0 it never stopped
 ENGINE_VERSION = "v3.0-hybrid"   # recorded with every report so feedback can be compared before/after an engine change
 
 
@@ -167,21 +169,25 @@ def resilient(raw: Callable[[str, bool, int], str], retries: int = 2) -> LLM:
 
 def ollama_llm(model: str, base_url: str = "http://localhost:11434", temperature: float = 0.2,
                num_ctx: int = NUM_CTX, reasoning: bool | None = None) -> LLM:
-    """``reasoning``: True lets a thinking model think first (its thoughts are kept out of the answer), False switches
-    thinking off (faster), None leaves the model's default."""
+    """``reasoning``: True lets a thinking model think first (its thoughts are kept out of the answer) with the sampling
+    Qwen recommends for thinking (``temperature`` is then ignored), False switches thinking off (faster), None leaves the
+    model's default."""
     from langchain_ollama import ChatOllama
 
     def raw(prompt: str, json_mode: bool, attempt: int) -> str:
         # Each retry samples hotter and penalises repetition harder, which is what
         # breaks the degenerate loops that trigger Ollama's repeat-limit abort.
         max_tokens = JSON_MAX_TOKENS if json_mode else TEXT_MAX_TOKENS
-        chat = ChatOllama(model=model, base_url=base_url, temperature=temperature + 0.2 * attempt,
+        sampling = dict(THINK_SAMPLING) if reasoning else {"temperature": temperature}
+        sampling["temperature"] += 0.2 * attempt
+        chat = ChatOllama(model=model, base_url=base_url, **sampling,
                           repeat_penalty=1.0 + 0.1 * attempt, num_ctx=num_ctx,
                           num_predict=max_tokens + (THINK_TOKENS if reasoning else 0), reasoning=reasoning,
                           format="json" if json_mode else None, client_kwargs={"timeout": LLM_TIMEOUT})
         # Stream, so a model that never stops can be cut off (invoke() would wait for the whole generation).
         stream = (str(c.content) for c in chat.stream(prompt))
-        return consume(stream, max_chars=max_tokens * CHARS_PER_TOKEN, deadline_s=CALL_DEADLINE if json_mode else TEXT_DEADLINE, should_stop=_stopped)
+        deadline = THINK_DEADLINE if reasoning else CALL_DEADLINE if json_mode else TEXT_DEADLINE
+        return consume(stream, max_chars=max_tokens * CHARS_PER_TOKEN, deadline_s=deadline, should_stop=_stopped)
 
     return resilient(raw)
 
