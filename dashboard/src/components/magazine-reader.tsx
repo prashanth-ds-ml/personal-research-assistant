@@ -138,18 +138,18 @@ function EvidenceNotes({ chapter: c, report, cite, look, desk }: { chapter: Chap
         if (!ev) return null;
         const on = cite === id;
         const quote = passageText(ev.quote);
-        const long = quote.length > 150;
+        const long = quote.length > 110;
         const full = on || opened.has(id) || !long;
-        const text = full ? quote : `${quote.slice(0, 147).trimEnd()}…`;
+        const text = full ? quote : `${quote.slice(0, 107).trimEnd()}…`;
         return (
           <div key={id} className={`avoid-break border-l-[3px] px-4 py-3 transition-colors ${on ? "border-accent bg-accent-soft" : "border-border"}`}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">{id} · verbatim</div>
-            <div className="my-1.5 font-serif text-[17px] italic leading-relaxed">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">{id}</div>
+            <div className="my-1 font-serif text-[15px] italic leading-snug">
               <span className="print:hidden">&ldquo;{text}&rdquo;</span>
               <span className="hidden print:inline">&ldquo;{quote}&rdquo;</span>
             </div>
             <div className="flex items-start gap-2 text-xs text-muted">
-              <span className="min-w-0 flex-1">{whereFrom(ev)}</span>
+              <span className="min-w-0 flex-1 truncate" title={whereFrom(ev)}>{whereFrom(ev)}</span>
               {long && !on && (
                 <button type="button" onClick={() => flip(id)} className="no-print shrink-0 font-semibold text-accent hover:underline">
                   {full ? "less" : "more"}
@@ -467,7 +467,7 @@ export function MagazineReader({ report, meta, children }: { report: ParsedRepor
         return (
           <div key={c.num}>
             <section id={`ch-${c.num}`} className="scroll-mt-20 border-t border-border">
-              <div className="mx-auto grid max-w-[1680px] gap-x-8 gap-y-4 px-6 py-10 lg:grid-cols-[80px_minmax(0,1fr)_260px]">
+              <div className="mx-auto grid max-w-[1680px] gap-x-8 gap-y-4 px-6 py-10 lg:grid-cols-[80px_minmax(0,1fr)_300px]">
                 <div className="font-serif text-6xl leading-none text-accent">{c.num}</div>
                 <div>
                   <h2 className="text-4xl leading-tight sm:text-[2.6rem]">{c.title}</h2>
@@ -502,7 +502,7 @@ export function MagazineReader({ report, meta, children }: { report: ParsedRepor
                     )}
                   </div>
                 </div>
-                <aside className="hidden lg:block">
+                <aside className="hidden lg:sticky lg:top-16 lg:block lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
                   <EvidenceNotes chapter={c} report={report} cite={cite} look={look} desk={desk} />
                 </aside>
                 {/* below 1024 px there is no margin, so the same notes fold open under the chapter instead */}

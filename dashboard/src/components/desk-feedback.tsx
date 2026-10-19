@@ -67,24 +67,25 @@ const idle = "border-border text-muted hover:border-accent hover:text-accent";
 export function ChunkRating({ desk, eid, section }: { desk: Desk; eid: string; section: string }) {
   if (!desk.view || !desk.view.evidence[eid]) return null;
   const now = desk.current("chunk", eid)?.rating;
-  const opts: { rating: Rating; label: string; icon: React.ReactNode; on: string }[] = [
-    { rating: "relevant", label: "Relevant", icon: <ThumbsUp className="h-3 w-3" />, on: "border-success bg-success-soft text-success" },
-    { rating: "not_relevant", label: "Not relevant", icon: <ThumbsDown className="h-3 w-3" />, on: "border-danger bg-danger-soft text-danger" },
-    { rating: "wrong_subject", label: "Wrong subject", icon: <AlertTriangle className="h-3 w-3" />, on: "border-warning bg-warning-soft text-warning" },
+  const opts: { rating: Rating; label: string; short: string; icon: React.ReactNode; on: string }[] = [
+    { rating: "relevant", label: "Relevant", short: "", icon: <ThumbsUp className="h-3 w-3" />, on: "border-success bg-success-soft text-success" },
+    { rating: "not_relevant", label: "Not relevant", short: "", icon: <ThumbsDown className="h-3 w-3" />, on: "border-danger bg-danger-soft text-danger" },
+    { rating: "wrong_subject", label: "Wrong subject", short: "Wrong subject", icon: <AlertTriangle className="h-3 w-3" />, on: "border-warning bg-warning-soft text-warning" },
   ];
   return (
-    <div className="no-print mt-2 flex flex-wrap gap-1.5" role="group" aria-label={`Rate source ${eid}`}>
+    <div className="no-print mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label={`Rate source ${eid}`}>
       {opts.map((o) => (
         <button
           key={o.rating}
           type="button"
           aria-pressed={now === o.rating}
           title={o.label}
+          aria-label={o.label}
           onClick={() => desk.rate("chunk", eid, now === o.rating ? "cleared" : o.rating, { section })}
           className={`${btn} ${now === o.rating ? o.on : idle}`}
         >
           {o.icon}
-          {o.label}
+          {o.short}
         </button>
       ))}
     </div>
