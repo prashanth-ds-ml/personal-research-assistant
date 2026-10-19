@@ -9,16 +9,16 @@ type Step = [string, string, Kind, string, string, string, string, string];
 // The step ids are the node names of the two LangGraph graphs in src/research_assistant (goal_graph.py and graph.py).
 const DEEP: Step[] = [
   ["refresh_library", "Check library", "code", "Indexes any new or changed files in your library folders so a dropped-in PDF is searchable without running a script.", "Library folders (Sources, Library)", "Search index", "none (embeddings only)", "seconds when nothing changed"],
-  ["make_questions", "Write questions", "model", "Writes up to four clarifying questions that would change the research.", "Your goal, titles in the library", "Questions", "llama3.1:8b", "10 to 20 s"],
+  ["make_questions", "Write questions", "model", "Writes up to four clarifying questions that would change the research.", "Your goal, titles in the library", "Questions", "qwen3.5:4b", "10 to 20 s"],
   ["clarify", "Ask you", "pause", 'Shows the questions and waits. Blank answers mean "decide for me".', "Questions", "Your answers", "none", "as long as you take"],
-  ["plan", "Plan", "model", "Turns the goal into sub-questions and a report outline that always ends with recommendations.", "Goal, answers, feedback on earlier reports", "Plan", "llama3.1:8b", "10 to 100 s"],
-  ["coverage", "Check coverage", "model", "For each question, judges the best passages: covered, thin or nothing. Cheap compared with an hour of wasted work.", "Plan, library", "Coverage per question", "llama3.1:8b", "1 to 4 min"],
+  ["plan", "Plan", "model", "Turns the goal into sub-questions and a report outline that always ends with recommendations.", "Goal, answers, feedback on earlier reports", "Plan", "qwen3.5:4b", "10 to 100 s"],
+  ["coverage", "Check coverage", "model", "For each question, judges the best passages: covered, thin or nothing. Cheap compared with an hour of wasted work.", "Plan, library", "Coverage per question", "qwen3.5:4b", "1 to 4 min"],
   ["approve", "Approve plan", "pause", "Shows the plan with coverage and waits. You can ask for changes (up to two) and choose what to collect.", "Plan, coverage", "Decision, collect choice", "none", "as long as you take"],
-  ["discover", "Find sources", "model", "Searches the web, arXiv, Hugging Face and AI-engineering sites for each chosen question, and judges every result 0 to 3. Downloads nothing.", "Questions to search", "Candidate list", "llama3.1:8b + search", "2 to 5 min"],
+  ["discover", "Find sources", "model", "Searches the web, arXiv, Hugging Face and AI-engineering sites for each chosen question, and judges every result 0 to 3. Downloads nothing.", "Questions to search", "Candidate list", "qwen3.5:4b + search", "2 to 5 min"],
   ["review", "You choose", "pause", "Lists candidates, PDFs and papers apart from web pages. You tick what to keep.", "Candidates", "Your selection", "none", "as long as you take"],
   ["collect", "Collect", "code", "Fetches the chosen sources one at a time, converts them to markdown (Docling for PDFs), saves them with provenance and indexes them.", "Selection", "Library files, manifest", "none (Docling)", "20 s per PDF"],
-  ["research", "Gather evidence", "model", "Reads passages per question, keeps only facts whose quote is verbatim, supported and on topic. Saves progress after every question.", "Plan, library", "Verified facts", "llama3.1:8b", "1 to 2 min per question"],
-  ["write", "Write report", "model", "Writes each section from its own evidence only; thin sections become honest gap notes; checks one recommendation and labels claims.", "Facts, plan", "Report text", "gemma4:e4b", "1 to 4 min per section"],
+  ["research", "Gather passages", "model", "Retrieves passages per question (keyword + meaning search) and keeps the ones the model judges useful for that question. Saves progress after every question.", "Plan, library", "Useful passages", "qwen3.5:4b", "1 to 2 min per question"],
+  ["write", "Write report", "model", "Writes each section from its own passages only (150-300 words); thin sections become honest gap notes; code flags any number or model name that is not in the cited passage.", "Passages, plan", "Report text", "qwen3.5:4b", "1 to 3 min per section"],
   ["save", "Save", "code", "Saves the report to your vault with its evidence appendix and records the run.", "Report", "Markdown note, run record", "none", "seconds"],
 ];
 

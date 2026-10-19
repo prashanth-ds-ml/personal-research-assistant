@@ -1,0 +1,17 @@
+KB: {'documents': 114, 'chunks': 3341, 'unreadable': 0}
+[   28s] Plan: Pretraining a 4B Model for Telugu, English, Transliteration, Reasoning, and Native Tool Calling | 7 questions, 6 sections
+[   42s] Q1/7: kept 1 of 2 passages -> What data corpus composition is required to simultaneously support Telugu text generation, English text generation, and accurate transliteration?
+[   71s] Q2/7: kept 1 of 8 passages -> What computational resources and training duration are necessary to pretrain a 4B parameter model from scratch on the specified multilingual dataset?
+[  100s] Q3/7: kept 1 of 8 passages -> How does the choice of initialization strategy (random weights vs. continued pretraining) affect convergence speed and final capability for this specific goal?
+[  129s] Q4/7: kept 0 of 8 passages -> What architectural modifications or loss function adjustments are needed to enable native tool calling during the pretraining phase?
+[  158s] Q5/7: kept 7 of 8 passages -> What evidence exists regarding the ability of a 4B model pretrained from scratch to perform complex reasoning tasks compared to models fine-tuned on reasoning data?
+[  182s] Q6/7: kept 4 of 7 passages -> Which pretraining objective (e.g., masked language modeling, causal LM) yields better results for Telugu-English transliteration accuracy in a multilingual setting?
+[  211s] Q7/7: kept 3 of 8 passages -> What does the evidence say about good at reasoning, for the goal as described?
+[  211s] Verified evidence items: 16
+[  211s] Writing: Data Acquisition and Corpus Construction
+[  211s] Writing: Computational Requirements and Training Logistics
+[  211s] Writing: Model Initialization Strategies
+[  211s] Writing: Pretraining Objectives and Reasoning Capabilities
+[  221s] Writing: Good at reasoning
+[  229s] Writing: Practical Recommendations
+{'questions': 7, 'sections': 6, 'evidence': 16, 'words': 4967, 'llm_calls': 72, 'llm_retries': 0, 'llm_gave_up': 0, 'llm_off_topic': 32} in 229s -> evals/v3/m1-pretrain-4b.md

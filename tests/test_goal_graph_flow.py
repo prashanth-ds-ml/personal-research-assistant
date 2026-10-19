@@ -34,6 +34,8 @@ def fake_llm(prompts):
         if "research methodologist" in prompt:
             return json.dumps({"title": "Hybrid report", "sub_questions": ["Does hybrid help recall?"],
                                "outline": [{"title": "Recall", "questions": [0], "brief": "b"}]})
+        if "useful evidence" in prompt:                     # v3: the passage relevance check
+            return json.dumps({"score": 3})
         if "directly support" in prompt:
             return json.dumps({"supported": True})
         if "Extract facts" in prompt:
@@ -81,7 +83,7 @@ def test_only_an_explicit_approval_starts_the_expensive_work(flow):
         out = g.invoke(Command(resume=not_an_approval), cfg)
         asked_again = interrupt_value(out)
         assert asked_again["type"] == "approve_plan" and "Not understood" in asked_again["error"]
-        assert not any("Extract facts" in p for p in prompts)
+        assert not any("useful evidence" in p for p in prompts)
         # the re-ask itself needs a valid answer; a second invalid answer stops the run (see next test)
         break
     out = g.invoke(Command(resume={"approved": True}), cfg)
@@ -94,7 +96,7 @@ def test_a_second_unintelligible_answer_stops_the_run_before_any_evidence_is_gat
     g.invoke(Command(resume="maybe"), cfg)                      # refused, asked again
     with pytest.raises(RuntimeError, match="not approved"):
         g.invoke(Command(resume="still not sure"), cfg)
-    assert not any("Extract facts" in p for p in prompts)
+    assert not any("useful evidence" in p for p in prompts)
 
 
 def test_the_last_plan_is_always_shown_and_feedback_is_refused_when_no_revisions_are_left(flow):
@@ -105,7 +107,7 @@ def test_the_last_plan_is_always_shown_and_feedback_is_refused_when_no_revisions
     assert second["revisions_left"] == 1
     third = interrupt_value(g.invoke(Command(resume={"feedback": "add privacy"}), cfg))
     assert third["type"] == "approve_plan" and third["revisions_left"] == 0      # the 3rd plan is SHOWN, not auto-run
-    assert not any("Extract facts" in p for p in prompts)
+    assert not any("useful evidence" in p for p in prompts)
     refused = interrupt_value(g.invoke(Command(resume={"feedback": "one more change"}), cfg))
     assert "no revisions are left" in refused["error"]
     out = g.invoke(Command(resume={"approved": True}), cfg)

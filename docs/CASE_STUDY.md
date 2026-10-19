@@ -108,8 +108,9 @@ _Filled from the scoreboard in `EVALS.md` at each gate._
 | Sources rated relevant (your feedback) | — | — | — |
 | Reports/answers rated helpful | — | — | — |
 | Sentences failing code checks | — | — | — |
-| Words per report | 4,700-6,900 | — | — |
-| Minutes per report | — | — | — |
+| Words per report (body) | ~4,000 | 1,289 | — |
+| Minutes per report (library only) | hours | 3.8 | — |
+| Wrong-subject claims found on reading (same goal) | several | 0 | — |
 
 ## 8. What I would do differently
 
@@ -136,3 +137,4 @@ One entry per sprint (v2.2) or milestone (v3): what was built, what the tests sh
 | — | 2026-10-12 → 10-19 | Scope v2 → v2.2, process docs, build order | 328 offline + 19 dashboard pass | Free RAM stays ~5 GB even after a reboot; blocks the model test | DECISIONS scope entries |
 | 0 | 2026-10-19 | Reviewed + committed the October fixes (plans stay on the goal, fetcher back-off), docs, dashboard snapshot; branch per phase | 🤖 328 pytest, ruff, 19 dashboard, tsc, eslint, secret scan · 🧑 U-01 pass | The review found prompt examples copied from the one test goal (E-010): a prompt fix tuned on the failing case can flatter the eval. Added a held-out goal to Sprint 1 | ERROR_LOG E-008..E-012; commits fb0d896, 4c9b6c2, 5373c9e |
 | 1 (stopped) | 2026-10-19 | Error-analysis tooling (claim parser, labelling workbook, judge calibration, subject eval set, frozen retrieval set); hybrid recall 80/88/96% | 🤖 339 pytest | Preparing the 50-claim labelling made the plan's weight obvious: the user called it too complicated. Revisited the idea → **scope v3** | DECISIONS "Scope v3"; ERROR_LOG E-013 |
+| M1 | 2026-10-19 | Research from passages: no fact extraction, graded passage relevance, 150-300-word sections, subject check in code, one model qwen3.5:4b | 🤖 351 pytest + 4 live runs | Two small-model surprises: thinking mode returned an empty plan (E-014) and a yes/no relevance question rejected nearly everything (E-015); a 0-3 grade fixed it. Same goal as E-001: honest gap report in 229 s instead of a confident wrong one | EVALS "v3 M1"; ERROR_LOG E-014, E-015 |

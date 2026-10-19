@@ -9,6 +9,8 @@ are tracked the same way.
 
 | ID | Date | Phase | Severity | Found by | Title | Status |
 |---|---|---|---|---|---|---|
+| E-015 | 2026-10-19 | M1 | High | M1 live run | Yes/no passage relevance made qwen3.5:4b reject almost everything (0 of 8 kept per question) | fixed |
+| E-014 | 2026-10-19 | M1 | Medium | M1 live run | With thinking on, qwen3.5:4b returned an empty plan (56 s), so the run fell back to one question | fixed |
 | E-013 | 2026-10-19 | P1a-0 | Low | S1 test | Labelling workbook dropdowns accepted any typed value (openpyxl turns the error alert off by default) | fixed |
 | E-012 | 2026-10-19 | P1a-0 | Low | S0 review | `model_goal` keeps an unanswered clarifying question as if the user said it | open |
 | E-011 | 2026-10-19 | P1c | Low | S0 review | Filler-sentence removal can split numbered list items ("1. The table shows…" leaves "1.") | open |
@@ -42,6 +44,33 @@ are tracked the same way.
 ```
 
 ## Entries
+
+### E-015: A yes/no relevance question made the small model reject nearly every passage
+
+- **Date found:** 2026-10-19 · **Phase:** M1 · **Severity:** High · **Found by:** second v3 live run · **Status:** fixed
+
+**What happened:** questions 1-3 kept 0 of 8 passages each. A probe showed the answers parsed fine and were all `false`,
+including a related fine-tune model card, also after loosening the wording.
+**Root cause:** qwen3.5:4b leans to "no" on a binary usefulness question.
+**Fix:** a 0-3 grade (3 answers directly, 2 specific related information, 1 same field only, 0 unrelated/other modality);
+passages scoring 2+ are kept (`MIN_PASSAGE_SCORE`). On the same passages the grade kept 3 of 6 for the tool-calling question
+and none for the data question, where the library really lacks Telugu pretraining-data sources.
+**Regression test:** `test_M1_T09_passage_score_threshold_and_unreadable_answers`.
+**Pattern?** Ask a small model for a grade, not a verdict; probe a judge on real passages before a full run.
+
+### E-014: Thinking mode emptied the plan
+
+- **Date found:** 2026-10-19 · **Phase:** M1 · **Severity:** Medium · **Found by:** first v3 live run · **Status:** fixed
+
+**What happened:** the first v3 run planned "1 question, 2 sections" after 187 s. The planner (qwen3.5:4b, `reasoning=True`,
+JSON mode) returned an empty answer, so `make_plan` fell back to the goal as the only question. A direct probe: thinking on,
+56 s and 0 characters; thinking off, 8 s and a valid plan with 5 questions and 6 sections.
+**Root cause:** the model spent the output on thinking (or thinking does not combine with JSON mode in this setup); the
+answer itself was empty. The fallback hid it as a thin plan instead of failing.
+**Fix:** thinking off in every role (`build_llms`, `run_deep_report.py`).
+**Regression test:** `test_M1_T08_one_model_in_every_role_thinking_off`.
+**Pattern?** A silent fallback turns a model failure into a plausible-looking result; the plan size in the log was the only sign.
+Consider failing loudly when the planner returns nothing (backlog).
 
 ### E-013: Labelling workbook dropdowns accepted any typed value
 

@@ -227,8 +227,9 @@ class Configuration(BaseModel):
         description="Keep a fetched source only if the local model scores it at least this (0-3). 3 = directly answers "
                     "the question; 2 lets in tangential papers that then stay in the library")
     min_section_facts: int = Field(
-        default=3, title="Facts Per Section",
-        description="A report section is written from evidence only if its questions have at least this many verified facts")
+        default=2, title="Passages Per Section",
+        description="A report section is written from evidence only if its questions have at least this many useful passages "
+                    "(v3: a whole passage carries more than one extracted fact did, so 2 instead of 3)")
     min_section_documents: int = Field(
         default=2, title="Documents Per Section",
         description="... from at least this many different documents; otherwise the section says what is missing")

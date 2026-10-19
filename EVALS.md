@@ -281,3 +281,27 @@ Plan: `docs/phases/phase-1a0-measure-first.md`. Tooling: `src/research_assistant
   tables.
 - **Scope of the sample:** both reports predate the October fixes (goal-aware judging, plans kept on the goal), so
   this measures the pipeline before those fixes. The Sprint 4 re-run measures it after.
+
+## v3 M1: report from passages, one model (2026-10-19)
+
+Same goal and library as the 2026-10-03 v2 report that showed E-001 ("How to pretrain a 4B model from scratch for Telugu,
+English and transliteration, good at reasoning and native tool calling"; 114 documents). `scripts/run_deep_report.py`
+(library only, no collecting), `qwen3.5:4b`, thinking off, 16k context. Report and log: `evals/v3/m1-pretrain-4b.*`.
+
+| | v2 (2026-10-03, facts, llama3.1:8b + gemma4:e4b) | v3.0 (passages, qwen3.5:4b) |
+|---|---|---|
+| Time | hours (multi-model, extraction per passage) | **229 s**, 72 model calls, 0 failures |
+| Body words (summary → last section) | ~4,000 | **1,289** |
+| Evidence items | 42 extracted facts | 16 passages (32 retrieved passages judged not useful) |
+| E-001-type claims (wrong subject stated as fact) | several (E7/E8, E79, E76...) | **none found on reading**; sections name the real subject ("a full fine-tune of Qwen3-4B-Instruct", "pertains to a different scale") |
+| Code-check flags | n/a | 1 subject flag that is a false positive (a sentence saying a source does *not* cover a 4B model); a second false positive (Qwen3-4B-Instruct vs "Inst.") fixed |
+| Outcome | full report with a recommendation | **gap report**: 2 of 5 sections supported, no recommendation; says which sources to collect |
+
+Reading: v3 is honest where v2 was confident. The library really lacks Telugu pretraining-data and compute sources; v2 filled
+that gap with fine-tune and 17B-model numbers re-labelled as 4B pretraining. The real flow adds web collecting for the
+uncovered questions, which this script skips.
+
+Found and fixed on the way: E-014 (thinking mode emptied the plan), E-015 (yes/no relevance rejected nearly every passage →
+0-3 grade, keep 2+), gap notes now quote the passage start, section bar 2 passages from 2 documents.
+Known limits: the subject check cannot read negation ("does not cover a 4B model" is flagged); the status table still says
+"Facts" for passages.

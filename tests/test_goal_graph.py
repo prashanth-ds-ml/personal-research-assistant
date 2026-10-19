@@ -45,6 +45,8 @@ def wired(tmp_path, monkeypatch):
             extra = "SECTION-ON-COST" if "add a section on cost" in prompt else "SECTION-ON-RECALL"
             return json.dumps({"title": "Hybrid report", "sub_questions": ["Does hybrid help recall?"],
                                "outline": [{"title": extra, "questions": [0], "brief": "b"}]})
+        if "useful evidence" in prompt:                     # v3: the passage relevance check
+            return json.dumps({"score": 3})
         if "directly support" in prompt:
             return json.dumps({"supported": True})
         if "Extract facts" in prompt:
@@ -74,14 +76,14 @@ def test_pauses_for_clarification_then_for_plan_then_writes_report(wired):
     out = g.invoke({"goal": "Should we use hybrid retrieval?"}, cfg)
     q = out["__interrupt__"][0].value
     assert q["type"] == "clarify" and q["questions"] == ["Which audience?", "Which region?"]
-    assert not any("Extract facts" in p for p in calls.prompts)  # nothing expensive yet
+    assert not any("useful evidence" in p for p in calls.prompts)  # nothing expensive yet
 
     out = g.invoke(Command(resume="Audience: clinicians. Region: India."), cfg)
     plan_req = out["__interrupt__"][0].value
     assert plan_req["type"] == "approve_plan" and plan_req["plan"]["title"] == "Hybrid report"
     # the user's answers reached the planner
     assert any("Audience: clinicians" in p for p in calls.prompts if "research methodologist" in p)
-    assert not any("Extract facts" in p for p in calls.prompts)  # still waiting on approval
+    assert not any("useful evidence" in p for p in calls.prompts)  # still waiting on approval
 
     out = g.invoke(Command(resume={"approved": True}), cfg)
     assert "__interrupt__" not in out
@@ -100,7 +102,7 @@ def test_plan_feedback_triggers_a_revised_plan_before_any_extraction(wired):
     revised = out["__interrupt__"][0].value
     assert revised["type"] == "approve_plan" and revised["revisions_left"] == 1
     assert revised["plan"]["outline"][0]["title"] == "SECTION-ON-COST"
-    assert not any("Extract facts" in p for p in calls.prompts)
+    assert not any("useful evidence" in p for p in calls.prompts)
 
     out = g.invoke(Command(resume={"approved": True}), cfg)
     assert "SECTION-ON-COST" in out["report"]

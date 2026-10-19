@@ -25,3 +25,4 @@ library_kb.sqlite-*
 
 # frozen eval index (rebuilt from the eval corpus by scripts/ingest_library.py)
 evals/kb/
+~$*

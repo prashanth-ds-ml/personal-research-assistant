@@ -79,12 +79,14 @@ class DeepOutput(TypedDict, total=False):
 # ---- factories (module-level so tests can substitute fakes) ---------------
 
 def build_llms(cfg: Configuration) -> dict[str, deep_report.LLM]:
+    """v3: one model (``local_llm``) in three roles; the *_model settings can still override a role. Thinking is off in
+    every role: with thinking on, qwen3.5:4b returned an empty plan after 56 s; off, a good plan in 8 s (E-014)."""
     url = cfg.ollama_base_url.rstrip("/")
     return {
         # temperature 0: the same goal should give the same plan (it varied between 5 and 7 sections)
-        "planner": deep_report.ollama_llm(cfg.planner_model or cfg.local_llm, url, temperature=0),
-        "extractor": deep_report.ollama_llm(cfg.extractor_model or cfg.local_llm, url, temperature=0),
-        "writer": deep_report.ollama_llm(cfg.writer_model or cfg.local_llm, url),
+        "planner": deep_report.ollama_llm(cfg.planner_model or cfg.local_llm, url, temperature=0, reasoning=False),
+        "extractor": deep_report.ollama_llm(cfg.extractor_model or cfg.local_llm, url, temperature=0, reasoning=False),
+        "writer": deep_report.ollama_llm(cfg.writer_model or cfg.local_llm, url, reasoning=False),
     }
 
 
@@ -496,11 +498,12 @@ def research(state: DeepState, config: RunnableConfig) -> dict:
     with open_kb(cfg) as kb:
         ev = deep_report.gather_evidence(
             plan_, library_search(kb, cfg), llms["extractor"], on_progress=note,
-            query_llm=llms["planner"], k=cfg.docs_retrieval_k, resume=resume, on_question_done=question_done)
+            query_llm=llms["planner"], k=cfg.docs_retrieval_k, resume=resume, on_question_done=question_done,
+            passages=True)
     deep_report.check_model_health(deep_report.snapshot_stats(), len(ev))   # raises if the model was down
     dropped = deep_report.snapshot_stats()["off_topic"]
     if dropped:
-        log.event(f"Left out {dropped} fact(s) that were true but not about the question")
+        log.event(f"Left out {dropped} passage(s) that were not useful for their question")
     log.progress(off_topic=dropped)
     log.clear_partial()
     return {"evidence": [e.__dict__ for e in ev]}
@@ -535,7 +538,7 @@ def write(state: DeepState, config: RunnableConfig) -> dict:
         written[0] += 1
 
     standards = deep_report.rc.Standards(cfg.min_section_facts, cfg.min_section_documents, cfg.min_supported_share,
-                                         cfg.claim_labels)
+                                         cfg.claim_labels, flags_only=True)
     sections = deep_report.write_all(plan_, evidence, llm, on_progress=section_started, standards=standards)
     log.progress(sections_total=len(plan_.outline), sections_done=len(sections), current="Assembling the report")
     llm_stats = deep_report.snapshot_stats()
@@ -551,6 +554,7 @@ def write(state: DeepState, config: RunnableConfig) -> dict:
     groups = deep_report.group_sources(evidence, cited)
     log.record(sources=[{"group": label, **d} for label, items in groups for d in items])
     return {"report": report, "stats": {
+        "engine": deep_report.ENGINE_VERSION, "model": cfg.writer_model or cfg.local_llm,
         "questions": len(plan_.sub_questions), "sections": len(sections),
         "evidence": len(evidence), "words": len(report.split()),
         "sources": len({e.source for e in evidence}),

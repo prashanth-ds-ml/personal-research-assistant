@@ -19,6 +19,7 @@ class Standards:
     min_docs: int = MIN_DOCS
     min_share: float = MIN_SUPPORTED_SHARE
     claim_labels: bool = True
+    flags_only: bool = False          # v3: tag only sentences that fail a check (or cite nothing), not every sentence
 
 
 # Text this module writes itself (never labelled or rewritten by later passes).
@@ -91,12 +92,21 @@ def gap_note(section: dict, support: dict, questions: list[str], evidence: list,
     if qs:
         lines += ["Questions this section was meant to answer:", *[f"- {q}" for q in qs], ""]
     if own:
-        lines += ["What the library does say:", *[f"- {e.claim} [{e.id}]" for e in own], ""]
+        lines += ["What the library does say:", *[f"- {_gist(e)} [{e.id}]" for e in own], ""]
     else:
         lines += ["The library holds nothing relevant to these questions.", ""]
     if qs:
         lines.append("To fill this gap, collect sources about: " + "; ".join(q.rstrip("?") for q in qs) + ".")
     return "\n".join(lines).rstrip()
+
+
+def _gist(e) -> str:
+    """One line for a gap note: the fact itself, or for a v3 passage its document and the start of its text."""
+    if not getattr(e, "passage", False):
+        return e.claim
+    text = re.sub(r"\s+", " ", re.sub(r"^\[[^\]]*\]\s*", "", e.quote)).strip()
+    text = text if len(text) <= 220 else text[:220].rsplit(" ", 1)[0] + " ..."
+    return f"{e.source}: \"{text}\""
 
 
 def gaps_and_next_steps(supports: dict[int, dict], questions: list[str]) -> str:
@@ -199,10 +209,40 @@ def evidence_numbers(evidence: list) -> set[str]:
     return set().union(*(_numbers(f"{e.claim} {e.quote}") for e in evidence)) if evidence else set()
 
 
-def label_text(text: str, by_id: dict, known_numbers: set[str]) -> str:
+# Model names and sizes: "4B", "1.7B", "367M", "Qwen3-1.7B", "LLaMA-3", "gemma4", "GPT-4o" (a word with a letter and a digit).
+_SIZE = re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s?[BM](?![\w])")
+_NAME = re.compile(r"(?<![\w-])[A-Za-z][A-Za-z.]*-?\d[\w.]*(?:-[\w.]+)*")
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"[\s\-_]+", "", text.lower())
+
+
+def subjects(text: str) -> set[str]:
+    """The model sizes and model-like names a sentence mentions (citations [E3] are not names)."""
+    text = _CITE.sub(" ", text)
+    found = {m.group(0).replace(" ", "") for m in _SIZE.finditer(text)}
+    found |= {m.group(0).rstrip(".") for m in _NAME.finditer(text) if not re.fullmatch(r"E\d+", m.group(0))}
+    return found
+
+
+def missing_subjects(sentence: str, cited: list) -> set[str]:
+    """Subjects the sentence names that appear neither in the cited evidence nor in its document titles. This is the E-001
+    check: "pretraining a 4B model ... [E7]" where E7 is a post-training paper that never says 4B."""
+    haystack = _squash(" ".join(f"{e.claim} {e.quote} {e.source}" for e in cited))
+    return {s for s in subjects(sentence) if _squash(s) not in haystack and _variant(s) not in haystack}
+
+
+def _variant(name: str) -> str:
+    """The name without a release suffix, so "Qwen3-4B-Instruct" matches a source that writes "Qwen3-4B-Inst."."""
+    return re.sub(r"(instruct|inst|chat|base|it)\.?$", "", _squash(name))
+
+
+def label_text(text: str, by_id: dict, known_numbers: set[str], flags_only: bool = False) -> str:
     """Append a support label to every sentence of prose: [established] (cited, 2+ documents), [single source] (1 document),
     [inference] (no citation) or [inference: figures not from sources] (no citation and a number that appears in no evidence).
-    Tables, headings and quotes are left alone."""
+    A cited sentence whose number or model name/size is not in the cited evidence gets a flag instead. With ``flags_only``
+    a cited sentence that passes the checks gets no tag. Tables, headings and quotes are left alone."""
     out = []
     for line in text.split("\n"):
         stripped = line.strip()
@@ -215,10 +255,16 @@ def label_text(text: str, by_id: dict, known_numbers: set[str]) -> str:
                 labelled.append(sent)
                 continue
             ids = {int(n) for n in _CITE.findall(sent)}
-            docs = {by_id[f"E{n}"].source for n in ids if f"E{n}" in by_id}
-            cited_numbers = evidence_numbers([by_id[f"E{n}"] for n in ids if f"E{n}" in by_id])
+            cited = [by_id[f"E{n}"] for n in ids if f"E{n}" in by_id]
+            docs = {e.source for e in cited}
+            cited_numbers = evidence_numbers(cited)
             if docs and _numbers(_CITE.sub("", sent)) - cited_numbers:
                 tag = "[cited; figure not in the cited evidence]"      # a citation does not make an invented number true
+            elif docs and missing_subjects(sent, cited):
+                tag = "[cited; subject not in the cited evidence]"     # E-001: the right number on the wrong model
+            elif docs and flags_only:
+                labelled.append(sent)
+                continue
             elif len(docs) >= 2:
                 tag = "[established]"
             elif len(docs) == 1:
