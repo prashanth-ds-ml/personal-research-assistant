@@ -1,27 +1,32 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { SidebarNav } from "@/components/sidebar-nav";
-import { MobileNav } from "@/components/mobile-nav";
+import { Masthead } from "@/components/masthead";
+import { ToastProvider } from "@/components/toast";
 
 export const metadata: Metadata = {
-  title: "Research Assistant",
-  description: "Personal, fully-local research assistant dashboard",
+  title: "The Research Desk",
+  description: "Personal, fully-local research assistant",
 };
+
+// Runs before the page paints so a remembered theme never flashes the other one.
+const THEME_BOOT = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className="h-full antialiased"
-    >
-      <body className="min-h-full bg-background text-foreground">
-        <MobileNav />
-        <div className="mx-auto flex w-full max-w-7xl sm:min-h-screen">
-          <SidebarNav />
-          <main className="min-w-0 flex-1 px-6 py-8 sm:px-10 sm:py-10">
-            <div className="mx-auto w-full max-w-3xl">{children}</div>
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+      </head>
+      <body className="min-h-full bg-background font-sans text-foreground">
+        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-foreground">
+          Skip to the content
+        </a>
+        <ToastProvider>
+          <Masthead />
+          <main id="main" className="mx-auto w-full max-w-[1680px] px-6 py-8 sm:py-10 lg:px-14">
+            {children}
           </main>
-        </div>
+        </ToastProvider>
       </body>
     </html>
   );

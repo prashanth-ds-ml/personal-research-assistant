@@ -11,6 +11,8 @@ export interface ResearchNote {
   title: string;
   date: string;
   topicSlug: string;
+  /** The research goal the report answers (deep research only). */
+  goal: string;
   loops: number;
   sourcesCount: number;
   status: string;
@@ -65,6 +67,7 @@ function toNote(slug: string, raw: string, mtimeMs?: number): ResearchNote {
     title: typeof data.title === "string" && data.title ? data.title : slug,
     date: asDateString(data.date),
     topicSlug: typeof data.topic_slug === "string" ? data.topic_slug : "",
+    goal: typeof data.goal === "string" ? data.goal : "",
     loops: typeof data.loops === "number" ? data.loops : 0,
     sourcesCount: typeof data.sources_count === "number" ? data.sources_count : 0,
     status: typeof data.status === "string" ? data.status : "unknown",
@@ -102,7 +105,7 @@ export async function listResearchNotes(): Promise<ResearchNote[]> {
     })
   );
 
-  return notes.filter((n): n is ResearchNote => n !== null).sort((a, b) => (a.date < b.date ? 1 : -1));
+  return notes.filter((n): n is ResearchNote => n !== null).sort((a, b) => (a.date === b.date ? (b.mtimeMs ?? 0) - (a.mtimeMs ?? 0) : a.date < b.date ? 1 : -1));
 }
 
 export async function getResearchNote(slug: string): Promise<ResearchNote | null> {
@@ -140,4 +143,40 @@ export async function readProfileNote(): Promise<string> {
   }
   const raw = await fs.readFile(filePath, "utf-8");
   return matter(raw).content;
+}
+
+/** Removes the rating and note a user left on a report ("forget what this feedback taught"). */
+export async function clearFeedback(slug: string): Promise<boolean> {
+  const filePath = reportPath(slug);
+  if (!filePath || !(await pathExists(filePath))) return false;
+  const { data, content } = matter(await fs.readFile(filePath, "utf-8"));
+  delete data.feedback_rating;
+  delete data.feedback_note;
+  delete data.feedback_at;
+  await fs.writeFile(filePath, matter.stringify(content, data), "utf-8");
+  return true;
+}
+
+function profilePath(): string | null {
+  return VAULT_PATH ? path.join(VAULT_PATH, PROFILE_NOTE_PATH) : null;
+}
+
+/** The whole profile note as written, front matter included (the edit box needs it all). */
+export async function readProfileRaw(): Promise<string> {
+  const p = profilePath();
+  if (!p || !(await pathExists(p))) return "";
+  return fs.readFile(p, "utf-8");
+}
+
+/** Saves the profile note. The previous version is kept next to it as Profile.md.bak-<date> so nothing is lost. */
+export async function writeProfileRaw(text: string): Promise<boolean> {
+  const p = profilePath();
+  if (!p) return false;
+  if (await pathExists(p)) {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    await fs.copyFile(p, `${p}.bak-${stamp}`);
+  }
+  await fs.mkdir(path.dirname(p), { recursive: true });
+  await fs.writeFile(p, text, "utf-8");
+  return true;
 }

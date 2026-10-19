@@ -40,7 +40,7 @@ export function FeedbackBar({
   };
 
   const base =
-    "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";
+    "flex items-center gap-1.5 rounded border px-3.5 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";
   const idle = "border-border text-muted hover:border-accent/40 hover:text-accent";
   const on = "border-accent bg-accent-soft text-accent";
 

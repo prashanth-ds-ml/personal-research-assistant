@@ -6,8 +6,9 @@ import { useStream } from "@langchain/langgraph-sdk/react";
 import { ResumeBanner } from "@/components/resume-banner";
 import { useRunThread } from "@/lib/use-run-thread";
 import { apiUrl } from "@/lib/api-url";
-import { CheckCircle2, Search as SearchIcon, ArrowRight, AlertCircle } from "lucide-react";
-import { PipelineStepper, type Stage } from "@/components/pipeline-stepper";
+import Link from "next/link";
+import { ErrorCard } from "@/components/error-card";
+type Stage = "profile" | "query" | "research" | "reflect" | "done";
 
 interface ResearchState {
   research_topic?: string;
@@ -95,148 +96,144 @@ function NewResearchForm() {
   const started = stream.isLoading || Boolean(stream.values.research_topic);
   const comparing = (stream.values.entity_topics?.length ?? 0) > 1;
 
+  const locked = stream.isLoading || active;
+  const stages: { key: Stage; label: string }[] = [
+    { key: "profile", label: "Loading profile & prior notes" },
+    { key: "query", label: "Generating search query" },
+    { key: "research", label: "Researching the web" },
+    { key: "reflect", label: "Reflecting on knowledge gaps" },
+    { key: "done", label: "Report written" },
+  ];
+  const stageIdx = stages.findIndex((x) => x.key === currentStage(stream.values, done));
+  const lab = "text-[11px] font-semibold uppercase tracking-widest text-muted";
+  const step = "h-9 w-9 rounded-full border border-border text-lg hover:border-accent disabled:opacity-40";
+
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New Research</h1>
-        <p className="mt-1 text-sm text-muted">
-          Calibrated by your profile and prior notes, then archived back into your vault.
-          Comparisons (&quot;X vs Y&quot;) are detected automatically and researched in parallel.
-        </p>
-      </div>
+    <div className="mx-auto max-w-4xl">
+      <div className="kicker">The short column</div>
+      <h1 className="mt-1 text-5xl leading-none">Quick research</h1>
+      <p className="mb-6 mt-3 text-sm text-muted">
+        A short cited note in a few minutes. Calibrated by your profile and earlier notes, then saved to your vault. Comparisons (&quot;X vs Y&quot;) are detected and researched in parallel.
+      </p>
 
       {active && (
-        <ResumeBanner
-          loading={stream.isLoading}
-          noun="research"
-          onReset={() => {
-            forget();
-            setTopic("");
-          }}
-        />
+        <div className="mb-5">
+          <ResumeBanner
+            loading={stream.isLoading}
+            noun="research"
+            onReset={() => {
+              forget();
+              setTopic("");
+            }}
+          />
+        </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5 shadow-sm"
-      >
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-muted">Topic</span>
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
-            <SearchIcon className="h-4 w-4 shrink-0 text-muted" />
-            <input
-              className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-muted"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="What is the Model Context Protocol?"
-              disabled={stream.isLoading || active}
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="border border-border border-t-[3px] border-t-foreground bg-surface p-7">
+        <label htmlFor="qt" className={lab}>
+          Topic
         </label>
-
-        <div className="flex items-center gap-6">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted">Max research loops</span>
-            <input
-              type="number"
-              min={0}
-              max={10}
-              className="w-24 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-              value={loops}
-              onChange={(e) => setLoops(Number(e.target.value))}
-              disabled={stream.isLoading || active}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted">Search</span>
+        <input
+          id="qt"
+          className="mt-2 w-full rounded border border-border bg-background px-3.5 py-3 text-[17px] outline-none focus:border-accent"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="What is the Model Context Protocol?"
+          disabled={locked}
+        />
+        <div className="mt-5 flex flex-wrap items-end gap-8">
+          <div>
+            <div className={lab}>Max research loops</div>
+            <div className="mt-2 flex items-center gap-3">
+              <button type="button" aria-label="Fewer loops" className={step} disabled={locked} onClick={() => setLoops((n) => Math.max(0, n - 1))}>
+                −
+              </button>
+              <b className="min-w-6 text-center text-[22px]">{loops}</b>
+              <button type="button" aria-label="More loops" className={step} disabled={locked} onClick={() => setLoops((n) => Math.min(10, n + 1))}>
+                +
+              </button>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="qs" className={lab}>
+              Search
+            </label>
             <select
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              id="qs"
+              className="mt-2 block rounded border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent"
               value={source}
               onChange={(e) => setSource(e.target.value as "web" | "local_docs")}
-              disabled={stream.isLoading || active}
+              disabled={locked}
             >
               <option value="web">Web</option>
               <option value="local_docs">Internal documents</option>
             </select>
-          </label>
-
+          </div>
+          <div className="flex-1" />
+          {stream.isLoading ? (
+            <button type="button" onClick={() => stream.stop()} className="rounded border border-danger px-5 py-2.5 text-sm font-semibold text-danger hover:bg-danger hover:text-accent-foreground">
+              Stop
+            </button>
+          ) : (
+            <button type="submit" disabled={locked || !topic.trim()} className="rounded bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground hover:opacity-90 disabled:opacity-40">
+              Start research →
+            </button>
+          )}
         </div>
-
-        <button
-          type="submit"
-          disabled={stream.isLoading || active || !topic.trim()}
-          className="flex w-fit items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm shadow-accent/30 transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
-        >
-          {stream.isLoading ? "Researching..." : "Start Research"}
-          {!stream.isLoading && <ArrowRight className="h-4 w-4" />}
-        </button>
       </form>
 
       {stream.error ? (
-        <div role="alert" className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {String(stream.error)}
+        <div className="mt-5">
+          <ErrorCard error={stream.error} />
         </div>
       ) : null}
 
-      {stream.isLoading && (
-        <div role="status" aria-live="polite" className="flex items-center gap-3 text-sm text-muted">
-          Researching...
-          <button type="button" className="text-xs underline hover:text-foreground" onClick={() => stream.stop()}>
-            Stop
-          </button>
-        </div>
-      )}
-
       {started && (
-        <div className="flex flex-col gap-5 rounded-2xl border border-border bg-surface p-5 shadow-sm">
-          <PipelineStepper current={currentStage(stream.values, done)} />
-
+        <div className="mt-5 border border-border border-t-[3px] border-t-foreground bg-surface p-7">
+          <ol className="flex flex-wrap gap-2" aria-label="Progress">
+            {stages.map((x, i) => (
+              <li
+                key={x.key}
+                aria-current={i === stageIdx ? "step" : undefined}
+                className={`rounded border px-3 py-1.5 text-[13px] ${i < stageIdx ? "border-success text-success" : i === stageIdx ? "border-accent font-semibold text-accent" : "border-border text-muted"}`}
+              >
+                {x.label}
+              </li>
+            ))}
+          </ol>
           {comparing && (
-            <div className="rounded-xl bg-background px-3 py-2 text-sm">
-              <span className="text-muted">Researching {stream.values.entity_topics!.length} topics in parallel: </span>
-              {stream.values.entity_topics!.join(" · ")}
-            </div>
+            <p className="mt-4 text-sm leading-relaxed text-muted">
+              Researching {stream.values.entity_topics!.length} topics in parallel: {stream.values.entity_topics!.join(" · ")}
+            </p>
           )}
-
-          {!comparing && stream.values.search_query && (
-            <div className="rounded-xl bg-background px-3 py-2 text-sm">
-              <span className="text-muted">Current query: </span>
-              {stream.values.search_query}
-            </div>
+          {!comparing && (
+            <p className="mt-4 text-sm leading-[1.7] text-muted">
+              {stream.values.search_query && (
+                <>
+                  Current query: <i>{stream.values.search_query}</i>
+                  <br />
+                </>
+              )}
+              {typeof stream.values.research_loop_count === "number" && `${stream.values.research_loop_count} research loop${stream.values.research_loop_count === 1 ? "" : "s"} completed so far`}
+            </p>
           )}
-
-          {!comparing && typeof stream.values.research_loop_count === "number" && (
-            <div className="text-xs text-muted">
-              {stream.values.research_loop_count} research loop
-              {stream.values.research_loop_count === 1 ? "" : "s"} completed so far
-            </div>
-          )}
-
           {!done && !comparing && stream.values.running_summary && (
-            <details className="rounded-xl bg-background p-3">
-              <summary className="cursor-pointer text-sm text-muted">
-                Latest summary (in progress)
-              </summary>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-muted">
-                {stream.values.running_summary}
-              </p>
+            <details className="mt-3 rounded border border-border bg-background p-3">
+              <summary className="cursor-pointer text-sm text-muted">Latest summary (in progress)</summary>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{stream.values.running_summary}</p>
             </details>
           )}
         </div>
       )}
 
       {done && slug && (
-        <div role="status" className="flex items-center gap-3 rounded-2xl border border-success/30 bg-success-soft px-5 py-4 text-sm text-success">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span className="flex-1">Research complete.</span>
-          <a
-            href={`/research/${slug}`}
-            className="rounded-full bg-success px-3 py-1.5 text-xs font-medium text-white"
-          >
-            View report
-          </a>
+        <div role="status" className="mt-5 border border-success bg-success-soft p-6 text-success">
+          <div className="flex items-center gap-3">
+            <b className="flex-1 text-base">Research complete. Saved to your vault.</b>
+            <Link href={`/research/${slug}`} className="rounded bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground">
+              View report
+            </Link>
+          </div>
         </div>
       )}
     </div>

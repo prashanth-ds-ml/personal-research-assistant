@@ -8,7 +8,7 @@ export function StatusBadge({ status }: { status: string }) {
   const style = STYLES[status] ?? STYLES.unknown;
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${style}`}
+      className={`rounded px-2 py-0.5 text-[11px] font-medium capitalize ${style}`}
     >
       {status}
     </span>

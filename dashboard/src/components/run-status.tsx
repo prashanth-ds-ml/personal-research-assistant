@@ -21,7 +21,7 @@ const STYLE: Record<RunStatus, string> = {
 };
 
 export function RunBadge({ status }: { status: RunStatus }) {
-  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STYLE[status]}`}>{LABEL[status]}</span>;
+  return <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${STYLE[status]}`}>{LABEL[status]}</span>;
 }
 
 export const isActive = (s: RunStatus) => s === "running" || s === "waiting" || s === "stalled";

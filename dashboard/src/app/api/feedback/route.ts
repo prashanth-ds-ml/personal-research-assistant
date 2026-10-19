@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveFeedback } from "@/lib/vault";
+import { clearFeedback, saveFeedback } from "@/lib/vault";
 
 export const runtime = "nodejs";
 
@@ -34,4 +34,22 @@ export async function POST(request: Request) {
   const ok = await saveFeedback(slug, rating, text);
   if (!ok) return NextResponse.json({ error: "Report not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
+}
+
+// DELETE { slug }: forget the rating and note left on a report.
+export async function DELETE(request: Request) {
+  if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) {
+    return NextResponse.json({ error: "Content-Type must be application/json" }, { status: 415 });
+  }
+  let body: { slug?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Body must be JSON" }, { status: 400 });
+  }
+  if (typeof body.slug !== "string" || !/^[\w.-]+$/.test(body.slug)) {
+    return NextResponse.json({ error: "Invalid report slug" }, { status: 400 });
+  }
+  const ok = await clearFeedback(body.slug);
+  return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Report not found" }, { status: 404 });
 }

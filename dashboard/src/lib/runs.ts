@@ -62,7 +62,35 @@ export interface UsedSource {
   cited: number;
 }
 
+/** A clarifying question and what the user answered ("" = left to the assistant). */
+export interface QA {
+  question: string;
+  answer: string;
+}
+
+export interface CoverageRec {
+  index: number;
+  question: string;
+  status: string;
+  relevant: number;
+  titles: string[];
+}
+
+/** The research plan the run is following. */
+export interface PlanInfo {
+  title: string;
+  questions: string[];
+  outline: string[];
+}
+
 export interface RunDetail extends RunSummary {
+  /** The clarifying questions asked at the start (shown even while the run still waits for the answers). */
+  clarifyQuestions: string[];
+  clarifications: QA[];
+  plan: PlanInfo | null;
+  coverage: CoverageRec[];
+  /** Verified facts found for each plan question so far, by question number. */
+  questionFacts: number[];
   collected: CollectedRow[];
   sources: UsedSource[];
   events: RunEvent[];
@@ -92,6 +120,19 @@ async function readRecord(id: string): Promise<Record<string, unknown> | null> {
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
 type ThreadState = "busy" | "idle" | "interrupted" | "error" | "missing" | "unreachable";
+
+/** What the research engine keeps for a run: the questions it asked, the answers, the plan and the coverage check.
+ * Used when the run record (written by older code) does not have them. Never throws. */
+async function threadValues(id: string): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(`${UPSTREAM}/threads/${encodeURIComponent(id)}/state`, { cache: "no-store", signal: AbortSignal.timeout(2000) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { values?: Record<string, unknown> };
+    return body.values && typeof body.values === "object" ? body.values : null;
+  } catch {
+    return null;
+  }
+}
 
 async function threadState(id: string): Promise<ThreadState> {
   try {
@@ -177,7 +218,36 @@ export async function getRun(id: string): Promise<RunDetail | null> {
   const stats = (rec.stats && typeof rec.stats === "object" ? rec.stats : {}) as Record<string, number>;
   const collected = Array.isArray(rec.collected) ? (rec.collected as CollectedRow[]) : [];
   const sources = Array.isArray(rec.sources) ? (rec.sources as UsedSource[]) : [];
-  return { ...summarize(rec, id, thread), collected, sources, events, stats, backendReachable: thread !== "unreachable" };
+  const goal = str(rec.goal);
+  // newer records carry these fields themselves; for the rest, ask the engine what it kept
+  const tv = rec.plan && rec.clarify_questions ? null : await threadValues(id);
+  const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((q): q is string => typeof q === "string") : []);
+  const asked = strings(rec.clarify_questions).length > 0 ? strings(rec.clarify_questions) : strings(tv?.questions);
+  const fromThread = typeof tv?.clarifications === "string" && tv.clarifications.trim() ? parseAnswerLines(tv.clarifications) : [];
+  const answered = Array.isArray(rec.clarifications) ? (rec.clarifications as QA[]).filter((p) => p && typeof p.question === "string") : fromThread.length > 0 ? fromThread : parseClarifications(goal);
+  const planRec = (rec.plan && typeof rec.plan === "object" ? rec.plan : null) as Partial<PlanInfo> | null;
+  const tvPlan = tv?.plan && typeof tv.plan === "object" ? (tv.plan as { title?: unknown; sub_questions?: unknown; outline?: unknown }) : null;
+  const plan: PlanInfo | null =
+    planRec && Array.isArray(planRec.questions)
+      ? { title: str(planRec.title), questions: planRec.questions.map(String), outline: Array.isArray(planRec.outline) ? planRec.outline.map(String) : [] }
+      : tvPlan && Array.isArray(tvPlan.sub_questions)
+        ? { title: str(tvPlan.title), questions: tvPlan.sub_questions.map(String), outline: Array.isArray(tvPlan.outline) ? (tvPlan.outline as { title?: unknown }[]).map((o) => str(o?.title)) : [] }
+        : questionsFromEvents(events);
+  const coverage = Array.isArray(rec.coverage) ? (rec.coverage as CoverageRec[]) : Array.isArray(tv?.coverage) ? (tv.coverage as CoverageRec[]) : [];
+  const questionFacts = Array.isArray(rec.question_facts) ? (rec.question_facts as unknown[]).map((n) => (typeof n === "number" ? n : 0)) : [];
+  return {
+    ...summarize(rec, id, thread),
+    clarifyQuestions: asked.length > 0 ? asked : answered.map((p) => p.question),
+    clarifications: answered,
+    plan,
+    coverage,
+    questionFacts,
+    collected,
+    sources,
+    events,
+    stats,
+    backendReachable: thread !== "unreachable",
+  };
 }
 
 /** Ask the backend to stop the run, and record that the user did. Returns a message for the page. */
@@ -219,4 +289,33 @@ export async function stopRun(id: string): Promise<{ ok: boolean; message: strin
     }
   }
   return { ok: true, message: "Stop requested." };
+}
+
+/** Older run records only keep the answers inside the goal text: "Clarifications from the user:\n<question>\n  -> <answer>". */
+export function parseClarifications(goal: string): QA[] {
+  const at = goal.indexOf("Clarifications from the user:");
+  return at < 0 ? [] : parseAnswerLines(goal.slice(at + "Clarifications from the user:".length));
+}
+
+/** "<question>\n  -> <answer>" lines, as the dashboard sends them and the graph keeps them. */
+export function parseAnswerLines(text: string): QA[] {
+  const out: QA[] = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("->") && out.length > 0) out[out.length - 1].answer = line.slice(2).trim();
+    else out.push({ question: line, answer: "" });
+  }
+  return out;
+}
+
+/** Older records have no plan field, but each answered question left an event: "Q5/7: 6 passages -> <question>". */
+export function questionsFromEvents(events: RunEvent[]): PlanInfo | null {
+  const qs = new Map<number, string>();
+  for (const e of events) {
+    const m = /^Q(\d+)\/(\d+):\s*\d+ passages -> (.+)$/.exec(e.text);
+    if (m) qs.set(Number(m[1]), m[3]);
+  }
+  if (qs.size === 0) return null;
+  return { title: "", questions: [...qs.entries()].sort((a, b) => a[0] - b[0]).map(([, q]) => q), outline: [] };
 }
