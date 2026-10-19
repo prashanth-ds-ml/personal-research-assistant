@@ -1,5 +1,7 @@
 # Model, memory and finishing plan (rewritten 2026-10-01 with measurements; supersedes the earlier draft)
 
+> **Superseded for planning by [`SCOPE.md`](SCOPE.md) v2 (2026-10-12) and [`STATUS.md`](STATUS.md).** Kept as history; open items from here are carried into the phase docs and `ERROR_LOG.md`.
+
 Goal: finish project 4 in 2-3 days. This is the last or second-to-last fix round for speed and memory.
 
 ## Evidence (measured on 2026-10-01, machine in its normal working state)

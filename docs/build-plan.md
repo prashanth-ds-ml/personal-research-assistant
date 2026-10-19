@@ -1,5 +1,7 @@
 # Build plan (finalized 2026-09-30)
 
+> **Superseded for planning by [`SCOPE.md`](SCOPE.md) v2 (2026-10-12) and [`STATUS.md`](STATUS.md).** Kept as history; open items from here are carried into the phase docs and `ERROR_LOG.md`.
+
 Goal: get the research assistant from "feature-complete demo" to "a tool I use every
 week, with numbers that prove it works". Scope is only what is already built or
 already on the roadmap: wiring fix, judge scoring, collector, real documents,

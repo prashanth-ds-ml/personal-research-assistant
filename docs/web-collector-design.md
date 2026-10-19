@@ -16,6 +16,8 @@ and URLs the user types in, but it cannot *find* web pages. For goals that need 
 blog posts (for example the sexual-health assistant in project 6), the user has to collect sources by hand first.
 
 ## 2. Goal and non-goals
+> **v2.1 (2026-10-18):** ticking is replaced by plan + collection-rule approval and the 40-candidate cap is removed (SCOPE section 5, P1.22). This doc describes the code as built before that change.
+
 **Goal.** When "Fetch new sources" is ticked, find candidate web pages and papers for each plan question, show
 them to the user, save the approved ones as markdown in the library, and let the normal research step use them.
 

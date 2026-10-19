@@ -325,3 +325,68 @@ scheduler is demoted to cheap insurance.
 (2026-10-01) Goal: "How does reciprocal rank fusion combine rankings?" The coverage check marked all 7 questions "nothing". A direct
 search of the library confirmed it: "reciprocal rank fusion" appears in 2 chunks of 1 blog page, in passing, with no explanation. So the
 check refused correctly instead of letting the report fill with off-topic material (the failure of the original small-model report).
+
+## Scope v2: narrow, quality first, chat and a compounding library (2026-10-12)
+Context: the v1 scope (3 Oct) was never locked. Discussion on 12 Oct changed the direction. The model's context, not the number of
+collected documents, bounds a report: the decision step only ever saw ~24 compressed sentences however many PDFs were collected, and
+compression at each step is where the subject and stitching errors came from. Decisions (full text in `docs/SCOPE.md`):
+- **Quality over speed.** CPU offload and multi-hour runs are acceptable.
+- **One research model that reasons and writes:** `gemma4:26b-a4b` (qat, ~16 GB, MoE ~4B active), 32k context for every research call
+  (one setting, so it loads once). Chosen from the Ollama "tools + thinking" list by fit (8 GB GPU + 24 GB RAM) and family (gemma4:e4b
+  wrote the best prose in BENCHMARKS). To be confirmed by a model test on identical saved evidence (Phase 1a), against qwen3:30b-a3b,
+  gemma4:12b, qwen3.5:9b, a qwen3.5:27b ceiling check and the v6 mix. Rejected: "maximum context" (32k is the realistic ceiling on this
+  machine, and 8B-class models do not reason evenly across long prompts); nemotron-3-nano:30b and qwen3.5:35b (too big for RAM).
+- **The selected evidence must fit in one context.** Limits: 3-4 questions, ≤12 sources read per question, ≤50 per run, ≤4 facts per
+  source, ≤80 facts in the writing step, library unlimited; everything left out is listed.
+- **Structured facts** (core + AI/ML pack fields) so the subject check compares fields; **fact bank** stored for reuse.
+- **Draft → critique → revise**; number provenance and labels enforced in code.
+- **Two report types** (decision brief, state of the evidence); 1,500-3,000 words.
+- **Chat with the library** (Phase 2): fast model, cited, coverage statements, refuses general-knowledge answers, hands off to reports.
+  Rejected framing: "works without the internet forever" (libraries go stale; freshness is shown instead).
+- **"Any domain"** only via domain packs, proven with a second domain in Phase 4; AI/ML first.
+- **Framework use** (`docs/FRAMEWORK_FIT.md`): Send + subgraph per question, RetryPolicy, CachePolicy, runtime context, Command,
+  checkpoint fork for the model test, custom streaming; `create_agent` + middleware for chat; own SQLite for passages and the fact bank;
+  SqliteStore for chat memory. Not adopted: Deep Agents for research, bigtool, replacing `knowledge.py`; LangSmith off by default.
+- **Process:** phases with tests first, review, error log and gates (`docs/PROCESS.md`); Phase 1 split into 1a-1d.
+
+## Scope v2.1: collect wide, index everything, chat preview early (2026-10-18)
+Context: the user pointed out that a run may find hundreds of sources but only a few can be used; the rest should go into the
+knowledge base, and a growing knowledge base should be chattable (RAG). The tool must be useful to the user first, then become a
+private-first deep research product to demo to clients. Decisions (full text in `docs/SCOPE.md` section 5):
+- **Four levels per run:** found → collected + indexed (no LLM, all of them) → read (≤50, fact bank) → used (≤80 facts). The collection
+  bound is a safety cap (~300), not the context. Collected sources were already auto-indexed; the change is discovery and choice.
+- **No ticking:** the user approves the plan and collection rules; the candidate list stays as an optional exclude list.
+  Rejected: ticking ~100 candidates (does not scale to hundreds).
+- **Source states** `indexed` / `read` / `used` and **origin** `web` / `upload` stored per source; chat says checked vs unchecked.
+- **Chat preview at the end of Phase 1b**, used daily before Phase 2 is designed in detail. Rejected: full chat before Phase 1 (without
+  the fact bank it cannot tell checked facts from unchecked passages, the E-001 failure).
+- **Product direction recorded; client work deferred.** Private sources for clients (intranets via connectors, exports or a signed-in
+  crawler with permission; on-premise; per-user access filtering) are feasible but backlog until a client asks. Only `origin` is stored now.
+
+## Scope v2.1 locked (2026-10-18)
+The user asked to finalize the scope. `docs/SCOPE.md` v2.1 is locked with the section 12 defaults: limits as written (tuned after the
+model test), one library with topic collections, 1,500-3,000-word reports, gemma4:e4b for the chat preview, ~300-source collection cap.
+Second domain and first client type are deferred by design to Phase 4. Further scope changes need a DECISIONS entry and a version bump.
+Next: Phase 1a (blocked only on free RAM: reboot before the model test).
+
+## Scope v2.2: measure first, simplest baseline, claim check as the centrepiece (2026-10-19)
+Context: a review through the lenses of Karpathy (look at the data, simple baselines, fast loops, human verification) and Ng (error
+analysis, evals first, data-centric, decide what to work on). The v2.1 plan chose fixes by diagnosis, had only the v6 baseline, and a
+3-5 h run as its only loop. Decisions (full text in `docs/SCOPE.md`, S10-S13):
+- **Phase 1a-0 "Measure first"** before any Phase 1a code: ~50 claims labelled by first failing stage, eval set (subject facts,
+  retrieval, faithfulness with the 8 disputed labels settled, calibrated judge), one scoreboard, mini fixture + writing replay, code audit.
+- **Raw-passage baseline** (retrieve → raw passages in 32k → write with quotes) in the model test; every structured stage must beat it
+  or is cut. **Critique on/off** measured; draft → critique → revise kept only if it raises the blind score.
+- **Claim check view** (claim → fact → highlighted quote) moved from dashboard polish to Phase 1c.
+- **Portfolio deliverables and pre-publish clean-up** are part of the Phase 1d gate; v1.0 is the public release.
+- **Code audit:** v1 quick-research mode (~1,650 lines, the only user of `langchain-community`) is kept or archived by the user in Sprint 2.
+- Build order in sprints with test gates: `docs/BUILD_ORDER.md`. Phase 1b/1c task order is re-set after the error analysis.
+
+## Process: test everything possible, user-test list, living case study (2026-10-19)
+The user asked that everything possible be tested, with the tests only they can do listed separately, and that a case study be
+maintained alongside the other project docs. Process change, not a scope change (scope stays v2.2):
+- Claude tests everything automatable: offline suites, live Ollama runs, API calls, dashboard end-to-end with Playwright (headless),
+  secret scan, fresh-clone install, independent second labels on evals.
+- `docs/USER_TESTS.md` lists the person-only tests (U-P1..P4 any time, U-01..U-20 per sprint) with status; blocking ones gate their sprint.
+- `docs/CASE_STUDY.md` is a living document: a sprint-log entry every sprint, final form at v1.0 (Sprint 11).
+- `BUILD_ORDER.md` now lists Claude's tests and the user's tests per sprint and a common end-of-sprint routine.

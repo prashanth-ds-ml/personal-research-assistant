@@ -1,5 +1,7 @@
 # Next steps for project 4 (end of session 2026-10-01)
 
+> **Superseded for planning by [`SCOPE.md`](SCOPE.md) v2 (2026-10-12) and [`STATUS.md`](STATUS.md).** Kept as history; open items here are tracked in `ERROR_LOG.md` (E-003..E-007) and the phase docs.
+
 State: deep research with coverage check, source collecting with review, evidence gate, claim labels, run records, Stop and Runs
 page is built and committed (285 offline tests, lint clean, 25 commits). Services run the latest code (dashboard 3001, backend 2025,
 both on 127.0.0.1). Full list of findings: `closeout-review-2026-10-01.md`. Measurements and the finish plan: `model-memory-plan.md`.

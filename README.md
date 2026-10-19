@@ -1,5 +1,7 @@
 # Personal Research Assistant
 
+> **Status (2026-10-12):** v1.0 is being finished under a new scope: bounded, checked research reports with one larger local model, then chat with your library. See [docs/SCOPE.md](docs/SCOPE.md) and [docs/STATUS.md](docs/STATUS.md). Parts of this README describe the earlier version and will be rewritten in Phase 1d.
+
 A fully local, personalized research agent. Fork of
 [langchain-ai/local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher)
 that archives everything it finds, writes structured reports into an Obsidian

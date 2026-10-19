@@ -1,5 +1,7 @@
 # Report quality plan (drafted 2026-10-01)
 
+> **Superseded for planning by [`SCOPE.md`](SCOPE.md) v2 (2026-10-12) and [`STATUS.md`](STATUS.md).** Kept as history; open items from here are carried into the phase docs and `ERROR_LOG.md`.
+
 **Progress (end of 2026-10-01): stages 0-5 are built and committed (285 tests); stage 7 is partly done (coverage card, collect choice,
 evidence status in the report); stage 6 and the real-run validation of stage 8 are not done.** Earlier note: stages 0, 1 and 2 were built, tested (250 offline tests) and live-checked on the real goal (the coverage check
 rated 12 questions: 1 answered, 7 thin, 4 nothing, which matches why the original report was poor). Stages 3-8 are next.
@@ -65,3 +67,25 @@ offline with fake models; the services are restarted after 2 and after 5 for a l
    carries an unlabelled number that is not in the evidence, and every item of the requested deliverable list appears.
 3. A sample of 30 evidence facts: at least 80% judged on-topic by a human (you).
 4. All offline tests pass; lint clean; services restarted and a live run completes.
+
+## Round 5 (2026-10-02): staying on the user's goal
+
+Found by reading a real report ("Building a Small Language Model ... Telugu/Tenglish"): faithful sentences, wrong conclusion
+(RoBERTa, a 125M encoder classifier, recommended for a 4B-8B generator), no answer to "pretrain or fine-tune?", no evidence on
+tool calling, and two off-goal chapters (hate speech, speech-to-text). Cause: the clarifying-question step saw the titles in the
+library, so earlier runs' sources became "requirements", and nothing checked the plan against the goal.
+
+Changes (`deep_report.py`, `goal_graph.py`, tests in `tests/test_scope_and_fit.py`):
+- Clarifying questions no longer see the library and are told never to introduce a topic the goal lacks.
+- `model_goal()`: every model sees the user's goal and the user's OWN answers, never the assistant's questions (a model that
+  reads "any hate-speech requirements?" treats it as a requirement even after the user answered "text only").
+- `scope_filter()`: each plan question is checked against the goal; untraceable ones are dropped (never on a model error; at
+  least 3 kept). `add_missing_topics()`: the model lists the goal's topics (each must be verbatim in the goal sentence), word
+  matching decides if a question covers each, missing ones get a question and section.
+- The planner accepts sub-questions returned as objects (it used to discard them and plan one giant question).
+- Facts are judged against the whole goal as well as the question; recommendations must rest on evidence about the same kind of
+  system as the goal and must compare named alternatives; filler sentences and tables that only repeat the prose are cut.
+
+Verified: 328 offline tests; the planner run on the real goal and answers (before: 8 questions incl. hate speech and speech-to-text;
+after: 6 on-goal questions with tool calling and reasoning covered). The fact-judging, fit rules and filler cleanup need a full run to
+be judged on real text.
