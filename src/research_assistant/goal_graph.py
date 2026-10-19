@@ -31,7 +31,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 from typing_extensions import TypedDict
 
-from research_assistant import collector, deep_report, fetcher, runlog, vault
+from research_assistant import collector, deep_report, desk, fetcher, runlog, vault
 from research_assistant.configuration import PER_RUN_KEYS, Configuration
 from research_assistant.documents import make_embeddings
 from research_assistant.knowledge import (
@@ -85,11 +85,13 @@ def build_llms(cfg: Configuration) -> dict[str, deep_report.LLM]:
     url = cfg.ollama_base_url.rstrip("/")
     return {
         # temperature 0: the same goal should give the same plan (it varied between 5 and 7 sections)
-        "planner": deep_report.ollama_llm(cfg.planner_model or cfg.local_llm, url, temperature=0, reasoning=False),
-        "extractor": deep_report.ollama_llm(cfg.extractor_model or cfg.local_llm, url, temperature=0, reasoning=False),
-        "writer": deep_report.ollama_llm(cfg.writer_model or cfg.local_llm, url, reasoning=False),
+        "planner": deep_report.ollama_llm(cfg.planner_model or cfg.local_llm, url, temperature=0, reasoning=False,
+                                          role="planner"),
+        "extractor": deep_report.ollama_llm(cfg.extractor_model or cfg.local_llm, url, temperature=0, reasoning=False,
+                                            role="judge"),
+        "writer": deep_report.ollama_llm(cfg.writer_model or cfg.local_llm, url, reasoning=False, role="writer"),
         "thinker": deep_report.ollama_llm(cfg.planner_model or cfg.local_llm, url, temperature=0,
-                                          reasoning=cfg.plan_thinking),
+                                          reasoning=cfg.plan_thinking, role="thinker" if cfg.plan_thinking else "planner"),
     }
 
 
@@ -131,6 +133,12 @@ def _run_log(config: RunnableConfig) -> runlog.RunLog:
     return runlog.RunLog(cfg.vault_path, str((config.get("configurable") or {}).get("thread_id", "")))
 
 
+def _trace(config: RunnableConfig) -> desk.RunTrace:
+    """This run's trace in the desk database (see desk.py); a silent no-op without a vault or thread id."""
+    cfg = Configuration.from_runnable_config(config)
+    return desk.RunTrace(cfg.vault_path, str((config.get("configurable") or {}).get("thread_id", "")))
+
+
 def _cfg(state: DeepState, config: RunnableConfig) -> Configuration:
     """Settings for a node. The dashboard sends the per-run options (collect sources, seed URLs ...) only with the
     call that starts the run; each later resume carries none. They are saved in the run's state at the start
@@ -153,16 +161,26 @@ def tracked(step: str, label: str = ""):
         def wrapper(state: DeepState, config: RunnableConfig):
             log = _run_log(config)
             log.start(state.get("goal", ""))
+            trace = _trace(config)
+            cfg = _cfg(state, config)
+            trace.start_run(state.get("goal", ""), deep_report.ENGINE_VERSION, cfg.writer_model or cfg.local_llm,
+                            {**(state.get("options") or {}), **_opts(config)["options"]})
             if log.is_stopped():                                 # Stop was pressed before this step began
+                trace.finish_run("stopped")
                 raise deep_report.RunStopped()
             log.step(step, label)
             deep_report.set_stop_check(log.is_stopped if log.enabled else None)   # lets Stop reach a running model call
             try:
-                return fn(state, config)
-            except (GraphBubbleUp, deep_report.RunStopped):      # a pause for the user, or the user's own Stop
+                with trace.step(step):                          # also makes this trace the current one for deep_report
+                    return fn(state, config)
+            except GraphBubbleUp:                                # a pause for the user
+                raise
+            except deep_report.RunStopped:                       # the user's own Stop
+                trace.finish_run("stopped")
                 raise
             except Exception as e:
                 log.fail(f"{step}: {e}")
+                trace.finish_run("failed", error=f"{step}: {e}")
                 raise
         return wrapper
     return deco
@@ -273,6 +291,8 @@ def plan(state: DeepState, config: RunnableConfig) -> dict:
         log.event(f"Left out {len(p.dropped)} question(s) that are not part of your goal: " + "; ".join(p.dropped)[:300])
     log.record(plan={"title": p.title, "questions": list(p.sub_questions), "dropped": list(p.dropped),
                      "outline": [str(o.get("title", "")) for o in p.outline if isinstance(o, dict)]})
+    _trace(config).set_plan({"title": p.title, "questions": list(p.sub_questions), "dropped": list(p.dropped),
+                             "outline": p.outline})
     return {"plan": {"goal": p.goal, "title": p.title, "sub_questions": p.sub_questions, "outline": p.outline}}
 
 
@@ -553,6 +573,9 @@ def write(state: DeepState, config: RunnableConfig) -> dict:
         library_size = kb.stats()["documents"]
     report = deep_report.assemble(plan_, sections, evidence, llm, library_size=library_size, notes=notes,
                                   scope_note=_scope_note(state.get("collect_report")), standards=standards)
+    trace = _trace(config)
+    trace.evidence(evidence)
+    trace.sentences(report)
     cited = {int(n) for n in re.findall(r"\[E(\d+)\]", report.split("## Evidence appendix")[0])}
     groups = deep_report.group_sources(evidence, cited)
     log.record(sources=[{"group": label, **d} for label, items in groups for d in items])
@@ -577,6 +600,7 @@ def save(state: DeepState, config: RunnableConfig) -> dict:
     post = frontmatter.Post(
         state["report"], title=state["plan"]["title"], date=date.today().isoformat(), kind="deep-research",
         goal=state["goal"], clarifications=state.get("clarifications", ""), status="complete",
+        run_id=str((config.get("configurable") or {}).get("thread_id", "")),
         loops=state["stats"]["questions"], sources_count=state["stats"].get("sources", 0), **state["stats"])
     text = frontmatter.dumps(post)
     n = 1
@@ -586,6 +610,7 @@ def save(state: DeepState, config: RunnableConfig) -> dict:
             with open(path, "x", encoding="utf-8") as fh:        # exclusive: never overwrite another run's report
                 fh.write(text)
             _run_log(config).finish(str(path), state["stats"])
+            _trace(config).finish_run("complete", str(path), state["stats"])
             return {"report_path": str(path)}
         except FileExistsError:
             n += 1

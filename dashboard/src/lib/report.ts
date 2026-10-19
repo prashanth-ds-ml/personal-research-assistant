@@ -117,7 +117,7 @@ export function countLabels(text: string): Record<Label, number> {
     established: count(/\[established\]/g),
     "single source": count(/\[single source\]/g),
     // every flavour of "no real citation" counts as the writer's own inference
-    inference: count(/\[inference(?::[^\]]*)?\]/g) + count(/\[cited; figure not in the cited evidence\]/g),
+    inference: count(/\[inference(?::[^\]]*)?\]/g) + count(/\[cited; (figure|subject) not in the cited evidence\]/g),
   };
 }
 
@@ -204,5 +204,6 @@ export function markCites(md: string): string {
   return md
     .replace(/\[(E\d+)\](?!\()/g, "[$1](#cite-$1)")
     .replace(/\[(established|single source)\](?!\()/g, (_m, l: string) => `[${l}](#label-${l.replace(" ", "-")})`)
-    .replace(/\[(inference(?::[^\]]*)?|cited; figure not in the cited evidence)\](?!\()/g, (_m, l: string) => `[${l}](#label-inference)`);
+    .replace(/\[cited; (figure|subject) not in the cited evidence\](?!\()/g, (_m, l: string) => `[check ${l}](#label-flag)`)
+    .replace(/\[(inference(?::[^\]]*)?)\](?!\()/g, (_m, l: string) => `[${l}](#label-inference)`);
 }

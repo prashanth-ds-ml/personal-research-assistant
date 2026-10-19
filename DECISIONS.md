@@ -418,3 +418,16 @@ qwen3.5:4b thinks without end at temperature 0 (E-014); with Qwen's thinking set
 a plan takes 76-93 s instead of 8 s, is of similar quality, and varies between runs. The user chose a setting, default off:
 `PLAN_THINKING` / `plan_thinking` (per run), used only by the planning step ("thinker" role). Passage judging, writing and the
 other small calls never think (it would turn a 4-minute report into an hour).
+
+## Run trace and feedback in a separate desk database, built before the first real test (2026-10-19)
+The user asked to track every step, source and chunk, and to save feedback properly, before testing. M2 was pulled forward.
+- One SQLite file per vault, `<vault>/.desk/desk.sqlite`, NOT the library database (rebuilt on re-embedding; feedback must
+  survive). One schema file (`desk_schema.sql`) applied by both writers: Python writes the trace, the dashboard writes feedback.
+- The trace: runs (engine, model, settings, plan, outcome), steps (duration, ok/paused/failed/stopped), every model call (step,
+  role, sizes, time), every retrieved chunk per question (chunk id, text hash, keyword and meaning ranks, fused score), every
+  0-3 grade, evidence E-number -> chunk, what each section's writer was given, every report sentence (citations, flag).
+- Feedback is append-only (latest per target wins, "cleared" withdraws), validated per target (chunk: relevant / not relevant /
+  wrong subject; sentence: wrong + reason; report: helpful / not helpful, mirrored from the existing thumbs). Each row carries
+  the run, engine and chunk identity, so ratings can be compared before/after an engine change and survive a library rebuild.
+- The current run's trace travels in a context variable set per graph step, not a global (E-004 was a shared-global bug).
+- Tracing never breaks a run: write errors are swallowed with one warning.

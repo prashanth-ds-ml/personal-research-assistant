@@ -4,15 +4,18 @@
                                     [--facts] [--think-plan]
 
 v3 default: one model, sections written from the library passages. ``--facts`` runs the v2 pipeline (extract facts,
-then write from them) for comparison.
+then write from them) for comparison. With VAULT_PATH set, the run is traced in <vault>/.desk/desk.sqlite as "cli-<time>"
+(one step, "run"; the dashboard graph records each step separately).
 """
 import argparse
+import os
 import time
+from datetime import datetime
 from pathlib import Path
 
 from _common import OLLAMA_URL, open_kb  # noqa: E402
 
-from research_assistant import deep_report, knowledge  # noqa: E402
+from research_assistant import deep_report, desk, knowledge  # noqa: E402
 from research_assistant import report_checks as rc  # noqa: E402
 
 
@@ -32,19 +35,29 @@ def main():
     kb = open_kb(a.kb, a.embedding_model)
     print("KB:", kb.stats())
     t0 = time.time()
-    report, stats = deep_report.run(
+    trace = desk.RunTrace(os.environ.get("VAULT_PATH", ""), f"cli-{datetime.now():%Y%m%d-%H%M%S}")
+    trace.start_run(a.goal, deep_report.ENGINE_VERSION if not a.facts else "v2-facts", a.model,
+                    {"top_k": a.top_k, "think_plan": a.think_plan, "facts": a.facts})
+    with trace.step("run"):
+        report, stats = run(a, kb, url, t0)
+    trace.sentences(report)
+    trace.finish_run("complete", str(Path(a.out).resolve()), stats)
+    Path(a.out).write_text(report, encoding="utf-8")
+    print(stats, f"in {time.time() - t0:.0f}s ->", a.out, f"(trace: {trace.run_id})" if trace.enabled else "")
+
+
+def run(a, kb, url, t0):
+    return deep_report.run(
         a.goal,
         search=lambda q: kb.search(q, k=a.top_k),
-        plan_llm=deep_report.ollama_llm(a.model, url, temperature=0, reasoning=a.think_plan),
-        extract_llm=deep_report.ollama_llm(a.model, url, temperature=0, reasoning=False),
-        write_llm=deep_report.ollama_llm(a.model, url, reasoning=False),
+        plan_llm=deep_report.ollama_llm(a.model, url, temperature=0, reasoning=a.think_plan, role="planner"),
+        extract_llm=deep_report.ollama_llm(a.model, url, temperature=0, reasoning=False, role="judge"),
+        write_llm=deep_report.ollama_llm(a.model, url, reasoning=False, role="writer"),
         library_size=kb.stats()["documents"],
         on_progress=lambda s: print(f"[{time.time() - t0:5.0f}s] {s}", flush=True),
         standards=rc.Standards(min_facts=2, flags_only=True) if not a.facts else rc.Standards(),
         passages=not a.facts,
     )
-    Path(a.out).write_text(report, encoding="utf-8")
-    print(stats, f"in {time.time() - t0:.0f}s ->", a.out)
 
 
 if __name__ == "__main__":

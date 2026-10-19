@@ -45,7 +45,7 @@ packages = ["research_assistant"]
 "research_assistant" = "src/research_assistant"
 
 [tool.setuptools.package-data]
-"*" = ["py.typed"]
+"*" = ["py.typed", "*.sql"]
 
 [tool.ruff]
 lint.select = [

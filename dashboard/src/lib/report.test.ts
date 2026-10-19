@@ -106,3 +106,10 @@ test("never throws on junk and reads minutes sensibly", () => {
   assert.equal(readMinutes(0), 1);
   assert.equal(readMinutes(3300), 15);
 });
+
+test("markCites turns the v3 check flags into flag tags", () => {
+  const out = markCites("A 4B model [E2]. [cited; subject not in the cited evidence] It used 18T [E1]. [cited; figure not in the cited evidence]");
+  assert.match(out, /\[check subject\]\(#label-flag\)/);
+  assert.match(out, /\[check figure\]\(#label-flag\)/);
+  assert.equal(countLabels("x [cited; subject not in the cited evidence] y [inference]").inference, 2);
+});

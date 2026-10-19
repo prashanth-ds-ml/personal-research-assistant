@@ -21,6 +21,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from research_assistant import desk
 from research_assistant import report_checks as rc
 
 LLM = Callable[..., str]
@@ -137,7 +138,7 @@ def check_model_health(stats: dict, evidence_count: int, max_failure_rate: float
             "misleading report. Check that Ollama is running and the models are pulled (ollama list).")
 
 
-def resilient(raw: Callable[[str, bool, int], str], retries: int = 2) -> LLM:
+def resilient(raw: Callable[[str, bool, int], str], retries: int = 2, role: str = "") -> LLM:
     """Wrap a raw model call so one flaky generation cannot kill an hour-long run.
 
     ``raw(prompt, json_mode, attempt)`` may raise (Ollama aborts degenerate
@@ -150,9 +151,12 @@ def resilient(raw: Callable[[str, bool, int], str], retries: int = 2) -> LLM:
         if _stopped():
             raise RunStopped()
         LLM_STATS["calls"] += 1
+        started, t0 = desk.now(), time.monotonic()
         for attempt in range(retries + 1):
             try:
-                return raw(prompt, json_mode, attempt)
+                answer = raw(prompt, json_mode, attempt)
+                desk.current().llm_call(role, time.monotonic() - t0, prompt, answer, json_mode, True, started)
+                return answer
             except RunStopped:
                 raise
             except Exception as e:
@@ -162,13 +166,14 @@ def resilient(raw: Callable[[str, bool, int], str], retries: int = 2) -> LLM:
                 if attempt < retries:
                     LLM_STATS["retries"] += 1
         LLM_STATS["gave_up"] += 1
+        desk.current().llm_call(role, time.monotonic() - t0, prompt, "", json_mode, False, started)
         return ""
 
     return call
 
 
 def ollama_llm(model: str, base_url: str = "http://localhost:11434", temperature: float = 0.2,
-               num_ctx: int = NUM_CTX, reasoning: bool | None = None) -> LLM:
+               num_ctx: int = NUM_CTX, reasoning: bool | None = None, role: str = "") -> LLM:
     """``reasoning``: True lets a thinking model think first (its thoughts are kept out of the answer) with the sampling
     Qwen recommends for thinking (``temperature`` is then ignored), False switches thinking off (faster), None leaves the
     model's default."""
@@ -189,7 +194,7 @@ def ollama_llm(model: str, base_url: str = "http://localhost:11434", temperature
         deadline = THINK_DEADLINE if reasoning else CALL_DEADLINE if json_mode else TEXT_DEADLINE
         return consume(stream, max_chars=max_tokens * CHARS_PER_TOKEN, deadline_s=deadline, should_stop=_stopped)
 
-    return resilient(raw)
+    return resilient(raw, role=role)
 
 
 def _json(text: str, default):
@@ -255,6 +260,8 @@ class Evidence:
     url: str = ""                 # where the source lives, when known
     kind: str = ""                # "pdf", "paper", "web" or "document" (see knowledge.classify_source)
     passage: bool = False         # v3: a whole library chunk (quote = its text, claim = "title › heading"), not a fact
+    chunk_id: int | None = None   # library chunks.id of a passage (for the run trace and feedback)
+    path: str = ""                # library path of the passage's document
 
 
 @dataclass
@@ -680,7 +687,7 @@ Return JSON: {{"queries": [strings]}}"""
 
 
 def retrieve(question: str, search: Callable[[str], list[dict]], llm: LLM | None,
-             k: int = 8, per_doc: int = 3, n_queries: int = 3) -> list[dict]:
+             k: int = 8, per_doc: int = 3, n_queries: int = 3, queries_out: list | None = None) -> list[dict]:
     """Multi-query retrieval: the question plus LLM-written variants are each
     searched, results are fused (reciprocal rank), and no single document may
     supply more than ``per_doc`` passages - so one paper cannot crowd out the
@@ -695,12 +702,14 @@ def retrieve(question: str, search: Callable[[str], list[dict]], llm: LLM | None
         # HyDE: a hypothetical answer uses the papers' own vocabulary ("in-context
         # learning", "few-shot") that a vague question lacks.
         queries.append(llm(HYDE_PROMPT.format(question=question)).strip()[:600])
+    if queries_out is not None:
+        queries_out.extend(queries)
     fused: dict[tuple, float] = {}
     by_key: dict[tuple, dict] = {}
     for q in queries:
         for rank, hit in enumerate(search(q)):
             key = (hit.get("path", hit["title"]), hit["text"][:80])
-            by_key[key] = hit
+            by_key.setdefault(key, hit)                 # keep the first query's hit: its ranks are the question's own
             fused[key] = fused.get(key, 0.0) + 1.0 / (60 + rank)
     out: list[dict] = []
     per: dict[str, int] = {}
@@ -709,7 +718,7 @@ def retrieve(question: str, search: Callable[[str], list[dict]], llm: LLM | None
         if per.get(doc, 0) >= per_doc:
             continue
         per[doc] = per.get(doc, 0) + 1
-        out.append(by_key[key])
+        out.append({**by_key[key], "fused": round(fused[key], 6)})
         if len(out) >= k:
             break
     return out
@@ -791,13 +800,17 @@ def gather_passages(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
     for qi, q in enumerate(plan.sub_questions):
         if qi < start_q:
             continue
-        hits = retrieve(q, search, query_llm, k=k, per_doc=per_doc)
+        queries: list[str] = []
+        hits = retrieve(q, search, query_llm, k=k, per_doc=per_doc, queries_out=queries)
+        trace = desk.current()
+        trace.retrievals(qi, q, queries, hits)
         kept = 0
         for hit in hits:
             key = (hit["title"], _norm(hit["text"])[:200])
             if key in by_key:
                 if qi not in by_key[key].sub_questions:
                     by_key[key].sub_questions.append(qi)
+                trace.judgement(qi, hit, -1, True, by_key[key].id)
                 kept += 1
                 continue
             raw = _obj(_json(llm(RELEVANT_PROMPT.format(
@@ -809,10 +822,13 @@ def gather_passages(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
                 score = 0
             if score < MIN_PASSAGE_SCORE:
                 LLM_STATS["off_topic"] += 1
+                trace.judgement(qi, hit, score, False)
                 continue
             ev = Evidence(id=f"E{len(evidence) + 1}", claim=location(hit), quote=_clip(hit["text"], MAX_PASSAGE_CHARS),
                           source=hit["title"], heading=hit.get("heading", "") or "", sub_questions=[qi],
-                          url=hit.get("source_url", "") or "", kind=hit.get("source_kind", "") or "", passage=True)
+                          url=hit.get("source_url", "") or "", kind=hit.get("source_kind", "") or "", passage=True,
+                          chunk_id=hit.get("chunk_id"), path=hit.get("path", "") or "")
+            trace.judgement(qi, hit, score, True, ev.id)
             by_key[key] = ev
             evidence.append(ev)
             kept += 1
@@ -1040,17 +1056,20 @@ PASSAGES:
 {evidence}"""
 
 
-def _passage_block(items: list[Evidence], limit: int = MAX_PASSAGES_CHARS) -> str:
+def _passage_block(items: list[Evidence], limit: int = MAX_PASSAGES_CHARS, included: list | None = None) -> str:
     """The passages for one section, each headed by its id and location, within a size budget. What does not fit is
-    counted in the prompt (never cut silently)."""
+    counted in the prompt (never cut silently). ``included`` receives the number of passages that fit."""
     blocks, used = [], 0
     for e in items:
         block = f"[{e.id}] {e.claim}\n{e.quote}"
         if used + len(block) > limit and blocks:
-            blocks.append(f"({len(items) - len(blocks)} more passages omitted to fit the model's context)")
             break
         blocks.append(block)
         used += len(block) + 2
+    if included is not None:
+        included.append(len(blocks))
+    if len(blocks) < len(items):
+        blocks.append(f"({len(items) - len(blocks)} more passages omitted to fit the model's context)")
     return "\n\n".join(blocks)
 
 
@@ -1060,8 +1079,10 @@ def write_section(section: dict, plan: Plan, evidence: list[Evidence], llm: LLM)
     if not own:
         return "*No supporting evidence was found in the knowledge base for this section.*"
     if own[0].passage:
+        fit: list[int] = []
         prompt = PASSAGE_SECTION_PROMPT.format(title=section["title"], brief=section.get("brief", ""),
-                                               goal=model_goal(plan.goal), evidence=_passage_block(own))
+                                               goal=model_goal(plan.goal), evidence=_passage_block(own, included=fit))
+        desk.current().section_inputs(section["title"], [e.id for e in own], fit[0], len(prompt))
     else:
         prompt = SECTION_PROMPT.format(title=section["title"], brief=section.get("brief", ""),
                                        goal=model_goal(plan.goal), evidence=_evidence_block(own))
@@ -1327,6 +1348,8 @@ def run(goal: str, search: Callable[[str], list[dict]], plan_llm: LLM, extract_l
     plan = make_plan(goal, plan_llm)
     on_progress(f"Plan: {plan.title} | {len(plan.sub_questions)} questions, {len(plan.outline)} sections")
     evidence = gather_evidence(plan, search, extract_llm, on_progress, query_llm=plan_llm, passages=passages)
+    desk.current().set_plan({"title": plan.title, "questions": plan.sub_questions, "outline": plan.outline})
+    desk.current().evidence(evidence)
     check_model_health(snapshot_stats(), len(evidence))
     on_progress(f"Verified evidence items: {len(evidence)}")
     sections = write_all(plan, evidence, write_llm, on_progress, standards=standards)

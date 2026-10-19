@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
-import { clearFeedback, saveFeedback } from "@/lib/vault";
+import { saveDeskFeedback } from "@/lib/desk";
+import { clearFeedback, getResearchNote, saveFeedback } from "@/lib/vault";
+
+/** The report-level rating also goes into the desk database, next to the source and sentence feedback of the same run. */
+async function mirror(slug: string, rating: "helpful" | "not_helpful" | "cleared", reason: string) {
+  try {
+    const note = await getResearchNote(slug);
+    if (note?.runId) saveDeskFeedback({ runId: note.runId, reportSlug: slug, target: "report", targetRef: slug, rating, reason });
+  } catch {
+    // the frontmatter copy is saved already; the desk copy must not turn a saved rating into an error
+  }
+}
 
 export const runtime = "nodejs";
 
@@ -33,6 +44,7 @@ export async function POST(request: Request) {
 
   const ok = await saveFeedback(slug, rating, text);
   if (!ok) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+  await mirror(slug, rating === "up" ? "helpful" : "not_helpful", text);
   return NextResponse.json({ ok: true });
 }
 
@@ -51,5 +63,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Invalid report slug" }, { status: 400 });
   }
   const ok = await clearFeedback(body.slug);
+  if (ok) await mirror(body.slug, "cleared", "");
   return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Report not found" }, { status: 404 });
 }

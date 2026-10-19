@@ -624,15 +624,19 @@ class KnowledgeBase:
         return [r[0] for r in rows]
 
     def search(self, query: str, k: int = 6, pool: int = 30, skip=None) -> list[dict]:
-        """Hybrid search. Returns [{score, text, heading, page, kind, title, path, source_url, source_kind}].
-        ``skip(path, source_kind) -> bool`` leaves a document out of the results."""
+        """Hybrid search. Returns [{score, text, heading, page, kind, title, path, source_url, source_kind, chunk_id,
+        vector_rank, keyword_rank}] (ranks are 1-based, None when that search did not find the chunk; they are kept so
+        a run's trace shows why a chunk was picked). ``skip(path, source_kind) -> bool`` leaves a document out."""
         if skip:
             pool *= 3                           # leave room: some of the best matches will be filtered out
         with self._lock:
             fused: dict[int, float] = {}
-            for ranking in (self._vector_rank(query, pool), self._keyword_rank(query, pool)):
+            ranks: dict[str, dict[int, int]] = {"vector_rank": {}, "keyword_rank": {}}
+            for name, ranking in (("vector_rank", self._vector_rank(query, pool)),
+                                  ("keyword_rank", self._keyword_rank(query, pool))):
                 for rank, cid in enumerate(ranking):
                     fused[cid] = fused.get(cid, 0.0) + 1.0 / (60 + rank)  # RRF
+                    ranks[name][cid] = rank + 1
             out = []
             for cid, score in sorted(fused.items(), key=lambda kv: -kv[1]):
                 if len(out) >= k:
@@ -649,5 +653,6 @@ class KnowledgeBase:
                     continue
                 out.append({"score": score, "text": text, "heading": heading, "page": page,
                             "kind": kind, "title": title, "path": path, "source_url": url or "",
-                            "source_kind": source_kind or ""})
+                            "source_kind": source_kind or "", "chunk_id": cid,
+                            "vector_rank": ranks["vector_rank"].get(cid), "keyword_rank": ranks["keyword_rank"].get(cid)})
             return out

@@ -24,6 +24,9 @@ export interface ResearchNote {
   mtimeMs?: number;
   feedbackRating?: "up" | "down";
   feedbackNote?: string;
+  /** The run that wrote the report (its trace and feedback live in the desk database); "" for older reports. */
+  runId: string;
+  engine: string;
 }
 
 // A report's file name without ".md". Slugs come from the URL, so they are checked before they touch a path.
@@ -74,6 +77,8 @@ function toNote(slug: string, raw: string, mtimeMs?: number): ResearchNote {
     kind: typeof data.kind === "string" && data.kind ? data.kind : "research",
     words: typeof data.words === "number" ? data.words : 0,
     evidence: typeof data.evidence === "number" ? data.evidence : 0,
+    runId: typeof data.run_id === "string" ? data.run_id : "",
+    engine: typeof data.engine === "string" ? data.engine : "",
     content,
     mtimeMs,
     ...feedbackOf(data),

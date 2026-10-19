@@ -1,12 +1,13 @@
 # Status
 
-**Scope:** v3 ([SCOPE.md](SCOPE.md)), agreed 2026-10-19 · **Now:** M1 built and tested; waits on your real-goal run · branch `v3`
+**Scope:** v3 ([SCOPE.md](SCOPE.md)), agreed 2026-10-19 · **Now:** M1 + M2 built and tested; your real-goal run is next · branch `v3`
+**Test here:** dashboard <http://localhost:3001> · backend <http://127.0.0.1:2025>
 **Last updated:** 2026-10-19 · **Case study:** [CASE_STUDY.md](CASE_STUDY.md)
 
 | Milestone | Status | Done when |
 |---|---|---|
 | M1 Research from chunks (one model, qwen3.5:4b) | testing: 351 tests pass; live run 229 s, honest gap report (EVALS v3 M1) | you run one real goal in the dashboard and read the report |
-| M2 Source panel + feedback | not started | baseline period of daily use starts |
+| M2 Source panel + feedback | built (pulled forward on 2026-10-19): run trace + desk database + rating buttons; 358 + 22 tests, live run and headless-browser check | baseline period of daily use starts |
 | M3 Reranker | not started | measured offline, then before/after on your ratings |
 | M4 Chat over the library | not started | a week of your own use |
 | M5 Insights page + demo + README + case study | not started | 10-minute client demo |

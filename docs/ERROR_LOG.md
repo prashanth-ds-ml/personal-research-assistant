@@ -9,6 +9,7 @@ are tracked the same way.
 
 | ID | Date | Phase | Severity | Found by | Title | Status |
 |---|---|---|---|---|---|---|
+| E-016 | 2026-10-19 | M2 | Medium | backend start | Backend would not start: shared venv had opentelemetry-api 1.45.1 with SDK 1.42.1 | worked around |
 | E-015 | 2026-10-19 | M1 | High | M1 live run | Yes/no passage relevance made qwen3.5:4b reject almost everything (0 of 8 kept per question) | fixed |
 | E-014 | 2026-10-19 | M1 | Medium | M1 live run | Thinking at temperature 0 never finished (qwen3.5:4b), so the plan fell back to one question | fixed |
 | E-013 | 2026-10-19 | P1a-0 | Low | S1 test | Labelling workbook dropdowns accepted any typed value (openpyxl turns the error alert off by default) | fixed |
@@ -44,6 +45,19 @@ are tracked the same way.
 ```
 
 ## Entries
+
+### E-016: The backend would not start after another install changed the shared venv
+
+- **Date found:** 2026-10-19 · **Phase:** M2 · **Severity:** Medium · **Found by:** starting `langgraph dev` · **Status:** worked around
+
+**What happened:** `langgraph dev` failed with `ImportError: cannot import name '_ExtendedAttributes' from 'opentelemetry.util.types'`.
+**Root cause:** on 2026-10-10 an install into the shared root venv (a newer fastapi needs `opentelemetry-api>=1.44`) raised
+`opentelemetry-api` to 1.45.1 and left the SDK and exporters at 1.42.1, which do not import together. `langgraph-api 0.15.1`
+declares the 1.42 family (Prometheus exporter <0.64), so no set satisfies every declared range.
+**Fix (work-around):** aligned the whole OpenTelemetry family at 1.45.1 / 0.66b1; the backend starts and a full run passes.
+`uv pip check` still reports langgraph-api's declared range. Proper fix later: a newer langgraph-api, or a project venv.
+**Regression test:** none automatic; `python scripts/doctor.py` could import `langgraph_api.server` (backlog).
+**Pattern?** A shared venv lets another project break this one silently; check the backend starts after any shared install.
 
 ### E-015: A yes/no relevance question made the small model reject nearly every passage
 

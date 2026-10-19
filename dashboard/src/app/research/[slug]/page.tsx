@@ -41,6 +41,7 @@ export default async function ResearchNotePage({ params }: PageProps<"/research/
           words: note.words,
           facts: note.evidence,
           sourcesCount: note.sourcesCount,
+          runId: note.runId,
           obsidianUrl: `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(`${sub}/${note.slug}`)}`,
         }}
       >

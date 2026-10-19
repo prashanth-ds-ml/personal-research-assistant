@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import type { Chapter, Label, ParsedReport, SourceRow } from "@/lib/report";
 import { markCites, readMinutes } from "@/lib/report";
 import { CoverArt } from "@/components/cover-art";
+import { ChunkRating, SentenceFlags, useDesk, type Desk } from "@/components/desk-feedback";
 
 export interface ReaderMeta {
   slug: string;
@@ -16,6 +17,8 @@ export interface ReaderMeta {
   facts: number;
   sourcesCount: number;
   obsidianUrl: string;
+  /** The run that wrote the report; enables source and sentence feedback ("" for older reports). */
+  runId: string;
 }
 
 const LABEL_STYLE: Record<Label, string> = {
@@ -75,6 +78,9 @@ function Body({
               </button>
             );
           }
+          if (href === "#label-flag") {
+            return <span className={`${tag} bg-danger-soft text-danger`} title="This sentence failed a code check: verify it against the source">{label}</span>;
+          }
           if (href?.startsWith("#label-")) {
             const kind: Label = href === "#label-established" ? "established" : href === "#label-single-source" ? "single source" : "inference";
             const dim = focus && focus !== kind;
@@ -95,7 +101,19 @@ function Body({
   );
 }
 
-function EvidenceNotes({ chapter: c, report, cite, look }: { chapter: Chapter; report: ParsedReport; cite: string | null; look: { label: string; cls: string } }) {
+/** A v3 passage starts with its "[document > section]" breadcrumb; the quote is what follows it. */
+function passageText(quote: string): string {
+  return quote.replace(/^\[[^\]]{0,400}\]\s*/, "");
+}
+
+/** "Document › last heading" for a v3 passage (its claim is "title › heading path"); the source title otherwise. */
+function whereFrom(ev: { claim: string; source: string }): string {
+  if (!ev.claim.includes(" › ")) return ev.source;
+  const heading = ev.claim.slice(ev.claim.indexOf(" › ") + 3).split(" > ").pop()?.trim();
+  return heading ? `${ev.source} › ${heading}` : ev.source;
+}
+
+function EvidenceNotes({ chapter: c, report, cite, look, desk }: { chapter: Chapter; report: ParsedReport; cite: string | null; look: { label: string; cls: string }; desk: Desk }) {
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const flip = (id: string) =>
     setOpened((o) => {
@@ -119,24 +137,26 @@ function EvidenceNotes({ chapter: c, report, cite, look }: { chapter: Chapter; r
         const ev = report.evidence[id];
         if (!ev) return null;
         const on = cite === id;
-        const long = ev.quote.length > 150;
+        const quote = passageText(ev.quote);
+        const long = quote.length > 150;
         const full = on || opened.has(id) || !long;
-        const text = full ? ev.quote : `${ev.quote.slice(0, 147).trimEnd()}…`;
+        const text = full ? quote : `${quote.slice(0, 147).trimEnd()}…`;
         return (
           <div key={id} className={`avoid-break border-l-[3px] px-4 py-3 transition-colors ${on ? "border-accent bg-accent-soft" : "border-border"}`}>
             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">{id} · verbatim</div>
             <div className="my-1.5 font-serif text-[17px] italic leading-relaxed">
               <span className="print:hidden">&ldquo;{text}&rdquo;</span>
-              <span className="hidden print:inline">&ldquo;{ev.quote}&rdquo;</span>
+              <span className="hidden print:inline">&ldquo;{quote}&rdquo;</span>
             </div>
             <div className="flex items-start gap-2 text-xs text-muted">
-              <span className="min-w-0 flex-1">{ev.source}</span>
+              <span className="min-w-0 flex-1">{whereFrom(ev)}</span>
               {long && !on && (
                 <button type="button" onClick={() => flip(id)} className="no-print shrink-0 font-semibold text-accent hover:underline">
                   {full ? "less" : "more"}
                 </button>
               )}
             </div>
+            <ChunkRating desk={desk} eid={id} section={c.title} />
           </div>
         );
       })}
@@ -193,6 +213,7 @@ export function MagazineReader({ report, meta, children }: { report: ParsedRepor
   const [prog, setProg] = useState(0);
   const [toast, setToast] = useState("");
   const article = useRef<HTMLDivElement>(null);
+  const desk = useDesk(meta.runId, meta.slug);
 
   const minutes = readMinutes(meta.words);
   const goalHref = (text: string) => `/deep?goal=${encodeURIComponent(text)}`;
@@ -452,9 +473,12 @@ export function MagazineReader({ report, meta, children }: { report: ParsedRepor
                   <h2 className="text-4xl leading-tight sm:text-[2.6rem]">{c.title}</h2>
                   <div className="mt-5">
                     {c.kind === "ok" ? (
-                      <div className={`reader-body font-serif ${colClass}`} style={bodyStyle}>
-                        <Body text={c.body} cite={cite} onCite={(id) => setCite(cite === id ? null : id)} focus={focus} />
-                      </div>
+                      <>
+                        <div className={`reader-body font-serif ${colClass}`} style={bodyStyle}>
+                          <Body text={c.body} cite={cite} onCite={(id) => setCite(cite === id ? null : id)} focus={focus} />
+                        </div>
+                        <SentenceFlags desk={desk} section={c.title} />
+                      </>
                     ) : (
                       <div className="border border-dashed border-accent bg-accent-soft p-7">
                         <div className="kicker">{c.kind === "gap" ? "A missing page" : "A page the model could not write"}</div>
@@ -479,7 +503,7 @@ export function MagazineReader({ report, meta, children }: { report: ParsedRepor
                   </div>
                 </div>
                 <aside className="hidden lg:block">
-                  <EvidenceNotes chapter={c} report={report} cite={cite} look={look} />
+                  <EvidenceNotes chapter={c} report={report} cite={cite} look={look} desk={desk} />
                 </aside>
                 {/* below 1024 px there is no margin, so the same notes fold open under the chapter instead */}
                 <details open={c.cites.includes(cite ?? "")} className="border border-border bg-surface px-4 py-3 lg:hidden">
@@ -488,7 +512,7 @@ export function MagazineReader({ report, meta, children }: { report: ParsedRepor
                     {c.facts !== null ? ` · ${c.facts} facts, ${c.docs ?? 0} documents` : ""}
                   </summary>
                   <div className="mt-3">
-                    <EvidenceNotes chapter={c} report={report} cite={cite} look={look} />
+                    <EvidenceNotes chapter={c} report={report} cite={cite} look={look} desk={desk} />
                   </div>
                 </details>
               </div>
@@ -546,6 +570,17 @@ export function MagazineReader({ report, meta, children }: { report: ParsedRepor
             <div>
               <span className={`${tag} ${LABEL_STYLE.inference}`}>inference</span> not from the sources
             </div>
+            <div>
+              <span className={`${tag} bg-danger-soft text-danger`}>check figure</span>{" "}
+              <span className={`${tag} bg-danger-soft text-danger`}>check subject</span> a number or model name not found in the cited source
+            </div>
+            {desk.view && (
+              <p className="pt-2 text-muted">
+                Rate each source in the margin (relevant, not relevant, wrong subject) and flag wrong sentences under each chapter.
+                Feedback is saved with this run ({desk.view.engine}).
+              </p>
+            )}
+            {desk.error && <p className="pt-1 text-danger">{desk.error}</p>}
           </div>
         </div>
         <div>

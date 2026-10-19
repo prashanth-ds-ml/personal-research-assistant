@@ -60,8 +60,11 @@ One setting changes the LLM; a better model replaces it when feedback says so.
 | Each sentence (optional) | 🚩 wrong + short reason |
 | Whole report / answer | helpful: yes · partly · no + optional comment |
 
-Stored in the library's SQLite file with the question, chunk id, rank, scores and **engine version** (`v3.0-hybrid`,
-`v3.1-rerank`, ...). Uses: (1) rated chunks become retrieval regression tests; (2) flagged sources are demoted for that
+Stored in the **desk database** (`<vault>/.desk/desk.sqlite`, schema `src/research_assistant/desk_schema.sql`), kept apart
+from the library database because that one is rebuilt on re-embedding. Every click is a row (append-only, latest wins) tied
+to the run, the exact library chunk (id + text hash) and the **engine version** (`v3.0-hybrid`, `v3.1-rerank`, ...). The same
+database holds each run's **trace**: steps, model calls, retrieved chunks with their ranks, relevance grades, what each
+section's writer saw, and every report sentence with its citations and flags. Uses: (1) rated chunks become retrieval regression tests; (2) flagged sources are demoted for that
 goal; (3) later, with a few hundred labels, tuning of weights and reranker. No automatic retraining.
 
 ## Milestones
