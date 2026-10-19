@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["ruff>=0.15.10", "pytest>=8.0", "langgraph-cli[inmem]>=0.4"]
+dev = ["ruff>=0.15.10", "pytest>=8.0", "langgraph-cli[inmem]>=0.4", "openpyxl>=3.1"]  # openpyxl: eval labelling workbooks
 # PDF/DOCX/HTML -> markdown with tables (heavy: pulls PyTorch). Without it PDFs fall back to pypdf text.
 docling = ["docling>=2.0"]
 

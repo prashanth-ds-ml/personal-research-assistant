@@ -210,6 +210,77 @@ def reference_labels(rows: list[dict]) -> dict[str, str]:
     return ref
 
 
+LABEL_COLUMNS = ("human_verdict", "human_stage", "human_note")
+WORKBOOK_COLUMNS = ("id", "claim", "label", "evidence", "section", "report") + LABEL_COLUMNS
+
+
+def write_label_workbook(rows: list[dict], path: str | Path, guide: list[tuple[str, str]]):
+    """An Excel labelling workbook: a "How to label" sheet (``guide`` rows: heading, text) and a "Claims" sheet with
+    one row per claim, wrapped text, and dropdowns for verdict and stage so a label cannot be mistyped."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+
+    wb = Workbook()
+    g = wb.active
+    g.title = "How to label"
+    g.column_dimensions["A"].width = 28
+    g.column_dimensions["B"].width = 110
+    for head, text in guide:
+        g.append([head, text])
+        r = g.max_row
+        g.cell(r, 1).font = Font(bold=True, size=13 if not text else 11)
+        for c in (1, 2):
+            g.cell(r, c).alignment = Alignment(wrap_text=True, vertical="top")
+
+    ws = wb.create_sheet("Claims")
+    ws.append(list(WORKBOOK_COLUMNS))
+    for row in rows:
+        ws.append([row.get(c, "") for c in WORKBOOK_COLUMNS])
+    widths = {"id": 6, "claim": 60, "label": 13, "evidence": 90, "section": 22, "report": 18,
+              "human_verdict": 14, "human_stage": 20, "human_note": 40}
+    fill = PatternFill("solid", fgColor="FFF2CC")
+    for i, col in enumerate(WORKBOOK_COLUMNS, 1):
+        letter = ws.cell(1, i).column_letter
+        ws.column_dimensions[letter].width = widths[col]
+        ws.cell(1, i).font = Font(bold=True)
+        for r in range(1, ws.max_row + 1):
+            ws.cell(r, i).alignment = Alignment(wrap_text=True, vertical="top")
+            if col in LABEL_COLUMNS and r > 1:
+                ws.cell(r, i).fill = fill
+    ws.freeze_panes = "C2"
+    last = ws.max_row
+    col_of = {c: ws.cell(1, i).column_letter for i, c in enumerate(WORKBOOK_COLUMNS, 1)}
+    verdict = DataValidation(type="list", formula1='"ok,wrong"', allow_blank=True)
+    stage = DataValidation(type="list", formula1='"' + ",".join(FAIL_STAGES) + '"', allow_blank=True)
+    for dv, col in ((verdict, "human_verdict"), (stage, "human_stage")):
+        dv.error, dv.errorTitle = "Pick a value from the list", "Not a valid label"
+        ws.add_data_validation(dv)
+        dv.add(f"{col_of[col]}2:{col_of[col]}{last}")
+    wb.active = 1
+    wb.save(path)
+
+
+def read_label_workbook(path: str | Path) -> dict[str, dict]:
+    """The human labels typed into the workbook's "Claims" sheet, as {id: {human_verdict, human_stage, human_note}}
+    (trimmed; verdict and stage lower-cased)."""
+    from openpyxl import load_workbook
+
+    ws = load_workbook(path, read_only=True, data_only=True)["Claims"]
+    it = ws.iter_rows(values_only=True)
+    header = [str(h or "") for h in next(it)]
+    out = {}
+    for values in it:
+        rec = dict(zip(header, values))
+        if not rec.get("id"):
+            continue
+        labels = {c: str(rec.get(c) or "").strip() for c in LABEL_COLUMNS}
+        labels["human_verdict"] = labels["human_verdict"].lower()
+        labels["human_stage"] = labels["human_stage"].lower()
+        out[str(rec["id"])] = labels
+    return out
+
+
 def load_subject_cases(path: str | Path) -> list[dict]:
     """The extraction subject eval set: one JSON object per line with passage, question and expected fields."""
     cases = []

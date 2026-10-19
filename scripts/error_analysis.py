@@ -3,12 +3,13 @@
   python scripts/error_analysis.py build  REPORT.md [REPORT.md ...] [--n 50] [--seed 1] [--kb PATH]
   python scripts/error_analysis.py tally  [--who human|claude]
 
-build writes evals/error_analysis/claims.csv (the human labels go here) and claims.md (the same claims, readable:
-each claim with its cited facts, quotes and the library passage around each quote). Re-running build with the same
+build writes evals/error_analysis/claims.xlsx (sheet "How to label" + sheet "Claims" with the evidence in each row and
+dropdowns for the labels: the human labels go here), claims.csv (the same rows, plain) and claims.md (readable: each
+claim with its cited facts, quotes and the library passage around each quote). Re-running build with the same
 reports, n and seed gives the same sample; it refuses to overwrite a sheet that already has labels.
 
 Labelling is blind: Claude's labels live in claude_labels.csv (id, verdict, stage, note), so the human labeller does
-not see them; tally joins the two by id.
+not see them; tally joins the two by id. Labels typed in claims.xlsx win over claims.csv.
 
 Labels: verdict ok | wrong; stage = the FIRST stage that went wrong, for a wrong claim:
   retrieval miss      the right source was never found (shows as a gap, rarely as a cited claim)
@@ -33,7 +34,45 @@ from research_assistant.knowledge import default_kb_path  # noqa: E402
 OUT = ROOT / "evals" / "error_analysis"
 FIELDS = ["id", "report", "section", "kind", "label", "claim", "cites", "human_verdict", "human_stage", "human_note"]
 CLAUDE = OUT / "claude_labels.csv"
+WORKBOOK = OUT / "claims.xlsx"
 EXCERPT = 1200
+
+GUIDE = [
+    ("How to label the 50 claims", ""),
+    ("What you judge", "The CLAIM: the report sentence in the 'claim' column. Not the quote: quotes are always verbatim "
+     "(the code checks that, which is exactly why wrong claims slipped through). Ask: if I read this sentence in the "
+     "report, would it mislead me about the goal?"),
+    ("Where to work", "Sheet 'Claims'. Fill only the three yellow columns: human_verdict, human_stage, human_note. Each "
+     "row's 'evidence' cell has, for every cited fact: the FACT the pipeline extracted, the verbatim QUOTE, the SOURCE, "
+     "and the library PASSAGE around the quote (the quote is marked >>like this<<)."),
+    ("Step 1", "Read the claim. What does it tell you?"),
+    ("Step 2", "Read the source and passage in 'evidence'. What is the source really about: which model, what size, "
+     "pretraining or fine-tuning, text or speech?"),
+    ("Step 3", "Compare. Same thing, honestly stated: human_verdict = ok. Different thing, or overstated: wrong."),
+    ("Step 4 (only if wrong)", "Find where it FIRST broke, walking source -> fact -> claim, and pick human_stage:"),
+    ("bad source", "The source doesn't fit the goal (e.g. a speech model when the user said text only; a school "
+     "essay-writing guide used as evidence about LLM reasoning)."),
+    ("extraction subject", "The extracted fact (the 'FACT:' line) already names the wrong model, size or stage, or turns "
+     "the source's statement into a general rule (often in the research question's words)."),
+    ("writing subject", "The fact is right, but the report sentence drops or changes what it is about (e.g. one "
+     "project's settings presented as what 'the model' must do)."),
+    ("writing stitch", "Facts from different sources merged into one claim that none of them makes."),
+    ("label", "Content fine, evidence label wrong: 'established' needs two or more documents saying the same thing; a "
+     "recommendation drawn from one source is an inference, not 'single source'."),
+    ("retrieval miss / other", "Retrieval miss = the right source was never found (rare for a cited claim). Other = "
+     "anything else; say what in human_note."),
+    ("Worked example: C34", "Claim: 'use optimal hyperparameters for a 4B model: batch size 4 [E7], weight decay 0.001 "
+     "[E8]', labelled established. Source: an appendix table in a paper about EVALUATING POST-TRAINED models; nothing "
+     "about pretraining a 4B model. Fact E7: 'optimal hyperparameters for pretraining a 4B model include batch size 4': "
+     "already wrong. Verdict: wrong. Stage: extraction subject (the first break is the fact; the claim only repeats it)."),
+    ("Tip: 'the model'", "If a claim says 'the model' or 'this process', check the sentence before it in the report "
+     "(claims.md, or the report itself): often the subject was named there, and then the claim is ok."),
+    ("Tip: weak relevance", "True but only weakly relevant (e.g. it names a 295B frontier model in a 4B-8B report): ok, "
+     "with a note. Use wrong only when the sentence would actually mislead."),
+    ("Blind labelling", "Don't open claude_labels.csv (or its commit) until you are done; the agreement score depends "
+     "on it."),
+    ("When done", "Save the workbook (keep .xlsx), then run: python scripts/error_analysis.py tally"),
+]
 
 
 def excerpt(passage: str, quote: str) -> str:
@@ -50,10 +89,17 @@ def excerpt(passage: str, quote: str) -> str:
     return ("…" if start else "") + marked + ("…" if start + len(piece) < len(flat) else "")
 
 
+def has_labels() -> bool:
+    csv_path = OUT / "claims.csv"
+    in_csv = csv_path.exists() and any(r.get("human_verdict") for r in read_rows(csv_path))
+    in_book = WORKBOOK.exists() and any(v["human_verdict"] for v in et.read_label_workbook(WORKBOOK).values())
+    return in_csv or in_book
+
+
 def build(args):
     csv_path, md_path = OUT / "claims.csv", OUT / "claims.md"
-    if csv_path.exists() and any(r.get("human_verdict") for r in read_rows(csv_path)):
-        sys.exit(f"{csv_path} already has labels; move it away first if you really want a new sample.")
+    if has_labels():
+        sys.exit("The sheet already has labels; move claims.csv / claims.xlsx away first if you want a new sample.")
     finder = et.PassageFinder(args.kb)
     pool, evidence = [], {}
     for path in map(Path, args.reports):
@@ -68,30 +114,36 @@ def build(args):
     rows, blocks = [], []
     for i, c in enumerate(sample, 1):
         cid = f"C{i:02d}"
-        rows.append({"id": cid, "report": c["report"], "section": c["section"], "kind": c["kind"], "label": c["label"],
-                     "claim": c["text"], "cites": " ".join(c["cites"])})
         lines = [f"## {cid} · {c['report']} · {c['section']}", "",
                  f"**Claim** ({c['kind']}, label: {c['label'] or 'none'}):", "", f"> {c['text']}", ""]
+        cell = []                                            # the same evidence, for the workbook's "evidence" column
         for eid in c["cites"]:
             ev = evidence[c["report"]].get(eid)
             if not ev:
                 lines += [f"- **{eid}**: not in the evidence appendix", ""]
+                cell.append(f"{eid}: not in the evidence appendix")
                 continue
             hit = finder.find(ev["quote"], ev["source"])
+            passage = excerpt(hit["passage"], ev["quote"]) if hit else "(passage not found in the library)"
             lines += [f"- **{eid}** fact: {ev['claim']}", f"  - quote: \"{ev['quote']}\"", f"  - source: {ev['source']}",
-                      f"  - passage: {excerpt(hit['passage'], ev['quote']) if hit else '(passage not found in the library)'}", ""]
+                      f"  - passage: {passage}", ""]
+            cell.append(f"{eid} FACT: {ev['claim']}\nQUOTE: \"{ev['quote']}\"\nSOURCE: {ev['source']}\n"
+                        f"PASSAGE: {passage.replace('**>>', '>>').replace('<<**', '<<')}")
         lines += ["Verdict: ok / wrong · Stage if wrong: retrieval miss / bad source / extraction subject / "
                   "writing subject / writing stitch / label / other", "", "---", ""]
         blocks.append("\n".join(lines))
+        rows.append({"id": cid, "report": c["report"], "section": c["section"], "kind": c["kind"], "label": c["label"],
+                     "claim": c["text"], "cites": " ".join(c["cites"]), "evidence": "\n\n".join(cell)})
     with csv_path.open("w", newline="", encoding="utf-8-sig") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDS)
+        w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
+    et.write_label_workbook(rows, WORKBOOK, GUIDE)
     head = (f"# Error analysis sheet\n\n{len(rows)} claims sampled (seed {args.seed}) from {len(args.reports)} reports, "
-            f"pool of {len(pool)} cited claims. Label in `claims.csv` (columns human_verdict, human_stage, human_note).\n"
+            f"pool of {len(pool)} cited claims. Label in `claims.xlsx` (guide on its first sheet).\n"
             "Stage = the FIRST stage that went wrong. `**>>quote<<**` marks the quote inside its passage.\n\n---\n\n")
     md_path.write_text(head + "\n".join(blocks), encoding="utf-8")
-    print(f"wrote {csv_path} and {md_path}: {len(rows)} claims from a pool of {len(pool)}")
+    print(f"wrote {WORKBOOK}, {csv_path} and {md_path}: {len(rows)} claims from a pool of {len(pool)}")
 
 
 def read_rows(path: Path) -> list[dict]:
@@ -101,6 +153,11 @@ def read_rows(path: Path) -> list[dict]:
 
 def tally(args):
     rows = read_rows(OUT / "claims.csv")
+    if WORKBOOK.exists():                                    # labels typed in the workbook win over the csv
+        typed = et.read_label_workbook(WORKBOOK)
+        for r in rows:
+            if any(typed.get(r["id"], {}).values()):
+                r.update(typed[r["id"]])
     claude = {r["id"]: r for r in read_rows(CLAUDE)} if CLAUDE.exists() else {}
     for r in rows:
         c = claude.get(r["id"], {})

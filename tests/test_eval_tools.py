@@ -146,3 +146,27 @@ def test_subject_jsonl_lines_are_valid_json():
     for line in (ROOT / "evals" / "subject_facts.jsonl").read_text(encoding="utf-8").splitlines():
         if line.strip():
             json.loads(line)
+
+
+def test_labelling_workbook_round_trip(tmp_path):
+    """The Excel workbook (guide sheet + claims sheet with dropdowns) gives back exactly what the labeller typed."""
+    rows = [{"id": "C01", "report": "r", "section": "s", "kind": "prose", "label": "single source", "claim": "A claim.",
+             "cites": "E1", "evidence": "E1 fact: ...\nquote: ..."},
+            {"id": "C02", "report": "r", "section": "s", "kind": "table", "label": "", "claim": "| a | b |",
+             "cites": "E2", "evidence": "E2 fact: ..."}]
+    path = tmp_path / "claims.xlsx"
+    et.write_label_workbook(rows, path, guide=[("How to label", ""), ("Step 1", "Read the claim")])
+    import openpyxl
+    wb = openpyxl.load_workbook(path)
+    assert wb.sheetnames == ["How to label", "Claims"]
+    ws = wb["Claims"]
+    header = [c.value for c in ws[1]]
+    assert header[:2] == ["id", "claim"] and "human_verdict" in header and "human_stage" in header
+    ws.cell(row=2, column=header.index("human_verdict") + 1, value="wrong")
+    ws.cell(row=2, column=header.index("human_stage") + 1, value="extraction subject")
+    ws.cell(row=3, column=header.index("human_verdict") + 1, value=" OK ")
+    wb.save(path)
+    labels = et.read_label_workbook(path)
+    assert labels["C01"] == {"human_verdict": "wrong", "human_stage": "extraction subject", "human_note": ""}
+    assert labels["C02"]["human_verdict"] == "ok"
+    assert len(ws.data_validations.dataValidation) == 2                 # verdict and stage dropdowns

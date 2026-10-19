@@ -1,6 +1,6 @@
 # Error analysis sheet
 
-50 claims sampled (seed 1) from 2 reports, pool of 193 cited claims. Label in `claims.csv` (columns human_verdict, human_stage, human_note).
+50 claims sampled (seed 1) from 2 reports, pool of 193 cited claims. Label in `claims.xlsx` (guide on its first sheet).
 Stage = the FIRST stage that went wrong. `**>>quote<<**` marks the quote inside its passage.
 
 ---
