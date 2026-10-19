@@ -9,6 +9,7 @@ are tracked the same way.
 
 | ID | Date | Phase | Severity | Found by | Title | Status |
 |---|---|---|---|---|---|---|
+| E-013 | 2026-10-19 | P1a-0 | Low | S1 test | Labelling workbook dropdowns accepted any typed value (openpyxl turns the error alert off by default) | fixed |
 | E-012 | 2026-10-19 | P1a-0 | Low | S0 review | `model_goal` keeps an unanswered clarifying question as if the user said it | open |
 | E-011 | 2026-10-19 | P1c | Low | S0 review | Filler-sentence removal can split numbered list items ("1. The table shows…" leaves "1.") | open |
 | E-010 | 2026-10-19 | P1a-0 | Medium | S0 review | Prompts carry examples from one test goal (4B-8B models, speech/hate-speech) | open |
@@ -41,6 +42,20 @@ are tracked the same way.
 ```
 
 ## Entries
+
+### E-013: Labelling workbook dropdowns accepted any typed value
+
+- **Date found:** 2026-10-19 · **Phase:** P1a-0 · **Severity:** Low · **Found by:** Sprint 1 test (adding note dropdowns) · **Status:** fixed
+
+**What happened:** the verdict and stage dropdowns in `claims.xlsx` offered the right values, but a typed value outside the list
+(e.g. "wrnog") was accepted, so the "cannot be mistyped" promise did not hold. `tally` would have raised on an unknown stage later.
+No labels had been entered yet.
+**Root cause:** openpyxl's `DataValidation.showErrorMessage` defaults to False; the old test only counted the validations.
+**Fix:** `write_label_workbook` sets `showErrorMessage` on for verdict and stage (off for the note column, which offers
+suggestions only); the workbook was rebuilt with the same sample (claims.csv byte-identical).
+**Regression test:** `test_labelling_workbook_round_trip` checks the error alert is on for verdict/stage, off for note, and that
+every label cell has pop-up help within Excel's 255-character limit.
+**Pattern?** Test the behaviour a setting promises, not that the setting object exists.
 
 ### E-012: `model_goal` keeps an unanswered clarifying question as if the user said it
 

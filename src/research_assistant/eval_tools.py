@@ -212,11 +212,48 @@ def reference_labels(rows: list[dict]) -> dict[str, str]:
 
 LABEL_COLUMNS = ("human_verdict", "human_stage", "human_note")
 WORKBOOK_COLUMNS = ("id", "claim", "label", "evidence", "section", "report") + LABEL_COLUMNS
+OPTIONS_SHEET = "Dropdown options"
+
+# (value, meaning) per label column; verdict and stage are strict lists, notes are suggestions (free text allowed)
+VERDICT_OPTIONS = (("ok", "The sentence honestly says what its source says, about the right thing"),
+                   ("wrong", "The sentence would mislead a reader: wrong model, size or stage, off-goal source, "
+                             "overstated, or mislabelled"))
+STAGE_OPTIONS = (("bad source", "1st check: the source does not fit the goal (speech model for a text goal, essay guide)"),
+                 ("extraction subject", "2nd check: the FACT line already names the wrong model, size or stage, or "
+                                        "turns the source into a general rule"),
+                 ("writing subject", "3rd check: the fact is right, the claim drops or changes its subject or meaning"),
+                 ("writing stitch", "4th check: facts from different sources merged into a claim none of them makes"),
+                 ("label", "5th check: content fine, evidence label wrong ('established' needs 2+ documents)"),
+                 ("retrieval miss", "The right source was never found (rare for a cited claim)"),
+                 ("other", "None of the above; say what in human_note"))
+NOTE_OPTIONS = (("wrong model", "The fact or claim names a different model than the source"),
+                ("wrong size", "Parameter count does not match the source"),
+                ("fine-tuning presented as pretraining", "A fine-tune's settings or hardware read as pretraining"),
+                ("post-training presented as pretraining", "A post-training study's numbers read as pretraining"),
+                ("speech source, goal is text", "ASR / speech translation used for a text-only goal"),
+                ("off-goal source", "The document is not about the goal at all"),
+                ("one project's settings as a general rule", "What one project did, stated as what you must do"),
+                ("benchmark rule as a model requirement", "A test-harness rule stated as a property of the model"),
+                ("overstated", "The source says less, or says it more cautiously"),
+                ("merges different sources", "Two sources combined into something neither says"),
+                ("'established' on one document", "Label needs two or more documents"),
+                ("true but weak relevance", "Correct, but far from the goal (e.g. a 295B model in a 4B-8B report)"),
+                ("subject named in the sentence before", "'The model' is fine once you read the previous sentence"),
+                ("borderline", "Could go either way"))
+LABEL_HELP = {"human_verdict": ("Verdict (required)", "ok = the sentence honestly says what its source says. "
+                                "wrong = it would mislead you (wrong model/size/stage, off-goal, overstated, "
+                                "mislabelled)."),
+              "human_stage": ("Stage (only if wrong)", "First check that fails: 1 bad source, 2 extraction subject "
+                              "(FACT wrong), 3 writing subject (claim changes the fact), 4 writing stitch, 5 label. "
+                              "Else retrieval miss / other. Empty if ok."),
+              "human_note": ("Note (optional)", "Pick a common reason or type your own words. Useful for wrong, "
+                             "borderline or weakly relevant rows.")}
 
 
 def write_label_workbook(rows: list[dict], path: str | Path, guide: list[tuple[str, str]]):
-    """An Excel labelling workbook: a "How to label" sheet (``guide`` rows: heading, text) and a "Claims" sheet with
-    one row per claim, wrapped text, and dropdowns for verdict and stage so a label cannot be mistyped."""
+    """An Excel labelling workbook: a "How to label" sheet (``guide`` rows: heading, text), a "Claims" sheet with
+    one row per claim, wrapped text, and dropdowns with pop-up help on the label columns (verdict and stage strict, so
+    a label cannot be mistyped; note suggestions with free text allowed), and a sheet explaining every dropdown value."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.worksheet.datavalidation import DataValidation
@@ -249,14 +286,34 @@ def write_label_workbook(rows: list[dict], path: str | Path, guide: list[tuple[s
             if col in LABEL_COLUMNS and r > 1:
                 ws.cell(r, i).fill = fill
     ws.freeze_panes = "C2"
+
+    opts = wb.create_sheet(OPTIONS_SHEET)                    # the dropdowns read their values from this sheet
+    opts.column_dimensions["A"].width = 40
+    opts.column_dimensions["B"].width = 100
+    ranges, r = {}, 0
+    for col, options in (("human_verdict", VERDICT_OPTIONS), ("human_stage", STAGE_OPTIONS),
+                         ("human_note", NOTE_OPTIONS)):
+        r += 1 if r == 0 else 2
+        opts.cell(r, 1, col).font = Font(bold=True, size=12)
+        opts.cell(r, 2, "meaning").font = Font(bold=True)
+        ranges[col] = f"'{OPTIONS_SHEET}'!$A${r + 1}:$A${r + len(options)}"
+        for value, meaning in options:
+            r += 1
+            opts.cell(r, 1, value)
+            opts.cell(r, 2, meaning).alignment = Alignment(wrap_text=True, vertical="top")
+
     last = ws.max_row
     col_of = {c: ws.cell(1, i).column_letter for i, c in enumerate(WORKBOOK_COLUMNS, 1)}
-    verdict = DataValidation(type="list", formula1='"ok,wrong"', allow_blank=True)
-    stage = DataValidation(type="list", formula1='"' + ",".join(FAIL_STAGES) + '"', allow_blank=True)
-    for dv, col in ((verdict, "human_verdict"), (stage, "human_stage")):
-        dv.error, dv.errorTitle = "Pick a value from the list", "Not a valid label"
+    for col in LABEL_COLUMNS:
+        dv = DataValidation(type="list", formula1=ranges[col], allow_blank=True)
+        dv.promptTitle, dv.prompt = LABEL_HELP[col]
+        dv.showInputMessage = True
+        dv.showErrorMessage = col != "human_note"            # openpyxl's default is off; note = suggestions only
+        if dv.showErrorMessage:
+            dv.error, dv.errorTitle = f"Pick a value from the list (meanings on '{OPTIONS_SHEET}')", "Not a valid label"
         ws.add_data_validation(dv)
         dv.add(f"{col_of[col]}2:{col_of[col]}{last}")
+    assert [v for v, _ in STAGE_OPTIONS] and {v for v, _ in STAGE_OPTIONS} == set(FAIL_STAGES)
     wb.active = 1
     wb.save(path)
 

@@ -45,6 +45,9 @@ GUIDE = [
     ("Where to work", "Sheet 'Claims'. Fill only the three yellow columns: human_verdict, human_stage, human_note. Each "
      "row's 'evidence' cell has, for every cited fact: the FACT the pipeline extracted, the verbatim QUOTE, the SOURCE, "
      "and the library PASSAGE around the quote (the quote is marked >>like this<<)."),
+    ("Dropdowns", "Click a yellow cell: a short help pops up and an arrow opens the dropdown. human_verdict and "
+     "human_stage accept only list values; human_note offers common reasons but you can type your own. Sheet "
+     "'Dropdown options' explains every value."),
     ("Step 1", "Read the claim. What does it tell you?"),
     ("Step 2", "Read the source and passage in 'evidence'. What is the source really about: which model, what size, "
      "pretraining or fine-tuning, text or speech?"),

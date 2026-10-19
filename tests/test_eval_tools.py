@@ -158,7 +158,7 @@ def test_labelling_workbook_round_trip(tmp_path):
     et.write_label_workbook(rows, path, guide=[("How to label", ""), ("Step 1", "Read the claim")])
     import openpyxl
     wb = openpyxl.load_workbook(path)
-    assert wb.sheetnames == ["How to label", "Claims"]
+    assert wb.sheetnames == ["How to label", "Claims", "Dropdown options"]
     ws = wb["Claims"]
     header = [c.value for c in ws[1]]
     assert header[:2] == ["id", "claim"] and "human_verdict" in header and "human_stage" in header
@@ -169,4 +169,12 @@ def test_labelling_workbook_round_trip(tmp_path):
     labels = et.read_label_workbook(path)
     assert labels["C01"] == {"human_verdict": "wrong", "human_stage": "extraction subject", "human_note": ""}
     assert labels["C02"]["human_verdict"] == "ok"
-    assert len(ws.data_validations.dataValidation) == 2                 # verdict and stage dropdowns
+    dvs = {str(dv.sqref).split(":")[0][0]: dv for dv in ws.data_validations.dataValidation}
+    assert len(dvs) == 3                                                # verdict, stage and note dropdowns
+    col = {h: openpyxl.utils.get_column_letter(header.index(h) + 1) for h in et.LABEL_COLUMNS}
+    assert dvs[col["human_verdict"]].showErrorMessage and dvs[col["human_stage"]].showErrorMessage
+    assert not dvs[col["human_note"]].showErrorMessage                 # note: suggestions, free text allowed
+    assert all(dv.prompt for dv in dvs.values())                        # pop-up help on every label cell
+    stages = [c.value for c in wb["Dropdown options"]["A"]]
+    assert set(et.FAIL_STAGES) <= set(stages) and {"ok", "wrong"} <= set(stages)
+    assert all(len(dv.prompt) <= 255 for dv in dvs.values())            # Excel's limit for input messages
