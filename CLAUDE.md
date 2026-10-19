@@ -1,33 +1,35 @@
 # Research Desk: rules for working in this repo
 
-Local research assistant: bounded, checked research reports plus (Phase 2)
-chat with a growing library and fact bank. Ollama only, no paid APIs, no cloud
-by default. Quality over speed.
+Deep research that builds a private library (primary) plus chat over that
+library (secondary), with user feedback improving both. One local model
+(`qwen3.5:4b`), Ollama only, no paid APIs, no cloud.
 
 ## Read first
-- `docs/STATUS.md`: current phase, blockers; `docs/BUILD_ORDER.md`: sprints and test gates
-- `docs/SCOPE.md` (v2.2): what we build; `docs/FRAMEWORK_FIT.md`: which LangChain/LangGraph features to use
-- `docs/PROCESS.md` and the current `docs/phases/*.md`
-- `DECISIONS.md` (append-only), `EVALS.md`, `docs/ERROR_LOG.md`, `docs/USER_TESTS.md`, `docs/CASE_STUDY.md`
+- `docs/STATUS.md`: current milestone; `docs/SCOPE.md` (v3, one page): what we build and the milestones M1-M5
+- `DECISIONS.md` (append-only), `EVALS.md`, `docs/ERROR_LOG.md`, `docs/CASE_STUDY.md`
+- Older plans (v2.2 sprints, phases, user tests) are in `docs/archive/v2.2/`: history, not instructions
 
 ## Working rules
 - Discuss before implementing; do not start a phase or a large change without the user's go-ahead.
-- Build only the current phase; ideas go to the STATUS.md backlog. Say so when a request is outside the locked scope.
+- Build only the current milestone; ideas go to the STATUS.md backlog. Say so when a request is outside the scope.
+- Keep it simple: do not add process, documents or stages the scope does not need. The user's daily use and feedback are
+  the evaluation; do not hand the user labelling or test chores.
 - Tests first, named by test-case ID. Every bug or finding → ERROR_LOG entry → fix → regression test.
 - Record evaluation results in EVALS.md whatever they show; update the scoreboard at every gate.
-- Measure first: a new pipeline stage must beat the raw-passage baseline on the scoreboard or it is cut. Develop on the mini fixture; full runs only at gates.
-- Test everything possible yourself (live model, API, Playwright, secret scan, fresh clone); only what needs a person goes to `docs/USER_TESTS.md`.
-- End of every sprint: STATUS, phase Results, ERROR_LOG, USER_TESTS, and a `CASE_STUDY.md` sprint-log entry. At a gate also the EVALS scoreboard.
+- A new stage or model change must show its effect (retrieval set, code-check pass rate, feedback per engine version) or it is cut.
+- Test everything possible yourself (live model on a small goal, API, dashboard, secret scan).
+- End of every milestone: STATUS, ERROR_LOG, EVALS, and a `CASE_STUDY.md` progress-log entry.
 
 ## Non-negotiables
-- Facts name their real subject (structured fields); numbers trace to one fact; labels follow the rules; gaps are stated.
+- Every report/chat sentence cites a chunk; numbers and model names appear in the cited chunk (checked in code); gaps are stated.
+- Feedback is stored with the engine version so before/after comparisons are possible.
 - Research is an explicit LangGraph graph; agent loops only in chat.
-- No silent truncation: budgets enforced and logged; collected / read / used reported.
+- No silent truncation: context budgets enforced and logged.
 - Library/vault content is never deleted (moves to `.removed`).
 
 ## Machine and tooling gotchas
 - Python: shared root venv `../../.venv` (uv); install with `uv pip`. Do not regenerate `uv.lock` casually.
-- 8 GB GPU + 24 GB RAM. Check free RAM and GPU power (`python scripts/doctor.py`) before model runs; one model loaded at a time.
+- 8 GB GPU + 24 GB RAM. Check free RAM and GPU power (`python scripts/doctor.py`) before model runs; one LLM loaded at a time.
 - Do not `npm run build` the dashboard while a run is live (servers on 3000/3001 serve the old build).
 - Long nested heredocs in the Bash tool fail; use Write/Edit. Use `C:\` paths for Windows Python + sqlite.
 - Never print `.env` files unfiltered (a LangSmith key leaked that way once).

@@ -1,6 +1,6 @@
 # Case study: a local research assistant that shows its work
 
-> **Living document.** Updated at the end of every sprint (sprint log at the
+> **Living document.** Updated at every milestone (progress log at the
 > bottom) and rewritten into its final form at v1.0. Every number links to
 > `EVALS.md`, `BENCHMARKS.md` or a run record; every lesson links to its
 > `DECISIONS.md` or `ERROR_LOG.md` entry. Nothing here is claimed without
@@ -41,14 +41,16 @@ private research over their own documents plus the web.
 | 2026-10-12 | Scope v2 | Narrowed: quality first, one stronger model, structured facts, fact bank, chat later |
 | 2026-10-18 | Scope v2.1 | Collect wide, index everything, read the best, use a few; chat preview early |
 | 2026-10-19 | Scope v2.2 | Measure first: error analysis, simplest baseline, fast dev loop, claim check view |
+| 2026-10-19 | **Scope v3** | Back to the core idea: write from reranked chunks (no fact rewriting), one 4B model, feedback loop from daily use; research primary, chat secondary |
 
 ## 3. Architecture
 
-_Diagram added in Sprint 11._ In words: a LangGraph research graph
-(goal → clarify → plan → coverage → collect wide → index all → rank → read
-per question → verify → select ≤ 80 facts → write → checks → report) over a
-local library (SQLite: sources, passages with FTS5 + vectors, fact bank).
-Chat (Phase 2) is an agent over the same library.
+_Diagram added at M5._ In words: a LangGraph research graph (goal → clarify →
+plan → coverage → collect → index → per sub-question: hybrid retrieve →
+rerank → write the section from its chunks → code checks → report) over a
+local library (SQLite: documents, chunks with FTS5 + vectors, feedback).
+Chat uses the same retrieve → rerank → answer path. One local LLM
+(`qwen3.5:4b`) plus small embedding and reranker models.
 
 ## 4. The failure that shaped the project (E-001)
 
@@ -64,9 +66,11 @@ Every quote was verbatim, so every check passed. The root cause: extraction
 phrased facts in the *question's* terms, and the checks tested form (is the
 quote real?) not meaning (is the subject the same?).
 
-Fix (planned, Sprints 6 and 8): structured facts with `system`, `size` and
-`stage` fields; a subject check that compares fields in code; number
-provenance and label rules enforced in code, not trusted to the model.
+Fix (v3, M1): remove the paraphrase step. The writer reads the source chunks
+themselves, each labelled with its document title and heading, so the subject
+is in front of it; code checks that every number and model name in a sentence
+appears in the chunk it cites. (v2.2 had planned structured fact fields
+instead: more machinery around the step that caused the error.)
 
 **Lesson:** a check must test meaning, not only form. (ERROR_LOG E-001)
 
@@ -90,39 +94,45 @@ provenance and label rules enforced in code, not trusted to the model.
 | One mid-size MoE model (candidate `gemma4:26b-a4b`), confirmed by test | Max context; several small models | Fits 8 GB GPU + RAM; one model loaded at a time |
 | Measure first: error analysis by stage, raw-passage baseline | Fix by diagnosis | Effort goes where errors are; complexity must beat the simple thing |
 | Rules in code (provenance, labels, gaps) | Trust a bigger model | A bigger model errs less, not never |
+| Write from reranked chunks (v3) | Extract facts, then write from facts | The paraphrase step was where subjects got lost (22/42 right); retrieval was already good (96% recall@6) |
+| One 4B model for plan, write and chat (v3) | Planner/extractor + separate writer | With extraction gone only light jobs remain; no model swapping on a memory-short laptop |
+| Feedback from daily use as the evaluation (v3) | 50-claim labelling sheet, judge calibration | Labels arrive as a side effect of using it; before/after numbers from real use |
 
 ## 7. Measurements
 
 _Filled from the scoreboard in `EVALS.md` at each gate._
 
-| Metric | v6 baseline | Raw-passage baseline | v1.0 |
+| Metric | v2 (facts) | v3.0 hybrid | v3.1 rerank |
 |---|---|---|---|
-| Subject violations (30-fact sample) | — | — | — |
-| Numbers traced to one fact | — | — | — |
-| Label errors | — | — | — |
-| Blind quality score (3 gold goals) | — | — | — |
+| Retrieval recall@1/3/6 (frozen set) | 80/88/96% | 80/88/96% | — |
+| Sources rated relevant (your feedback) | — | — | — |
+| Reports/answers rated helpful | — | — | — |
+| Sentences failing code checks | — | — | — |
+| Words per report | 4,700-6,900 | — | — |
 | Minutes per report | — | — | — |
-| Retrieval hit@k | — | — | — |
 
 ## 8. What I would do differently
 
 _Collected as we go; finalised at v1.0._
 - Start with error analysis and a simple baseline before adding pipeline stages (adopted late, in v2.2).
 - Build the fast dev loop (saved evidence, mini fixture) before the first multi-hour run.
+- Watch for process outgrowing the product: by v2.2 the plan had 12 sprints and a labelling job before
+  anything new could be used. v3 put daily use first and let feedback be the measurement.
 
 ## 9. What's next
 
-Phase 2 chat over the library, Phase 3 compounding knowledge, Phase 4 a
-second domain and a client demo (private documents plus the web, on the
-client's machine).
+M1 research from chunks → M2 source panel + feedback (daily use starts) →
+M3 reranker (before/after) → M4 chat → M5 insights page and client demo
+(private documents plus the web, on the client's machine).
 
 ---
 
-## Sprint log
+## Progress log
 
-One entry per sprint: what was built, what the tests showed, what surprised us, links.
+One entry per sprint (v2.2) or milestone (v3): what was built, what the tests showed, what surprised us, links.
 
-| Sprint | Dates | Built | Tests (auto / manual) | Finding or surprise | Links |
+| Step | Dates | Built | Tests (auto / manual) | Finding or surprise | Links |
 |---|---|---|---|---|---|
 | — | 2026-10-12 → 10-19 | Scope v2 → v2.2, process docs, build order | 328 offline + 19 dashboard pass | Free RAM stays ~5 GB even after a reboot; blocks the model test | DECISIONS scope entries |
 | 0 | 2026-10-19 | Reviewed + committed the October fixes (plans stay on the goal, fetcher back-off), docs, dashboard snapshot; branch per phase | 🤖 328 pytest, ruff, 19 dashboard, tsc, eslint, secret scan · 🧑 U-01 pass | The review found prompt examples copied from the one test goal (E-010): a prompt fix tuned on the failing case can flatter the eval. Added a held-out goal to Sprint 1 | ERROR_LOG E-008..E-012; commits fb0d896, 4c9b6c2, 5373c9e |
+| 1 (stopped) | 2026-10-19 | Error-analysis tooling (claim parser, labelling workbook, judge calibration, subject eval set, frozen retrieval set); hybrid recall 80/88/96% | 🤖 339 pytest | Preparing the 50-claim labelling made the plan's weight obvious: the user called it too complicated. Revisited the idea → **scope v3** | DECISIONS "Scope v3"; ERROR_LOG E-013 |

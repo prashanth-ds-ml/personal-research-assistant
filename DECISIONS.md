@@ -395,3 +395,20 @@ maintained alongside the other project docs. Process change, not a scope change 
 The user reviewed the October fixes (U-01) and kept them; committed separately from the docs and the dashboard snapshot. Commits go on
 one branch per phase (`phase-1a0` now), merged into `main` at each phase gate, so `main` always holds a passed gate. The review's
 E-010 (prompt examples copied from the one test goal) adds a held-out gold goal to the Sprint 1 eval set.
+
+## Scope v3: one engine, one model, feedback loop; research primary, chat secondary (2026-10-19)
+Context: during Sprint 1 the user said the plan had become too complicated (50-claim labelling sheet, judge calibration,
+12 sprints) and asked to revisit the idea from the start. Decisions (full text in `docs/SCOPE.md`):
+- **Write from chunks, not extracted facts.** The writer reads retrieved chunks (with document title and heading) directly; the
+  fact-extraction step and LLM judge are removed. Reason: E-001 lives in the paraphrase step (subject right in 22/42 v1 facts).
+- **Retrieval engine:** existing hybrid (BM25 + vectors, RRF) plus a cross-encoder reranker (M3), measured before it is switched on.
+- **One LLM, `qwen3.5:4b`** (user's choice): with extraction gone only plan/write/chat remain; one model avoids swapping on a
+  memory-short machine and fits the 8 GB GPU with a 16k window.
+- **Short, evidence-led reports** (~1,500-2,500 words, section per sub-question, summary only from section sentences) with code checks
+  on numbers, model names and citations.
+- **Feedback loop** on sources, sentences and whole answers, stored with the engine version; it replaces the labelling and judge
+  calibration as the evaluation, and gives the case study before/after numbers from real use.
+- **Deep research is primary; chat is secondary** (user). Chat offers research when the library cannot answer, so it does not drift
+  into plain RAG.
+- **Process:** milestones M1-M5 instead of sprints; v2.2 plan docs moved to `docs/archive/v2.2/` (nothing deleted). Daily use by the
+  builder starts at M2. Sprint 1 tooling stays; its labelling tasks (U-02, U-P2) are dropped.

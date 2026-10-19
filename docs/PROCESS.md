@@ -1,6 +1,9 @@
 # How we build: one phase at a time
 
-Scope: `SCOPE.md` (v2.2). Status: `STATUS.md`. Order: `BUILD_ORDER.md` (sprints). Every phase (and Phase 1 sub-phase)
+> **v3 (2026-10-19):** work runs by milestones M1-M5 in `SCOPE.md`; the sprint, phase-doc and user-test parts below
+> are history (`archive/v2.2/`). Still in force: discuss → build → test → review → log, branches, commits on OK.
+
+Scope: `SCOPE.md` (v3). Status: `STATUS.md`. Every phase (and Phase 1 sub-phase)
 runs the same loop, and the next one starts only after the gate passes.
 
 ```
