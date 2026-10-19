@@ -108,6 +108,7 @@ _Filled from the scoreboard in `EVALS.md` at each gate._
 | Sources rated relevant (your feedback) | — | — | — |
 | Reports/answers rated helpful | — | — | — |
 | Sentences failing code checks | — | — | — |
+| Retrieval at the locked chunk size (top 1/3/6) | 80/88/96% | 80/88/96% | — |
 | Words per report (body) | ~4,000 | 1,289 | — |
 | Minutes per report (library only) | hours | 3.8 | — |
 | Wrong-subject claims found on reading (same goal) | several | 0 | — |
@@ -139,3 +140,4 @@ One entry per sprint (v2.2) or milestone (v3): what was built, what the tests sh
 | 1 (stopped) | 2026-10-19 | Error-analysis tooling (claim parser, labelling workbook, judge calibration, subject eval set, frozen retrieval set); hybrid recall 80/88/96% | 🤖 339 pytest | Preparing the 50-claim labelling made the plan's weight obvious: the user called it too complicated. Revisited the idea → **scope v3** | DECISIONS "Scope v3"; ERROR_LOG E-013 |
 | M1 | 2026-10-19 | Research from passages: no fact extraction, graded passage relevance, 150-300-word sections, subject check in code, one model qwen3.5:4b | 🤖 351 pytest + 4 live runs | Two small-model surprises: thinking mode returned an empty plan (E-014) and a yes/no relevance question rejected nearly everything (E-015); a 0-3 grade fixed it. Same goal as E-001: honest gap report in 229 s instead of a confident wrong one | EVALS "v3 M1"; ERROR_LOG E-014, E-015 |
 | M2 | 2026-10-19 | Run trace + feedback: desk database (one schema, two writers), every step, model call, retrieved chunk (ranks), grade, section input and sentence recorded; rating buttons per source and sentence on the report page | 🤖 358 pytest + 22 dashboard tests, live run through the backend (69 calls, 46 chunks, 44 sentences traced), headless Edge click test | The shared venv had broken the backend since Oct 10 (E-016): only a real end-to-end start finds that | DECISIONS "Run trace and feedback"; ERROR_LOG E-016 |
+| Review + lock | 2026-10-19 | First real report reviewed against its chunks; citation repair, strict tables, copied summary, flag placement; report layout fixed; chunk size measured (Test A) and locked, library re-chunked uniform; harness for Tests B/C | 🤖 369 pytest + 22 dashboard tests; Test A over 6 sizes; headless-browser layout check | Fluent reports hide citation drift: true facts cited to the neighbouring chunk. Word overlap found it (0.08 vs 0.75). Locking the chunk size surfaced two chunker bugs (E-017) | EVALS "v3 Test A", "v3 report review"; DECISIONS; ERROR_LOG E-017, E-018 |

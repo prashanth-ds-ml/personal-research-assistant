@@ -26,6 +26,8 @@ library (secondary), with user feedback improving both. One local model
 - Research is an explicit LangGraph graph; agent loops only in chat.
 - No silent truncation: context budgets enforced and logged.
 - Library/vault content is never deleted (moves to `.removed`).
+- Chunking is locked (`knowledge.CHUNKER`, v2: text 1,800 / table 3,000 / heading 300). Change it only with a full
+  re-chunk (`scripts/reindex.py --rebuild`) and a DECISIONS entry; the library refuses to mix chunkers.
 
 ## Machine and tooling gotchas
 - Python: shared root venv `../../.venv` (uv); install with `uv pip`. Do not regenerate `uv.lock` casually.

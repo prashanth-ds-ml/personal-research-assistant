@@ -9,6 +9,8 @@ are tracked the same way.
 
 | ID | Date | Phase | Severity | Found by | Title | Status |
 |---|---|---|---|---|---|---|
+| E-018 | 2026-10-19 | M2 | Medium | Test A | One embedding request per document (hundreds of chunks) made Ollama's runner fail | fixed |
+| E-017 | 2026-10-19 | M2 | Medium | chunk-size check | Table splitter repeated a giant header, so pieces exceeded the limit (7,159 chars); a 2,190-char heading was prefixed to chunks | fixed |
 | E-016 | 2026-10-19 | M2 | Medium | backend start | Backend would not start: shared venv had opentelemetry-api 1.45.1 with SDK 1.42.1 | worked around |
 | E-015 | 2026-10-19 | M1 | High | M1 live run | Yes/no passage relevance made qwen3.5:4b reject almost everything (0 of 8 kept per question) | fixed |
 | E-014 | 2026-10-19 | M1 | Medium | M1 live run | Thinking at temperature 0 never finished (qwen3.5:4b), so the plan fell back to one question | fixed |
@@ -45,6 +47,26 @@ are tracked the same way.
 ```
 
 ## Entries
+
+### E-018: One embedding request per document made Ollama's embedding runner fail
+
+- **Date found:** 2026-10-19 · **Phase:** M2 · **Severity:** Medium · **Found by:** Test A (re-embedding at 600-char chunks) · **Status:** fixed
+
+**What happened:** `POST /api/embed` returned 400 after ~12 s ("connection refused" on the runner's /tokenize); retries hit a
+new runner and failed the same way. **Root cause:** `ingest_text` and `rebuild` sent all of a document's chunks in one
+request; at small chunk sizes a big PDF is hundreds of chunks. The real library had not hit it yet (fewer chunks at 1,800).
+**Fix:** `KnowledgeBase._embed` sends batches of 32 with retries. **Regression test:** `test_K_T04_embedding_goes_in_batches`.
+**Pattern?** Bound every request a batch job sends to a local service.
+
+### E-017: Chunks over the limit: giant table headers and a giant heading
+
+- **Date found:** 2026-10-19 · **Phase:** M2 · **Severity:** Medium · **Found by:** checking library uniformity before locking the chunk size · **Status:** fixed
+
+**What happened:** 82 of 5,102 chunks exceeded their limit; the worst, 7,159 characters, appeared four times. **Root cause:**
+`_split_table` repeats the header in every piece without bounding it (one TransMI table had a 2,332-character header line),
+and the heading path prefixed to chunks was unbounded (a broken PDF heading of 2,190 characters). **Fix:** header at most a
+third of a piece, rows cut to fit; heading path capped at 300; library re-chunked under the locked v2 settings (0 over).
+**Regression tests:** `test_K_T01_...`, `test_K_T05_...`. **Pattern?** A limit must bound every part of what it limits.
 
 ### E-016: The backend would not start after another install changed the shared venv
 

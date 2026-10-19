@@ -40,6 +40,13 @@ The fact-extraction step and the LLM judge are **removed**: the writer reads the
 
 One setting changes the LLM; a better model replaces it when feedback says so.
 
+## Chunking (locked 2026-10-19)
+
+Every document is cut the same way: text chunks up to 1,800 characters, tables up to 3,000 (split by rows, header kept but
+capped), heading path up to 300 characters. The library records `v2 text=1800 table=3000` and refuses to mix; a change
+needs a full re-chunk (`scripts/reindex.py --rebuild`, ~5 minutes, no PDF conversion). Chosen by Test A: 1,400-2,500
+characters sit on the same retrieval plateau; 600-1,000 are clearly worse at ranking the right chunk first.
+
 ## Report rules (no-hallucination design)
 
 1. **Section = one sub-question = its own 6-8 chunks.** Every sentence cites a chunk `[C3]`. If the chunks do not answer,
@@ -47,9 +54,12 @@ One setting changes the LLM; a better model replaces it when feedback says so.
 2. **Length follows evidence:** ~150-300 words per section, ~1,500-2,500 words per report (v2 reports were 4,700-6,900).
 3. **Context budget per section** (16k window): instructions ~700 tokens + 8 chunks × ~450 + output ~600 ≈ 5k tokens.
    Nothing is clipped silently; any cut is logged.
-4. **Summary only from section sentences,** with their citations. No new claims in the summary: no place to stitch.
+4. **Summary only from section sentences,** with their citations: the recommendation plus each section's first cited
+   sentence, copied (built 2026-10-19). No new claims in the summary: no place to stitch.
 5. **Code checks on every cited sentence** (no extra LLM): numbers must appear in the cited chunk; model names/sizes must
-   appear in the chunk or its document title; citations must point to real chunks. A failing sentence is flagged in the report.
+   appear in the chunk or its document title; citations must point to real chunks; a sentence whose words are barely in
+   its cited chunk is flagged; a citation that another chunk of the section clearly carries better is moved there
+   (citation repair). Tables must cite every row. A failing sentence is flagged in the report.
 6. Errors cannot be guaranteed away; every claim is short, cited, checkable and visible, and the reader can flag it.
 
 ## Feedback

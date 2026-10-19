@@ -305,3 +305,35 @@ Found and fixed on the way: E-014 (thinking mode emptied the plan), E-015 (yes/n
 0-3 grade, keep 2+), gap notes now quote the passage start, section bar 2 passages from 2 documents.
 Known limits: the subject check cannot read negation ("does not cover a 4B model" is flagged); the status table still says
 "Facts" for passages.
+
+## v3 Test A: chunk size (2026-10-19)
+
+Frozen retrieval corpus (11 PDFs) re-chunked at each size, 25 questions, the pipeline's hybrid search
+(`scripts/exp_chunk_size.py`, raw: `evals/v3/exp_a_chunk_size.json`). A hit needs the right document and an answer phrase.
+"Within N chars" = the top chunks that fit in N characters of reading: equal cost for every size.
+
+| Max chunk chars | Chunks | Avg chars | Top 1 / 3 / 6 | Within 2k / 4k / 8k chars |
+|---|---|---|---|---|
+| 600 | 1,996 | 688 | 64 / 88 / 92% | 88 / 92 / 100% |
+| 1,000 | 1,431 | 923 | 64 / 84 / 96% | 80 / 84 / 96% |
+| 1,400 | 1,184 | 1,096 | 80 / 84 / 96% | 80 / 92 / 96% |
+| **1,800 (kept)** | 979 | 1,256 | **80 / 88 / 96%** | 84 / 88 / 96% |
+| 2,500 | 801 | 1,457 | 80 / 92 / 92% | 80 / 92 / 92% |
+| 3,500 | 685 | 1,636 | 76 / 96 / 96% | 76 / 92 / 96% |
+
+One question = 4 points, so most differences are noise; small chunks are clearly worse at ranking the right chunk first.
+Decision: keep 1,800 and lock it (DECISIONS "Chunk size locked"). After the lock and re-chunk the frozen check is unchanged.
+
+## v3 report review: the first real report (2026-10-19)
+
+*Embedding Models: Architecture, Training Data, and Pipeline Construction* (run 01a154bc, 22 min incl. collecting 51 sources;
+17 of 24 passages kept; 136 model calls, 0 failures; 45 sentences: 42 clean, 1 figure flag, 1 subject flag, 1 uncited).
+Read against its chunks: claims mostly exact; problems found: citation drift between neighbouring chunks of one paper
+(word coverage 0.08 on the cited chunk vs 0.75 on the right one), an uncited table from another context, a stitched
+model-written summary, flags placed on the next sentence, errors copied from a source (IBM: "encoder-decoder ... BERT"),
+and thin coverage of "which datasets" (only CCPairs). Fixes: see DECISIONS "Report checks tightened".
+
+## v3 Tests B and C: harness ready, not run (2026-10-19)
+`scripts/exp_context.py`: fixed graded passage pool for 4 questions (11/12/7/14 passages scored 2+), shuffled positions,
+exact token counts from Ollama, 32k window; C varies passages per section 4/8/12/16/24, B neighbour expansion on/off,
+`think` repeats the best size with thinking. The pool must be rebuilt first (library re-chunked after it was built).

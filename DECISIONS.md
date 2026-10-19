@@ -431,3 +431,24 @@ The user asked to track every step, source and chunk, and to save feedback prope
   the run, engine and chunk identity, so ratings can be compared before/after an engine change and survive a library rebuild.
 - The current run's trace travels in a context variable set per graph step, not a global (E-004 was a shared-global bug).
 - Tracing never breaks a run: write errors are swallowed with one warning.
+
+## Report checks tightened after the first real v3 report (2026-10-19)
+Review of *Embedding Models...* against its 17 chunks: most claims matched, but (1) the writer cited neighbouring chunks of
+the same paper (E8 for what E7 says), (2) an uncited speed-benchmark table appeared under "Training Methodology", (3) the
+model-written summary stitched five claims into one sentence, (4) flags rendered at the start of the next sentence.
+Decisions: citation repair by word coverage (move when another chunk of the section covers >= 0.5 and +0.25 more; flag
+"wording not found" below 0.2, thresholds measured on that report); tables must cite every row with cited numbers or are
+dropped; the summary is copied from section sentences; v3 flags go before the full stop. v2 label style unchanged.
+
+## Report page layout: the source margin no longer stretches chapters (2026-10-19)
+The user saw large blank areas. Cause: the margin's evidence cards were twice as tall as the text. The margin now sticks
+beside the text and scrolls on its own; cards are compact. Page 10,958 -> 8,227 px on the embeddings report.
+
+## Chunk size locked: 1,800 / 3,000, recorded in the library (2026-10-19)
+The user asked to fix the chunk size so every future source is cut the same way. Test A (25 frozen questions, sizes 600 to
+3,500, recall by rank and by equal reading budget) put 1,400-2,500 on one plateau and 600-1,000 clearly below at top-1, so
+1,800 stays. The library now records `CHUNKER = "v2 text=1800 table=3000"` and refuses to open for new documents with
+other settings (like the embedding model). Two chunker bugs were fixed inside v2 before locking: a giant table header
+pushed every piece over the limit (7,159 chars), and a broken 2,190-character PDF heading was prefixed to its chunks (now
+capped at 300). The library was re-chunked once (165 documents, 5,099 chunks, all within limits; retrieval unchanged
+80/88/96%). Embedding now goes in batches of 32 with retries.

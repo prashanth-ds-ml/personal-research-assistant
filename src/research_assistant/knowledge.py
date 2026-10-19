@@ -22,6 +22,7 @@ import re
 import sqlite3
 import struct
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,6 +36,11 @@ CONVERT_WITH_DOCLING = (".pdf", ".docx", ".pptx", ".html", ".htm")
 
 MAX_CHUNK_CHARS = 1800          # text chunks
 MAX_TABLE_CHARS = 3000          # a table chunk: bigger tables are split by rows (header repeated)
+# Locked 2026-10-19 (Test A, EVALS "v3 chunk size"): every document in a library is cut with the same settings. The
+# library records this string and refuses to mix (like the embedding model); change it only with a full rebuild.
+CHUNKER = f"v2 text={MAX_CHUNK_CHARS} table={MAX_TABLE_CHARS}"
+MAX_HEADING_CHARS = 300        # the heading path prefixed to each chunk (part of CHUNKER v2)
+EMBED_BATCH = 32                # chunks per embedding request: one request per whole document made Ollama's runner fail
 MIN_CHUNK_CHARS = 40            # a text chunk shorter than this (a bare caption or heading) is noise
 
 SCHEMA = """
@@ -55,6 +61,10 @@ CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 # docs columns added after the first release: added to existing databases on open.
 MIGRATIONS = {"status": "TEXT DEFAULT 'ok'", "error": "TEXT DEFAULT ''", "markdown": "TEXT",
               "source_kind": "TEXT DEFAULT ''"}
+
+
+class ChunkerMismatch(RuntimeError):
+    """The library was chunked with different settings than the code now uses."""
 
 
 class EmbeddingMismatch(RuntimeError):
@@ -204,6 +214,10 @@ def _split_table(rows: list[str], max_chars: int) -> list[str]:
         return [text]
     header = rows[:2] if len(rows) > 1 and _TABLE_RULE.match(rows[1]) else rows[:1]
     body = rows[len(header):]
+    # The header repeats in every piece, so it may use at most a third of a piece: a 2,332-character header line made
+    # every piece of one table 7,159 characters (2026-10-19).
+    room = max_chars // 3 // len(header)
+    header = [r[:room] for r in header]
     head_len = sum(len(r) + 1 for r in header)
     pieces, cur, size = [], [], head_len
     for row in body:
@@ -211,7 +225,7 @@ def _split_table(rows: list[str], max_chars: int) -> list[str]:
             pieces.append("\n".join(header + cur))
             cur, size = [], head_len
         # a single row longer than the limit is cut (a row is cells of text, not a structure we can keep)
-        cur.append(row[:max_chars])
+        cur.append(row[:max_chars - head_len - 1])
         size += len(cur[-1]) + 1
     if cur:
         pieces.append("\n".join(header + cur))
@@ -233,7 +247,9 @@ def chunk_markdown(md: str, max_chars: int = MAX_CHUNK_CHARS, max_table_chars: i
     buf: list[str] = []
 
     def heading_path() -> str:
-        return " > ".join(trail)
+        # capped: a broken PDF heading of 2,190 characters was repeated at the top of every chunk under it
+        path = " > ".join(trail)
+        return path if len(path) <= MAX_HEADING_CHARS else path[:MAX_HEADING_CHARS].rsplit(" ", 1)[0] + " ..."
 
     def flush():
         text = "\n".join(buf).strip()
@@ -322,6 +338,7 @@ class KnowledgeBase:
         self._migrate()
         self._matrix_cache: tuple | None = None
         self._check_model(embedding_model)
+        self._check_chunker()
 
     # -- lifecycle --
 
@@ -374,6 +391,34 @@ class KnowledgeBase:
                 self._set_meta("embedding_dim", str(existing[0]))
             self.db.commit()
 
+    def _check_chunker(self) -> None:
+        """Every document in one library is cut the same way. A new library records the chunker settings; one built
+        with other settings refuses to take new documents until it is rebuilt (an old library without a record is
+        recorded by its next rebuild)."""
+        stored = self._meta("chunker")
+        if stored and stored != CHUNKER:
+            raise ChunkerMismatch(
+                f"This library was chunked with '{stored}' but the code uses '{CHUNKER}'. Mixing them makes chunks "
+                "uneven. Re-chunk it with `python scripts/reindex.py --rebuild` (no PDF conversion needed).")
+        if not stored and not self.db.execute("SELECT 1 FROM chunks LIMIT 1").fetchone():
+            self._set_meta("chunker", CHUNKER)
+            self.db.commit()
+
+    def _embed(self, texts: list[str]) -> list:
+        """Embed in batches of EMBED_BATCH with a few retries (a request holding hundreds of chunks failed in Ollama)."""
+        out: list = []
+        for i in range(0, len(texts), EMBED_BATCH):
+            batch = texts[i:i + EMBED_BATCH]
+            for attempt in range(3):
+                try:
+                    out += self.embeddings.embed_documents(batch)
+                    break
+                except Exception:
+                    if attempt == 2:
+                        raise
+                    time.sleep(2 * (attempt + 1))
+        return out
+
     def _check_dim(self, vectors: list) -> None:
         dim = len(vectors[0])
         stored = self._meta("embedding_dim")
@@ -403,7 +448,7 @@ class KnowledgeBase:
             if row and row[1] == digest and not force:
                 return 0
             chunks = chunk_markdown(body) if status == "ok" else []
-            vectors = self.embeddings.embed_documents([c["text"] for c in chunks]) if chunks else []
+            vectors = self._embed([c["text"] for c in chunks]) if chunks else []
             if vectors:
                 self._check_dim(vectors)
             with self.db:                                  # one transaction: commit, or roll back untouched
@@ -557,7 +602,7 @@ class KnowledgeBase:
                     continue
                 front, body = split_front_matter(md)
                 chunks = chunk_markdown(body)
-                vectors = self.embeddings.embed_documents([c["text"] for c in chunks]) if chunks else []
+                vectors = self._embed([c["text"] for c in chunks]) if chunks else []
                 staged.append((doc_id, chunks, vectors, classify_source(path, front)))
             if missing:
                 raise EmbeddingMismatch(
@@ -581,6 +626,7 @@ class KnowledgeBase:
                     self._set_meta("embedding_dim", str(dims.pop()))
                 if embedding_model:
                     self._set_meta("embedding_model", embedding_model)
+                self._set_meta("chunker", CHUNKER)
                 self._bump_generation()
             return {"rebuilt": len(staged), "missing_markdown": missing}
 
