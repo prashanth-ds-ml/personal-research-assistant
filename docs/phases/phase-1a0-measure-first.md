@@ -10,8 +10,8 @@ minutes, not hours. No big model needed.
 ## Tasks
 
 - [ ] **Error analysis (P0.1).** From the saved runs (archived reports + `logs/goal-slm.txt` evidence), sample ~50 claims. For each: verdict (ok / wrong) and, if wrong, the first stage that went wrong:
-  `retrieval miss` (right source never found) · `bad source` (weaker source chosen) · `extraction subject` (fact names the wrong system/size/stage) · `writing stitch` (numbers from different facts joined) · `label` (wrong evidence label) · `other`.
-  Labelled by the user and by Claude separately; disagreements discussed. Result: a breakdown table in `EVALS.md` and a re-prioritised 1b/1c task order.
+  `retrieval miss` (right source never found) · `bad source` (off-goal source used) · `extraction subject` (fact names the wrong system/size/stage) · `writing subject` (fact right, sentence drops or changes its subject; added 2026-10-19 while labelling) · `writing stitch` (facts from different sources joined) · `label` (wrong evidence label) · `other`.
+  Labelled by the user and by Claude separately and **blind** (Claude's labels in `evals/error_analysis/claude_labels.csv`); disagreements discussed. Result: a breakdown table in `EVALS.md` and a re-prioritised 1b/1c task order.
 - [ ] **Eval set (P0.2).**
   - Retrieval: existing `evals/retrieval_qa.json` re-run as the baseline.
   - Held-out goal (E-010): one gold goal the prompts were never tuned on, scored alongside the SLM goal.

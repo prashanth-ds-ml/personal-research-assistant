@@ -1,6 +1,6 @@
 # Status
 
-**Current phase:** Phase 1a-0, Sprint 1 next (Sprint 0 done 2026-10-19) · branch `phase-1a0`
+**Current phase:** Phase 1a-0, Sprint 1: build done 2026-10-19, gate waits on U-02 + U-P2 (Sprint 0 done) · branch `phase-1a0`
 **Last updated:** 2026-10-19
 **Build order:** [BUILD_ORDER.md](BUILD_ORDER.md) · **Your tests:** [USER_TESTS.md](USER_TESTS.md) · **Case study:** [CASE_STUDY.md](CASE_STUDY.md)
 

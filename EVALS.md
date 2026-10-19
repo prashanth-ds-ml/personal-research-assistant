@@ -240,3 +240,44 @@ reports. The candidate list included low-quality sites (forums, social posts), w
   DECISIONS), so it shows the failure handling, not report quality. Label accuracy, the 30-fact on-topic sample and the contradiction
   check on a real report are still to measure.
 - **Not done:** deliverable-aware planning (the requested decision table, recipe and paper list as sections).
+
+# Phase 1a-0: Measure first (from 2026-10-19)
+
+Plan: `docs/phases/phase-1a0-measure-first.md`. Tooling: `src/research_assistant/eval_tools.py` (tests in
+`tests/test_eval_tools.py`), `scripts/error_analysis.py`, `scripts/build_subject_eval.py`, `scripts/judge_calibration.py`.
+
+## Eval assets
+
+| Asset | What | Status (2026-10-19) |
+|---|---|---|
+| `evals/error_analysis/claims.csv` + `claims.md` | 50 claims sampled (seed 1, stratified) from the 10-02 and 10-03 reports (pool: 193 cited claims), each with its facts, quotes and library passages | Built. Claude labelled blind (`claude_labels.csv`); human labels pending (U-02). Breakdown published after both |
+| `evals/subject_facts.jsonl` | 42 extraction cases: passage + question + expected system / size / stage (+ modality / task), incl. E7, E8, E79, E76, E40 | Built (labels by Claude; spot-check in U-02) |
+| `evals/faithfulness_human.csv` | Blind copy of 20 faithfulness rows (8 disputed + 12 random) for judge calibration | Built; human labels pending (U-P2) |
+| `evals/kb/retrieval_v1.sqlite` | Frozen index of the 11-paper retrieval corpus (`ObsidianVaults/eval-corpus/retrieval-v1`, copied from the 10-02 archive), separate from the live library | Built 2026-10-19: 11 documents, 889 chunks, 606 s |
+| Held-out goal (E-010) | A gold goal the prompts were never tuned on | User to choose (U-P5) |
+
+## Baselines so far
+
+- **Retrieval on the frozen corpus (25 questions, `evals/results_retrieval_2026-10-19.json`):**
+
+  | method | recall@1 | recall@3 | recall@6 | 2026-09-30 (same questions) |
+  |---|---|---|---|---|
+  | bm25 | 68% | 84% | 92% | 68 / 80 / 92 |
+  | dense | 52% | 68% | 88% | 48 / 72 / 92 |
+  | hybrid | **80%** | **88%** | **96%** | 80 / 92 / 96 |
+
+  Reproduces the September result within one question per cell (chunking changed since: 889 chunks now). Retrieval
+  over a known corpus is not the bottleneck; whether the *right documents get collected* is a separate question
+  (see "bad source" in the error analysis).
+- **v1 extraction subject accuracy on the subject set: 22/42 (52%).** The set is deliberately rich in traps (the
+  E-001 family), so this is a baseline to beat on the same set, not an estimate for all facts.
+- **Judge calibration: not computable yet.** The first version of the script reported 100% agreement, which was
+  circular: with no human labels, the reference was "where the judge and Claude agree". Fixed: the decision number
+  is now agreement with human labels only (blind copy); the mixed reference is printed as an upper bound.
+- **Claim-level error analysis: pending U-02.** Method notes: labels are blind per labeller; a new stage
+  `writing subject` was added while labelling (fact right, report sentence drops or changes its subject), because
+  several failures did not fit `extraction subject` or `writing stitch`. Claim-level analysis cannot see
+  retrieval misses (they show up as gaps, not cited claims); those are counted from the reports' evidence-status
+  tables.
+- **Scope of the sample:** both reports predate the October fixes (goal-aware judging, plans kept on the goal), so
+  this measures the pipeline before those fixes. The Sprint 4 re-run measures it after.

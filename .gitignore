@@ -22,3 +22,6 @@ kb.sqlite
 library_kb.sqlite-*
 .pytest_cache/
 .obsidian/
+
+# frozen eval index (rebuilt from the eval corpus by scripts/ingest_library.py)
+evals/kb/
