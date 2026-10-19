@@ -10,7 +10,7 @@ are tracked the same way.
 | ID | Date | Phase | Severity | Found by | Title | Status |
 |---|---|---|---|---|---|---|
 | E-015 | 2026-10-19 | M1 | High | M1 live run | Yes/no passage relevance made qwen3.5:4b reject almost everything (0 of 8 kept per question) | fixed |
-| E-014 | 2026-10-19 | M1 | Medium | M1 live run | With thinking on, qwen3.5:4b returned an empty plan (56 s), so the run fell back to one question | fixed |
+| E-014 | 2026-10-19 | M1 | Medium | M1 live run | Thinking at temperature 0 never finished (qwen3.5:4b), so the plan fell back to one question | fixed |
 | E-013 | 2026-10-19 | P1a-0 | Low | S1 test | Labelling workbook dropdowns accepted any typed value (openpyxl turns the error alert off by default) | fixed |
 | E-012 | 2026-10-19 | P1a-0 | Low | S0 review | `model_goal` keeps an unanswered clarifying question as if the user said it | open |
 | E-011 | 2026-10-19 | P1c | Low | S0 review | Filler-sentence removal can split numbered list items ("1. The table shows…" leaves "1.") | open |
@@ -65,9 +65,13 @@ and none for the data question, where the library really lacks Telugu pretrainin
 **What happened:** the first v3 run planned "1 question, 2 sections" after 187 s. The planner (qwen3.5:4b, `reasoning=True`,
 JSON mode) returned an empty answer, so `make_plan` fell back to the goal as the only question. A direct probe: thinking on,
 56 s and 0 characters; thinking off, 8 s and a valid plan with 5 questions and 6 sections.
-**Root cause:** the model spent the output on thinking (or thinking does not combine with JSON mode in this setup); the
-answer itself was empty. The fallback hid it as a thin plan instead of failing.
-**Fix:** thinking off in every role (`build_llms`, `run_deep_report.py`).
+**Root cause (corrected after a second probe, same day):** greedy decoding. At temperature 0 the model thinks without end:
+4,200 and 12,000-token budgets were both used up by thinking (16k / 45k characters, mostly re-checking a finished draft) and
+no answer came, with or without JSON mode. With Qwen's recommended thinking settings (temperature 0.6, top_p 0.95, top_k 20)
+it finished in 82-93 s (6-7k tokens) with a good 5-6-question plan; without thinking at temperature 0: 8 s, similar plan.
+The fallback hid the failure as a thin plan instead of failing.
+**Fix:** thinking off in every role (`build_llms`, `run_deep_report.py`). Thinking for planning only, with Qwen's
+sampling settings, is possible (~85 s per plan, plans vary between runs); left to the user's choice.
 **Regression test:** `test_M1_T08_one_model_in_every_role_thinking_off`.
 **Pattern?** A silent fallback turns a model failure into a plausible-looking result; the plan size in the log was the only sign.
 Consider failing loudly when the planner returns nothing (backlog).
