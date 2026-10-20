@@ -437,3 +437,17 @@ The recommendations section came out empty (E-021, fixed after the run, not yet 
 Re-run after the E-021 fix (no collecting, same library): 16.5 min, 6 of 6 sections plus a written recommendations section,
 29 passages from 15 documents, 3,534 words, sections 437-676 words, 181 sentences, 162 clean (90%), 19 uncited, no flags,
 4 citations repaired. Thinking finished every call this time (0 fallbacks), so the E-021 fallback is tested, not yet seen live.
+
+## v3 end-to-end audit (2026-10-20, run 01a1583b, `scripts/audit_run.py --judge-swapped`)
+Fresh backend, RAM and GPU cleared, full pipeline with web collecting, all defaults (fixed planner, reranker, thinking when
+writing, 400-600-word sections). 27.5 min (search 8, collect 1.5, research 4, write 12.5); 245 model calls, 0 failures;
+6 citations repaired, 1 uncited table dropped, 1 thinking fallback (E-021 fix seen live; recommendations section written).
+- Report: 6 of 6 topics, 3,407 words, 30 passages from 16 documents (15 web pages, 1 paper); 180 sentences, 170 clean (94%),
+  9 uncited, 1 wording flag; 79% of cited sentences have >= 0.7 word coverage by their chunk; the writer cited every passage
+  it was given. Spot-checked numbers are verbatim from their chunks.
+- Reranker on real data: of the 48 top-8 slots, 32 useful with the reranker vs 28 with hybrid alone (+14%); 28% of the
+  passages the writer used were rescued from below hybrid's top 8. Its scores separate kept from rejected passages poorly
+  on 3 of 6 questions, so the 0-3 grade after it stays.
+- To improve: sources skew to web/blog guides (1 paper); section-level subject drift (an 8 GB LLM benchmark passage in the
+  embedding-models section); some restating within 400-600-word sections (paraphrase, not caught by the repeat counter);
+  a table chunk shows raw markup in its source card.
