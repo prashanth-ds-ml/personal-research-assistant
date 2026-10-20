@@ -1137,6 +1137,9 @@ Rules:
 - Say what each fact is about as the passage gives it: the specific model, size, method or paper, and the stage
   (pretraining, fine-tuning, evaluation, inference). A result reported for one system is not a general rule: never present
   it as being about the goal's system unless the passage says so. Read the document title to know what a passage is about.
+- If a passage comes from a specific application domain (medicine, law, finance, biology, education ...), name the domain in
+  the sentence ("In a clinical decision-support study, ...") and present the result as that domain's finding, not as a
+  general rule for the goal.
 - Copy every number exactly from the passage you cite for it.
 - If the passages do not answer part of the section, say so in one sentence instead of guessing.
 - Where passages disagree, say so.

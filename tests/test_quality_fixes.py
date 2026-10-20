@@ -57,3 +57,17 @@ def test_Q_T07_the_ai_engineering_expert_sites_rank_with_official_docs():
     assert authority("https://docs.langchain.com/oss/python/langgraph/overview") == DOCS
     assert authority("https://langchain-ai.github.io/langgraph/") == DOCS
     assert collector.AI_SITES[0] == "sebastianraschka.com"                     # one list, shared with the collector
+
+
+def test_Q_T08_a_domain_specific_source_must_be_named_as_such_in_the_sentence():
+    med = deep_report.Evidence(id="E1", claim="Medical LLM › Eval", quote="Answers were judged for faithfulness by clinicians.",
+                               source="Design and Evaluation of a Source-Grounded Medical LLM for Clinical Decision Support",
+                               heading="", sub_questions=[0], passage=True)
+    by_id, known = {"E1": med}, rc.evidence_numbers([med])
+    general = rc.label_text("Answers should be judged for faithfulness by experts [E1].", by_id, known, flags_only=True)
+    assert "[cited; domain not stated from the cited evidence]" in general
+    named = "In a clinical decision-support study, answers were judged for faithfulness by clinicians [E1]."
+    assert rc.label_text(named, by_id, known, flags_only=True) == named
+    assert rc.source_domains([med]) == {"medical"}
+    assert "name the domain in" in deep_report.PASSAGE_SECTION_PROMPT
+

@@ -23,7 +23,8 @@ DB_NAME = "desk.sqlite"
 SCHEMA = Path(__file__).with_name("desk_schema.sql")
 META_SECTIONS = {"evidence status", "limitations", "sources", "evidence appendix"}
 _CITE = re.compile(r"\[(E\d+)\]")
-_FLAGS = (("[cited; figure", "figure"), ("[cited; subject", "subject"), ("[cited; wording", "wording"), ("[inference", "inference"))
+_FLAGS = (("[cited; figure", "figure"), ("[cited; subject", "subject"), ("[cited; wording", "wording"),
+          ("[cited; domain", "domain"), ("[inference", "inference"))
 _TAG_ONLY = re.compile(r"^\s*\[(cited;|inference|established|single source)[^\]]*\]\s*$")
 
 

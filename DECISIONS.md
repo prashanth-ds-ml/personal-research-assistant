@@ -484,3 +484,10 @@ query now uses content words only and is limited to the AI/ML categories (settin
 cs.LG, cs.IR, cs.SE, cs.MA); the same six questions now find 4-5 papers each. Also: the relevance grade is bound to the
 component the question names; restated sentences are dropped; the v3 status table says Passages; table passages display as
 plain cells.
+
+## Domain-specific sources stay, but the report must say the domain (2026-10-20)
+The verification collection brought medical papers (via Europe PMC) into an AI-engineering goal. The user wants them kept:
+other domains' LLM work is worth learning from. The risk is generalising a domain's result. Decisions: Europe PMC stays on;
+the writer must name the domain of a domain-specific passage ("In a clinical decision-support study, ..."); code flags a
+cited sentence whose source title names a domain (medical, legal, financial, biology, education) when the sentence does not
+("check domain", v3 only).

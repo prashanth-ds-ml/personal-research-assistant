@@ -96,6 +96,7 @@ const FLAG_TEXT: Record<string, string> = {
   figure: "a number is not in the cited source",
   subject: "a model name or size is not in the cited source",
   wording: "the sentence's words are barely in the cited source",
+  domain: "the cited source is from a specific domain (e.g. medical) the sentence does not name",
   inference: "no citation",
 };
 

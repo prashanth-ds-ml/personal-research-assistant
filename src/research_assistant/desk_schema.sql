@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS sentences (
     sentence_key  TEXT NOT NULL,               -- stable id for feedback: hash of run, section and text
     text          TEXT NOT NULL,
     cites         TEXT NOT NULL DEFAULT '[]',  -- JSON: E-numbers
-    flag          TEXT NOT NULL DEFAULT ''     -- figure | subject | wording | inference | '' (passed)
+    flag          TEXT NOT NULL DEFAULT ''     -- figure | subject | wording | domain | inference | '' (passed)
 );
 
 -- One row per click. Append-only: a changed mind is a new row (the latest per target wins); 'cleared' withdraws it.

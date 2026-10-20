@@ -226,6 +226,30 @@ def subjects(text: str) -> set[str]:
     return found
 
 
+# Application domains a source can belong to, as (domain, words that show it). A cited source whose title names a domain must
+# have that domain named in the sentence too: a medical study's evaluation result is not a general rule (2026-10-20).
+DOMAINS = (
+    ("medical", ("medical", "medicine", "clinical", "clinician", "patient", "biomedical", "health", "healthcare", "hospital",
+                 "radiology", "drug", "disease", "mesh", "pubmed")),
+    ("legal", ("legal", "law", "court", "contract", "statute", "litigation")),
+    ("financial", ("finance", "financial", "bank", "banking", "trading", "accounting", "fintech")),
+    ("biology", ("biology", "biological", "genomic", "protein", "molecular")),
+    ("education", ("education", "educational", "student", "classroom", "school")),
+)
+
+
+def source_domains(cited: list) -> set[str]:
+    """The application domains named in the titles of the cited sources."""
+    words = set(re.findall(r"[a-z]+", " ".join(e.source for e in cited).lower()))
+    return {name for name, signs in DOMAINS if words & set(signs)}
+
+
+def missing_domain(sentence: str, cited: list) -> set[str]:
+    """Domains a cited source belongs to that the sentence does not mention (E-001 at the level of a field)."""
+    words = set(re.findall(r"[a-z]+", _CITE.sub(" ", sentence).lower()))
+    return {name for name, signs in DOMAINS if name in source_domains(cited) and not words & set(signs)}
+
+
 def missing_subjects(sentence: str, cited: list) -> set[str]:
     """Subjects the sentence names that appear neither in the cited evidence nor in its document titles. This is the E-001
     check: "pretraining a 4B model ... [E7]" where E7 is a post-training paper that never says 4B."""
@@ -364,6 +388,8 @@ def label_text(text: str, by_id: dict, known_numbers: set[str], flags_only: bool
                 tag = "[cited; figure not in the cited evidence]"      # a citation does not make an invented number true
             elif docs and missing_subjects(sent, cited):
                 tag = "[cited; subject not in the cited evidence]"     # E-001: the right number on the wrong model
+            elif docs and flags_only and missing_domain(sent, cited):
+                tag = "[cited; domain not stated from the cited evidence]"   # a medical study's result read as general
             elif docs and flags_only and max(coverage(sent, _passage_text(e)) for e in cited) < MIN_SUPPORT:
                 tag = "[cited; wording not found in the cited evidence]"
             elif docs and flags_only:
