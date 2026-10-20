@@ -4,7 +4,7 @@
 -- Kept apart from the library database, which is rebuilt when the library is re-embedded: feedback must never be lost.
 -- Every statement is idempotent (IF NOT EXISTS), so either side may create the file. Bump user_version on a change.
 
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;
 
 CREATE TABLE IF NOT EXISTS runs (
     run_id       TEXT PRIMARY KEY,           -- the LangGraph thread id (or "cli-..." for script runs)
@@ -61,7 +61,9 @@ CREATE TABLE IF NOT EXISTS retrievals (
     heading       TEXT NOT NULL DEFAULT '',
     fused_score   REAL,
     vector_rank   INTEGER,                     -- rank in the meaning search of the first query that found it (NULL = not found)
-    keyword_rank  INTEGER                      -- rank in the keyword (BM25) search of that query
+    keyword_rank  INTEGER,                     -- rank in the keyword (BM25) search of that query
+    hybrid_rank   INTEGER,                     -- M3: rank before the reranker (rank above is then the reranker's)
+    rerank_score  REAL                         -- M3: the cross-encoder's score (NULL without the reranker)
 );
 
 -- The relevance grade the model gave each retrieved chunk for its question.

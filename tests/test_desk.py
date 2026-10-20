@@ -58,7 +58,7 @@ def test_D_T01_schema_creates_every_table_and_feedback_refuses_unknown_values(tm
                         (target, rating))
         con.rollback()
     desk.connect(tmp_path / "d.sqlite").close()                                     # idempotent: opening again is fine
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 2                       # v2: rerank columns
 
 
 def test_D_T02_report_sentences_keep_citations_and_flags_and_skip_tables_and_meta():

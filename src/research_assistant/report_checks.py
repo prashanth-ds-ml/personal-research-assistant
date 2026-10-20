@@ -135,7 +135,7 @@ def _sentences(text: str) -> list[str]:
     parts, start = [], 0
     for m in re.finditer(r"(?<=[.!?])\s+", text):
         before = text[start:m.start()].split()[-1:] or [""]
-        if before[0].lower() in {"e.g.", "i.e.", "vs.", "etc.", "approx.", "fig.", "al."}:
+        if before[0].lower().lstrip("([\"'") in {"e.g.", "i.e.", "vs.", "etc.", "approx.", "fig.", "al.", "ca.", "cf."}:  # "(approx. 6.6 GB" too
             continue
         parts.append(text[start:m.start()])
         start = m.end()

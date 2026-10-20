@@ -9,6 +9,8 @@ are tracked the same way.
 
 | ID | Date | Phase | Severity | Found by | Title | Status |
 |---|---|---|---|---|---|---|
+| E-020 | 2026-10-20 | M3 | Low | long-report test | Sentence split at "(approx." misplaced a label | fixed |
+| E-019 | 2026-10-20 | M3 | High | long-report test | Plan missed 2 of 6 goal topics and added malformed catch-all questions | open |
 | E-018 | 2026-10-19 | M2 | Medium | Test A | One embedding request per document (hundreds of chunks) made Ollama's runner fail | fixed |
 | E-017 | 2026-10-19 | M2 | Medium | chunk-size check | Table splitter repeated a giant header, so pieces exceeded the limit (7,159 chars); a 2,190-char heading was prefixed to chunks | fixed |
 | E-016 | 2026-10-19 | M2 | Medium | backend start | Backend would not start: shared venv had opentelemetry-api 1.45.1 with SDK 1.42.1 | worked around |
@@ -47,6 +49,27 @@ are tracked the same way.
 ```
 
 ## Entries
+
+### E-020: A bracketed abbreviation ended a sentence
+
+- **Date found:** 2026-10-20 · **Phase:** M3 · **Severity:** Low · **Found by:** reading the long-report test · **Status:** fixed
+
+**What happened:** "qwen3.5:9b-q4_K_M (approx. 6.6 GB VRAM)" was split after "(approx.", so a label landed mid-sentence.
+**Root cause:** the abbreviation check compared "(approx." with "approx.". **Fix:** leading brackets and quotes are ignored
+(also ca., cf.). **Regression test:** `test_V3_T08_an_abbreviation_after_a_bracket_does_not_end_the_sentence`.
+
+### E-019: The plan misses goal topics and adds malformed catch-all questions
+
+- **Date found:** 2026-10-20 · **Phase:** M3 · **Severity:** High · **Found by:** long-report test (3 runs) · **Status:** open
+
+**What happened:** the goal named six topics (embedding models, chunking, hybrid search, reranking, evaluation, running on
+an 8 GB GPU). The plan asked about four; chunking and evaluation got no question although the library held an evaluation
+guide. Two questions added by `add_missing_topics` were "What does the evidence say about Building a private RAG system"
+and "... about for a small team", which retrieved nothing and became empty gap sections.
+**Root cause (to confirm):** the planner's questions are not checked against the goal's listed topics, and the
+missing-topic step turns goal fragments into a generic template question instead of a real question about the topic.
+**Fix (proposed):** check every listed goal topic has a question; write a real question for a missing one (or drop a
+fragment that is not a topic). **Pattern?** Report quality is capped by the plan; check the plan as strictly as the text.
 
 ### E-018: One embedding request per document made Ollama's embedding runner fail
 

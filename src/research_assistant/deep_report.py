@@ -43,6 +43,11 @@ THINK_TOKENS = 10_000      # extra generation room when the model thinks first: 
 THINK_DEADLINE = 600       # wall-clock seconds for one call that thinks first (a plan took 82-93 s at 115 W)
 THINK_SAMPLING = {"temperature": 0.6, "top_p": 0.95, "top_k": 20}   # Qwen's thinking settings; at temperature 0 it never stopped
 ENGINE_VERSION = "v3.0-hybrid"   # recorded with every report so feedback can be compared before/after an engine change
+RERANK_ENGINE = "v3.1-rerank"    # the same engine with the cross-encoder reranker (M3) switched on
+
+
+def engine_version(rerank: bool = False) -> str:
+    return RERANK_ENGINE if rerank else ENGINE_VERSION
 
 
 class RunStopped(Exception):
@@ -793,7 +798,8 @@ def gather_passages(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
                     on_progress: Callable[[str], None] = lambda s: None,
                     query_llm: LLM | None = None, k: int = 8, per_doc: int = 3,
                     resume: tuple[int, list[Evidence]] | None = None,
-                    on_question_done: Callable[[int, int, list[Evidence]], None] | None = None) -> list[Evidence]:
+                    on_question_done: Callable[[int, int, list[Evidence]], None] | None = None,
+                    reranker=None) -> list[Evidence]:
     """v3: the library passages themselves are the evidence (no fact rewriting, which is where E-001 put the question's
     subject on the source's numbers). Per sub-question: hybrid multi-query retrieval, then one short model call keeps
     the passages that are useful for that question. A passage found again for a later question is kept once and
@@ -806,9 +812,17 @@ def gather_passages(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
         if qi < start_q:
             continue
         queries: list[str] = []
-        hits = retrieve(q, search, query_llm, k=k, per_doc=per_doc, queries_out=queries)
+        if reranker is not None:                         # M3: a wider hybrid pool, the cross-encoder keeps the best k
+            from research_assistant.rerank import RERANK_POOL
+
+            pool = retrieve(q, search, query_llm, k=RERANK_POOL, per_doc=per_doc, queries_out=queries)
+            ranked = reranker.rerank(q, pool, top=len(pool))
+            desk.current().retrievals(qi, q, queries, ranked)
+            hits = ranked[:k]
+        else:
+            hits = retrieve(q, search, query_llm, k=k, per_doc=per_doc, queries_out=queries)
+            desk.current().retrievals(qi, q, queries, hits)
         trace = desk.current()
-        trace.retrievals(qi, q, queries, hits)
         kept = 0
         for hit in hits:
             key = (hit["title"], _norm(hit["text"])[:200])
@@ -848,14 +862,14 @@ def gather_evidence(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
                     query_llm: LLM | None = None, k: int = 8, per_doc: int = 3,
                     resume: tuple[int, list[Evidence]] | None = None,
                     on_question_done: Callable[[int, int, list[Evidence]], None] | None = None,
-                    passages: bool = False) -> list[Evidence]:
+                    passages: bool = False, reranker=None) -> list[Evidence]:
     """Facts for every sub-question (or, with ``passages``, the useful library passages: see gather_passages).
     ``resume`` = (questions already done, their evidence) continues a run that stopped part-way;
     ``on_question_done(done, total, evidence)`` is called after each question so the caller can save
     progress (a failure at question 4 then keeps questions 1-3)."""
     if passages:
         return gather_passages(plan, search, llm, on_progress, query_llm=query_llm, k=k, per_doc=per_doc,
-                               resume=resume, on_question_done=on_question_done)
+                               resume=resume, on_question_done=on_question_done, reranker=reranker)
     start_q, evidence = (resume[0], list(resume[1])) if resume else (0, [])
     by_quote: dict[str, Evidence] = {_norm(e.quote): e for e in evidence}
     claim_words: list[set[str]] = [set(re.findall(r"\w+", e.claim.lower())) for e in evidence]   # parallel to `evidence`
@@ -1421,12 +1435,13 @@ def assemble(plan: Plan, sections: list[tuple[str, str]], evidence: list[Evidenc
 
 def run(goal: str, search: Callable[[str], list[dict]], plan_llm: LLM, extract_llm: LLM,
         write_llm: LLM, library_size: int = 0, on_progress: Callable[[str], None] = print,
-        standards: rc.Standards | None = None, passages: bool = False) -> tuple[str, dict]:
+        standards: rc.Standards | None = None, passages: bool = False, reranker=None) -> tuple[str, dict]:
     """Full pipeline. Returns (markdown_report, stats). ``passages``: v3, write from library passages (see gather_passages)."""
     reset_stats()
     plan = make_plan(goal, plan_llm)
     on_progress(f"Plan: {plan.title} | {len(plan.sub_questions)} questions, {len(plan.outline)} sections")
-    evidence = gather_evidence(plan, search, extract_llm, on_progress, query_llm=plan_llm, passages=passages)
+    evidence = gather_evidence(plan, search, extract_llm, on_progress, query_llm=plan_llm, passages=passages,
+                               reranker=reranker)
     desk.current().set_plan({"title": plan.title, "questions": plan.sub_questions, "outline": plan.outline})
     desk.current().evidence(evidence)
     check_model_health(snapshot_stats(), len(evidence))

@@ -1,0 +1,29 @@
+{
+ "questions": 25,
+ "pool": 24,
+ "hybrid": {
+  "1": 0.8,
+  "3": 0.88,
+  "6": 0.96
+ },
+ "models": {
+  "BAAI/bge-reranker-base": {
+   "recall": {
+    "1": 0.84,
+    "3": 0.96,
+    "6": 1.0
+   },
+   "load_seconds": 13.0,
+   "seconds_per_question": 4.1
+  },
+  "BAAI/bge-reranker-v2-m3": {
+   "recall": {
+    "1": 0.88,
+    "3": 1.0,
+    "6": 1.0
+   },
+   "load_seconds": 5.8,
+   "seconds_per_question": 14.58
+  }
+ }
+}

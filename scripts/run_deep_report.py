@@ -15,7 +15,7 @@ from pathlib import Path
 
 from _common import OLLAMA_URL, open_kb  # noqa: E402
 
-from research_assistant import deep_report, desk, knowledge  # noqa: E402
+from research_assistant import deep_report, desk, knowledge, rerank  # noqa: E402
 from research_assistant import report_checks as rc  # noqa: E402
 
 
@@ -29,6 +29,7 @@ def main():
     ap.add_argument("--facts", action="store_true", help="v2 pipeline: extract facts, write from facts")
     ap.add_argument("--think-plan", action="store_true", help="let the model think before planning (~85 s per call)")
     ap.add_argument("--think-write", action="store_true", help="let the model think before each section (~90 s each)")
+    ap.add_argument("--rerank", action="store_true", help="M3: rerank a pool of 24 passages per question, keep the best 8")
     ap.add_argument("--embedding-model", default=None, help="default: EMBEDDING_MODEL from .env")
     a = ap.parse_args()
 
@@ -37,7 +38,7 @@ def main():
     print("KB:", kb.stats())
     t0 = time.time()
     trace = desk.RunTrace(os.environ.get("VAULT_PATH", ""), f"cli-{datetime.now():%Y%m%d-%H%M%S}")
-    trace.start_run(a.goal, deep_report.ENGINE_VERSION if not a.facts else "v2-facts", a.model,
+    trace.start_run(a.goal, deep_report.engine_version(a.rerank) if not a.facts else "v2-facts", a.model,
                     {"top_k": a.top_k, "think_plan": a.think_plan, "think_write": a.think_write, "facts": a.facts})
     with trace.step("run"):
         report, stats = run(a, kb, url, t0)
@@ -58,6 +59,7 @@ def run(a, kb, url, t0):
         on_progress=lambda s: print(f"[{time.time() - t0:5.0f}s] {s}", flush=True),
         standards=rc.Standards(min_facts=2, flags_only=True) if not a.facts else rc.Standards(),
         passages=not a.facts,
+        reranker=rerank.get() if a.rerank else None,
     )
 
 

@@ -164,7 +164,7 @@ def tracked(step: str, label: str = ""):
             log.start(state.get("goal", ""))
             trace = _trace(config)
             cfg = _cfg(state, config)
-            trace.start_run(state.get("goal", ""), deep_report.ENGINE_VERSION, cfg.writer_model or cfg.local_llm,
+            trace.start_run(state.get("goal", ""), deep_report.engine_version(cfg.rerank), cfg.writer_model or cfg.local_llm,
                             {**(state.get("options") or {}), **_opts(config)["options"]})
             if log.is_stopped():                                 # Stop was pressed before this step began
                 trace.finish_run("stopped")
@@ -519,11 +519,17 @@ def research(state: DeepState, config: RunnableConfig) -> dict:
         log.event(message)
         log.progress(current=message)
 
+    reranker = None
+    if cfg.rerank:
+        from research_assistant import rerank
+
+        reranker = rerank.get(cfg.rerank_model)
+        log.event(f"Reranking each question's passages with {cfg.rerank_model}")
     with open_kb(cfg) as kb:
         ev = deep_report.gather_evidence(
             plan_, library_search(kb, cfg), llms["extractor"], on_progress=note,
             query_llm=llms["planner"], k=cfg.docs_retrieval_k, resume=resume, on_question_done=question_done,
-            passages=True)
+            passages=True, reranker=reranker)
     deep_report.check_model_health(deep_report.snapshot_stats(), len(ev))   # raises if the model was down
     dropped = deep_report.snapshot_stats()["off_topic"]
     if dropped:
@@ -581,7 +587,7 @@ def write(state: DeepState, config: RunnableConfig) -> dict:
     groups = deep_report.group_sources(evidence, cited)
     log.record(sources=[{"group": label, **d} for label, items in groups for d in items])
     return {"report": report, "stats": {
-        "engine": deep_report.ENGINE_VERSION, "model": cfg.writer_model or cfg.local_llm,
+        "engine": deep_report.engine_version(cfg.rerank), "model": cfg.writer_model or cfg.local_llm,
         "questions": len(plan_.sub_questions), "sections": len(sections),
         "evidence": len(evidence), "words": len(report.split()),
         "sources": len({e.source for e in evidence}),

@@ -389,3 +389,43 @@ section prompt (`scripts/exp_context.py d`, rows with "test": "D" in `evals/v3/e
 The model hits every target and never repeats itself. Up to ~600 words a section keeps the same uncited share and low
 drift; at 800-1000 a quarter of its sentences carry no source and, with 16 passages, unsupported sentences reach 6%.
 Measured limit: ~600 words per section. Report = 3-6 sections, so ~1,000-3,000 words of cited text.
+
+## v3 M3 reranker, offline (2026-10-20)
+
+Frozen retrieval set (25 questions), hybrid top 24 reranked by a cross-encoder on the CPU (`scripts/exp_rerank.py`,
+`evals/v3/exp_rerank.json`).
+
+| | Top 1 | Top 3 | Top 6 | CPU per question |
+|---|---|---|---|---|
+| hybrid only | 80% | 88% | 96% | - |
+| + bge-reranker-base | 84% | 96% | 100% | 4.1 s |
+| + bge-reranker-v2-m3 (multilingual) | 88% | 100% | 100% | 14.6 s |
+
+## v3 full-pipeline test: one long report, three engine settings (2026-10-20)
+
+Goal: "Building a private RAG system for a small team: which embedding models to use, how to chunk documents, hybrid
+keyword and vector search, reranking, how to evaluate retrieval and answer quality, and how to run the whole system
+locally on a single 8 GB GPU". Unattended through the backend (no clarifying questions, no plan approval, automatic
+source choice = relevance 3/3, max 30). Library had nothing on the topic at the start; run 1 collected 14 sources and runs
+2-3 used the same library. Same plan in all three (6 questions, 7 sections). GPU 115 W.
+
+| | Run 1 hybrid | Run 2 + reranker | Run 3 + reranker + thinking when writing |
+|---|---|---|---|
+| Total time | 21.0 min (15 min finding sources) | 6.2 min | 13.2 min |
+| Writing step | 38 s | 40 s | 474 s |
+| Sections with enough evidence | 4 of 6 | 4 of 6 | 4 of 6 |
+| Main-text words (summary + sections + recommendations) | 1,632 | 1,654 | 1,510 |
+| Words per written section | 184-269 | 191-248 | 107-246 |
+| Sentences / clean (cited, no flag) | 57 / 49 (86%) | 66 / 51 (77%) | 71 / 65 (92%) |
+| Uncited / figure / wording flags | 7 / 1 / 0 | 10 / 3 / 2 | 6 / 0 / 0 |
+
+Findings, from reading the three reports against their chunks:
+- Report-level: 1,500-1,650 words of cited text over 4 written sections plus summary and recommendations, no repetition
+  between sections; inside the measured limits (Test D).
+- Reranker: lifted buried chunks (hybrid rank 17 -> 1, 14 -> 6, 11 -> 6) but the reports used 14 of the same 15 chunks:
+  with ~10 relevant documents the 0-3 grade keeps nearly the same set. Its gain shows on a larger, noisier pool (offline
+  test above), not on a small topic.
+- Thinking when writing: the clearest quality gain (92% clean sentences, no flags, denser specific prose) for +7 min.
+- The weak point for long reports is the PLAN (E-019): 2 of 6 goal topics (chunking, evaluation) got no question, and
+  two malformed catch-all questions became empty gap sections. A passage about training-data loading (PyTorch DataLoader)
+  was kept as deployment evidence in all runs.

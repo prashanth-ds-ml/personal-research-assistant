@@ -52,6 +52,11 @@ def connect(path: Path) -> sqlite3.Connection:
     if key not in _READY or not existed:                # a deleted file is recreated with its schema
         con.execute("PRAGMA journal_mode=WAL")        # the dashboard reads and writes feedback while a run writes its trace
         con.executescript(SCHEMA.read_text(encoding="utf-8"))
+        for column in ("hybrid_rank INTEGER", "rerank_score REAL"):    # v2: a database made with schema v1 gains them
+            try:
+                con.execute(f"ALTER TABLE retrievals ADD COLUMN {column}")
+            except sqlite3.OperationalError:
+                pass                                                   # already there
         _READY.add(key)
     return con
 
@@ -164,10 +169,11 @@ class RunTrace:
     def retrievals(self, question_idx: int, question: str, queries: list[str], hits: list[dict]) -> None:
         q = json.dumps(queries, ensure_ascii=False)
         self._write("INSERT INTO retrievals (run_id, question_idx, question, queries, rank, chunk_id, text_hash, doc_title, "
-                    "doc_path, heading, fused_score, vector_rank, keyword_rank) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "doc_path, heading, fused_score, vector_rank, keyword_rank, hybrid_rank, rerank_score) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     [(self.run_id, question_idx, question, q, rank, h.get("chunk_id"), text_hash(h.get("text", "")),
                       h.get("title", ""), h.get("path", ""), h.get("heading") or "", h.get("fused"), h.get("vector_rank"),
-                      h.get("keyword_rank")) for rank, h in enumerate(hits, 1)])
+                      h.get("keyword_rank"), h.get("hybrid_rank"), h.get("rerank_score")) for rank, h in enumerate(hits, 1)])
 
     def judgement(self, question_idx: int, hit: dict, score: int, kept: bool, eid: str = "") -> None:
         self._write("INSERT INTO judgements (run_id, question_idx, chunk_id, text_hash, doc_title, score, kept, eid) "

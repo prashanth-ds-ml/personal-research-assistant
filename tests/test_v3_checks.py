@@ -89,3 +89,8 @@ def test_V3_T07_a_section_gets_its_best_8_passages_best_first_and_the_rest_is_re
     assert prompt.index("[E11]") < prompt.index("[E12]") < prompt.index("[E1]")              # the 3s first, then retrieval order
     assert "[E6]" in prompt and "[E7]" not in prompt and "[E10]" not in prompt                # 8 given: E11, E12, E1..E6
     assert deep_report.snapshot_stats()["passages_not_given"] == 4
+
+
+def test_V3_T08_an_abbreviation_after_a_bracket_does_not_end_the_sentence():
+    parts = rc._sentences("Use qwen3.5:9b-q4_K_M (approx. 6.6 GB VRAM) to stay within limits [E1]. Next sentence here.")
+    assert len(parts) == 2 and parts[0].endswith("[E1].")
