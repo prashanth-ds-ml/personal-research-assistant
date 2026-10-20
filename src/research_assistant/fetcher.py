@@ -92,6 +92,8 @@ class Candidate:
     note: str = ""
 
 
+ARXIV_CATEGORIES = ("cs.CL", "cs.AI", "cs.LG", "cs.IR", "cs.SE", "cs.MA")   # language, AI, ML, retrieval, software, agents
+
 @dataclass
 class Fetcher:
     http: httpx.Client
@@ -102,6 +104,7 @@ class Fetcher:
     _last: dict[str, float] = field(default_factory=dict)
     _slow: dict[str, float] = field(default_factory=dict)      # hosts that asked us to slow down: the gap we now keep
     _robots: dict[str, robotparser.RobotFileParser | None] = field(default_factory=dict)
+    arxiv_categories: tuple[str, ...] = ARXIV_CATEGORIES      # empty = every field
 
     # ---- politeness ---------------------------------------------------------
 
@@ -220,7 +223,8 @@ class Fetcher:
     # ---- official APIs ------------------------------------------------------
 
     def search_arxiv(self, query: str, n: int = 5) -> list[Candidate]:
-        url = f"http://export.arxiv.org/api/query?search_query={quote(arxiv_query(query))}&max_results={n}&sortBy=relevance"
+        url = (f"http://export.arxiv.org/api/query?search_query={quote(arxiv_query(query, categories=self.arxiv_categories))}"
+               f"&max_results={n}&sortBy=relevance")
         r = self.get(url)
         r.raise_for_status()
         return parse_arxiv(r.text)
@@ -307,11 +311,22 @@ def slugify(text: str, max_len: int = 70) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:max_len] or "source"
 
 
-def arxiv_query(terms: str, max_terms: int = 5) -> str:
-    """'hybrid retrieval augmented generation' -> 'all:hybrid AND all:retrieval AND ...'.
-    (arXiv only applies the 'all:' field to the first word of an unquoted multi-word query.)"""
-    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9-]*", terms)[:max_terms]
-    return " AND ".join(f"all:{w}" for w in words) or f"all:{terms}"
+_QUERY_STOP = frozenset("""a an the and or of to in for on with by from as at is are was were be been can could should would
+which what how why when where who whose does do did their its this that these those there between versus vs than into
+about available specific different required using used use make makes making entire single local locally whole various
+best good better process processing""".split())
+
+
+def arxiv_query(terms: str, max_terms: int = 4, categories: tuple[str, ...] = ARXIV_CATEGORIES) -> str:
+    """A research question -> an arXiv query of its content words, limited to ``categories``:
+    'How do chunking strategies affect retrieval?' -> '(all:chunking AND all:strategies AND all:affect AND all:retrieval)
+    AND (cat:cs.CL OR ...)'. (arXiv only applies the 'all:' field to the first word of an unquoted multi-word query.)
+    The words used to include "Which", "are" and "available": every question of the 2026-10-20 RAG goal found 0 papers."""
+    words = [w for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9-]*", terms) if len(w) > 2 and w.lower() not in _QUERY_STOP]
+    core = " AND ".join(f"all:{w}" for w in words[:max_terms]) or f"all:{terms}"
+    if not categories:
+        return core
+    return f"({core}) AND ({' OR '.join(f'cat:{c}' for c in categories)})"
 
 
 def parse_arxiv(xml_text: str) -> list[Candidate]:

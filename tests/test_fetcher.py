@@ -284,9 +284,15 @@ def test_search_terms_fall_back_to_keywords_when_the_model_fails():
 
 
 def test_arxiv_query_ands_every_keyword_with_the_all_field():
-    assert f.arxiv_query("hybrid retrieval augmented generation") == \
+    assert f.arxiv_query("hybrid retrieval augmented generation", categories=()) == \
         "all:hybrid AND all:retrieval AND all:augmented AND all:generation"
-    assert f.arxiv_query("a b c d e f g").count("AND") == 4                # capped at 5 terms
+    assert f.arxiv_query("one two three four five six seven", categories=()).count("AND") == 3   # capped at 4 terms
+    # filler words are not searched for (they made every question of a 2026-10-20 goal find 0 papers) ...
+    assert f.arxiv_query("Which embedding models are available for an 8 GB GPU?", categories=()) == \
+        "all:embedding AND all:models AND all:GPU"
+    # ... and the default searches the AI/ML categories only
+    assert f.arxiv_query("hybrid retrieval").endswith(
+        "AND (cat:cs.CL OR cat:cs.AI OR cat:cs.LG OR cat:cs.IR OR cat:cs.SE OR cat:cs.MA)")
     seen = {}
 
     def handler(request):

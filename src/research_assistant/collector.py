@@ -20,7 +20,9 @@ from urllib.parse import urlparse
 
 import httpx
 
+from research_assistant import authority as authority_module
 from research_assistant import fetcher
+from research_assistant.authority import DOCS, authority
 from research_assistant.fetcher import Candidate, Fetcher, SourceStore
 from research_assistant.knowledge import split_front_matter
 
@@ -31,7 +33,7 @@ HF_CARDS = {"hf-model", "hf-dataset"}
 # Where AI engineers actually publish. Used for ONE extra, site-restricted web search per group of six, and fully configurable
 # (COLLECT_EXTRA_SITES). Review the list: it is a starting point, not an endorsement. The first group is the explainer
 # blogs of Sebastian Raschka, Andrej Karpathy and Jay Alammar.
-AI_SITES = ["sebastianraschka.com", "magazine.sebastianraschka.com", "karpathy.github.io", "karpathy.ai", "jalammar.github.io", "newsletter.languagemodels.co", "huggingface.co", "github.com", "docs.langchain.com", "anthropic.com", "openai.com", "ai.google.dev", "lilianweng.github.io", "eugeneyan.com", "huyenchip.com", "hamel.dev", "simonwillison.net", "pinecone.io"]
+AI_SITES = authority_module.AI_SITES       # one list: authority.py
 MAX_SITES = 18               # three groups of six: one extra search per group, per question
 
 
@@ -121,7 +123,9 @@ def _web_candidate(hit: Hit, question: str) -> Candidate:
 
 def to_dict(c: Candidate, question_index: int) -> dict:
     """What the dashboard shows and sends back (the id is what the user ticks)."""
+    paper = c.source in PAPER_SOURCES or (c.page_url or c.url).lower().split("?")[0].endswith(".pdf")
     return {"id": f"{c.source}:{c.id}", "title": c.title, "url": c.page_url or c.url, "site": _host(c.page_url or c.url),
+            "authority": authority(c.page_url or c.url, "paper" if paper else ""),
             "kind": "paper" if c.source in PAPER_SOURCES or (c.page_url or c.url).lower().split("?")[0].endswith(".pdf")
             else "page", "question": c.question, "via": c.note,
             "question_index": question_index, "score": c.relevance, "snippet": c.summary[:300], "source": c.source,
@@ -155,13 +159,27 @@ def paper_key(c: Candidate) -> str | None:
     return fetcher.arxiv_key(c.page_url or c.url) or (fetcher.arxiv_key(f"arxiv.org/abs/{c.id}") if c.source == "arxiv" else None)
 
 
+def rank(d: dict) -> tuple:
+    """Best first: relevance grade, then source authority (paper > official docs > web page)."""
+    return (-d.get("score", 0), -d.get("authority", authority(d.get("url", ""), d.get("kind", ""))))
+
+
+def auto_select(candidates: list[dict], min_relevance: int) -> list[dict]:
+    """What an unattended run collects: everything at the relevance bar, plus papers and official docs one grade below it
+    (practical web guides score 3 on "how do I" questions where a paper abstract scores 2; 15 of 16 sources of the
+    2026-10-20 audit were web pages). Best first."""
+    keep = [d for d in candidates if d.get("score", 0) >= min_relevance
+            or (d.get("score", 0) >= min_relevance - 1 and d.get("authority", 1) >= DOCS)]
+    return sorted(keep, key=rank)
+
+
 def fair_order(candidates: list[dict]) -> list[dict]:
     """The order to collect in when there is a limit: best match first within each question, and the questions taking turns,
     so a limit of 10 gives every question some sources instead of the first questions using all of them."""
     by_q: dict[int, list[dict]] = {}
     for d in candidates:
         by_q.setdefault(d.get("question_index", 0), []).append(d)
-    queues = [sorted(items, key=lambda d: -d.get("score", 0)) for _, items in sorted(by_q.items())]
+    queues = [sorted(items, key=rank) for _, items in sorted(by_q.items())]
     return [d for rank in itertools.zip_longest(*queues) for d in rank if d is not None]
 
 
@@ -231,7 +249,7 @@ def discover(questions: list[str], *, search: Search, fx: Fetcher, store: Source
                 found.append(to_dict(c, qn))
                 if key:
                     seen_papers.add(key)
-        found.sort(key=lambda d: -d["score"])
+        found.sort(key=rank)
         on_progress(f"Q{qn + 1}: {len(found)} candidates worth showing")
         out.extend(found[: min(quota, max(0, max_candidates - len(out)))])
         fx.sleep(search_pause)                                  # be gentle with the search engine

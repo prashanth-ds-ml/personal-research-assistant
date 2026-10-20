@@ -101,9 +101,17 @@ function Body({
   );
 }
 
-/** A v3 passage starts with its "[document > section]" breadcrumb; the quote is what follows it. */
+/** A v3 passage starts with its "[document > section]" breadcrumb; the quote is what follows it. Table passages are shown
+ *  as plain cells ("a · b · c") rather than raw markdown pipes and bold markers. */
 function passageText(quote: string): string {
-  return quote.replace(/^\[[^\]]{0,400}\]\s*/, "");
+  return quote
+    .replace(/^\[[^\]]{0,400}\]\s*/, "")
+    .replace(/\|\s*:?-{3,}:?\s*(?=\|)/g, "|")
+    .replace(/\*\*/g, "")
+    .replace(/\s*\|\s*\|?\s*/g, " · ")
+    .replace(/^ · | · $/g, "")
+    .replace(/( · ){2,}/g, " · ")
+    .trim();
 }
 
 /** "Document › last heading" for a v3 passage (its claim is "title › heading path"); the source title otherwise. */
@@ -128,7 +136,7 @@ function EvidenceNotes({ chapter: c, report, cite, look, desk }: { chapter: Chap
         <div className={`border border-border border-t-[3px] p-4 ${look.label === "no evidence" ? "border-t-accent" : "border-t-foreground"}`}>
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Evidence</div>
           <div className="mt-1 text-[15px]">
-            <b className="font-serif text-3xl">{c.facts ?? "—"}</b> facts · <b className="font-serif text-3xl">{c.docs ?? "—"}</b> documents
+            <b className="font-serif text-3xl">{c.facts ?? "—"}</b> passages · <b className="font-serif text-3xl">{c.docs ?? "—"}</b> documents
           </div>
           <span className={`mt-2 inline-block rounded-[3px] px-2 py-1 text-[11px] font-semibold uppercase tracking-wider ${look.cls}`}>{look.label}</span>
         </div>

@@ -71,7 +71,7 @@ def mark_failed(supports: dict, sections: list[tuple[str, str]], outline: list[d
 
 
 def status_table(supports: list[dict], standards: Standards) -> str:
-    rows = ["| Section | Facts | Documents | Status |", "|---|---|---|---|"]
+    rows = [f"| Section | {'Passages' if standards.flags_only else 'Facts'} | Documents | Status |", "|---|---|---|---|"]
     for s in supports:
         label = ("supported" if s["status"] == "supported"
                  else "writing failed (the facts are in the appendix)" if s["status"] == "failed"
@@ -297,6 +297,38 @@ def repair_citations(text: str, evidence: list, stats: dict | None = None) -> st
             fixed.append(sent.strip())
         out.append(" ".join(fixed))
     return "\n".join(out)
+
+
+RESTATED = 0.5         # content-word overlap above which a later sentence citing the same passage only restates an earlier one
+RESTATED_UNCITED = 0.7
+
+
+def drop_restated(text: str, stats: dict | None = None) -> str:
+    """Drop a sentence that only restates an earlier one in the same section: it cites one of the same passages and shares
+    at least RESTATED of its content words (or RESTATED_UNCITED without a shared citation). The 400-600-word sections of the
+    2026-10-20 audit said "FP16 or Quantized Q8 [E4]" twice in different words. Tables and short sentences stay."""
+    seen: list[tuple[set[str], set[str]]] = []
+    out = []
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("|", "#", ">", "```")):
+            out.append(line)
+            continue
+        kept = []
+        for sent in _sentences(line):
+            words, cites = content_words(sent), set(_CITE.findall(sent))
+            if len(words) >= 5:
+                def same(w, c):
+                    overlap = len(words & w) / max(len(words | w), 1)
+                    return overlap >= RESTATED_UNCITED or (cites & c and overlap >= RESTATED)
+                if any(same(w, c) for w, c in seen):
+                    if stats is not None:
+                        stats["restated"] = stats.get("restated", 0) + 1
+                    continue
+                seen.append((words, cites))
+            kept.append(sent.strip())
+        out.append(" ".join(kept))
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
 
 
 def _tag(sent: str, tag: str, before_stop: bool) -> str:

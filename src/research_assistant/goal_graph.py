@@ -398,7 +398,8 @@ def discover(state: DeepState, config: RunnableConfig) -> dict:
     try:
         _, store = _source_store(cfg, state["plan"])
         with httpx.Client() as http:
-            fx = fetcher.Fetcher(http=http, contact=cfg.contact_email)
+            fx = fetcher.Fetcher(http=http, contact=cfg.contact_email,
+                                 arxiv_categories=tuple(c.strip() for c in cfg.arxiv_categories.split(";") if c.strip()))
             found = collector.discover(
                 [questions[i] for i in indexes], question_indexes=indexes, huggingface=cfg.collect_huggingface, europepmc=cfg.collect_europepmc,
                 extra_sites=collector.split_domains(cfg.collect_extra_sites) if cfg.collect_ai_sites else None,
@@ -429,7 +430,7 @@ def review(state: DeepState, config: RunnableConfig) -> dict:
     if not cands:
         return {"selected_ids": []}
     if not cfg.collect_review:
-        return {"selected_ids": [d["id"] for d in cands if d["score"] >= cfg.fetch_min_relevance]}
+        return {"selected_ids": [d["id"] for d in collector.auto_select(cands, cfg.fetch_min_relevance)]}
     payload = {"type": "review_sources", "candidates": cands, "max_sources": cfg.fetch_max_sources,
                "min_relevance": cfg.fetch_min_relevance}
     _run_log(config).waiting("review")
@@ -496,7 +497,7 @@ def _plan_obj(d: dict) -> deep_report.Plan:
     return deep_report.Plan(goal=d["goal"], title=d["title"], sub_questions=d["sub_questions"], outline=d["outline"])
 
 
-@tracked("research", "Extracting evidence from the library")
+@tracked("research", "Gathering passages from the library")
 def research(state: DeepState, config: RunnableConfig) -> dict:
     cfg = _cfg(state, config)
     llms = build_llms(cfg)

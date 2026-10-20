@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 from research_assistant import desk
 from research_assistant import report_checks as rc
+from research_assistant.authority import authority
 
 LLM = Callable[..., str]
 
@@ -30,7 +31,8 @@ LLM = Callable[..., str]
 LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0, "off_topic": 0,
              "cited_sentences": 0, "citations_repaired": 0, "tables_dropped": 0,   # v3 report checks
              "passages_not_given": 0,                                               # beyond SECTION_PASSAGES
-             "thinking_fallbacks": 0}                                               # thinking left no answer: redone without
+             "thinking_fallbacks": 0,                                               # thinking left no answer: redone without
+             "sentences_restated": 0}                                               # dropped as repeats of an earlier sentence
 LLM_TIMEOUT = 300          # seconds Ollama may stay silent: a hung server must fail, not block the run forever
 CALL_DEADLINE = 240        # wall-clock seconds for one short JSON call however many tokens keep arriving (a read
                            # timeout alone never fires on a streaming response: every token resets it)
@@ -850,7 +852,8 @@ Is this passage useful evidence for answering the question? Score it:
 3 = answers the question directly
 2 = gives specific information that bears on the question (a method, setting, number, dataset or result), even if it is
     about a related system or stage, e.g. a fine-tuning recipe when the question is about pretraining (the report will
-    name its real subject)
+    name its real subject). It must be about the component the question names: a passage about a DIFFERENT component
+    (for example the LLM's memory use when the question asks which embedding models to use) is 1, not 2
 1 = same general field only, nothing specific for this question
 0 = unrelated, boilerplate, or a different modality or task (e.g. speech when the goal is text)
 Return JSON: {{"score": 0, 1, 2 or 3}}"""
@@ -1137,6 +1140,7 @@ Rules:
 - Copy every number exactly from the passage you cite for it.
 - If the passages do not answer part of the section, say so in one sentence instead of guessing.
 - Where passages disagree, say so.
+- Every sentence must add new information: never restate a point, a setting or a number you have already given.
 - {words} words of clear, specific prose. A small markdown table only if it compares numbers across named subjects, with
   every row cited. No headings, no recommendations (they come in a later section), no announcing what the section does.
 
@@ -1167,7 +1171,7 @@ def write_section(section: dict, plan: Plan, evidence: list[Evidence], llm: LLM)
     if not own:
         return "*No supporting evidence was found in the knowledge base for this section.*"
     if own[0].passage:
-        ranked = sorted(own, key=lambda e: -e.score)        # stable: equal grades keep retrieval order
+        ranked = sorted(own, key=lambda e: (-e.score, -authority(e.url, e.kind)))   # stable: then retrieval order
         if len(ranked) > SECTION_PASSAGES:
             LLM_STATS["passages_not_given"] += len(ranked) - SECTION_PASSAGES
         fit: list[int] = []
@@ -1186,8 +1190,10 @@ def write_section(section: dict, plan: Plan, evidence: list[Evidence], llm: LLM)
     if own[0].passage:
         stats: dict = {}
         body = rc.repair_citations(_strict_tables(_clean_prose(body, section["title"]), own), own, stats)
+        body = rc.drop_restated(body, stats)
         LLM_STATS["cited_sentences"] += stats.get("cited", 0)
         LLM_STATS["citations_repaired"] += stats.get("repaired", 0)
+        LLM_STATS["sentences_restated"] += stats.get("restated", 0)
         return _tidy(body)
     return _tidy(_drop_unsupported_tables(_clean_prose(body, section["title"])))
 

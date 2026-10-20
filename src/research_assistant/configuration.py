@@ -218,6 +218,10 @@ class Configuration(BaseModel):
     collect_ai_sites: bool = Field(
         default=True, title="Search AI Engineering Sites",
         description="Also run site-restricted web searches over the sites listed in collect_extra_sites")
+    arxiv_categories: str = Field(
+        default="cs.CL;cs.AI;cs.LG;cs.IR;cs.SE;cs.MA", title="arXiv Categories",
+        description="arXiv categories searched for papers, separated by ';' (default: language, AI, machine learning, "
+                    "retrieval, software engineering, multi-agent). Empty = every field")
     collect_extra_sites: str = Field(
         default=";".join(["sebastianraschka.com", "magazine.sebastianraschka.com", "karpathy.github.io", "karpathy.ai", "jalammar.github.io", "newsletter.languagemodels.co", "huggingface.co", "github.com", "docs.langchain.com", "anthropic.com", "openai.com", "ai.google.dev", "lilianweng.github.io", "eugeneyan.com", "huyenchip.com", "hamel.dev", "simonwillison.net", "pinecone.io"]),
         title="AI Engineering Sites",

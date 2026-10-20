@@ -473,3 +473,14 @@ The user's choices after the three-run long-report test. Reranker (bge-reranker-
 Section length 400-600 words (the user asked for the best): Test D found it as accurate as 150-300 with more passages used,
 and padding only from ~800. Engine version v3.1-rerank. Tests use a fake reranker (tests/conftest.py) so they never load the
 2 GB model. Planner fixed (E-019) before the final check run.
+
+## Sources: papers and AI-engineering docs first; arXiv queried properly (2026-10-20)
+The end-to-end audit found 15 of 16 report sources were web/blog guides. The user's primary domain is technical material on
+LLMs, AI engineering, FDE, agents and LangChain. Decisions: an authority class per source (paper 3; official docs and the
+AI-engineering expert sites 2; other web 1) breaks ties after relevance in candidate ranking and section passage order; an
+unattended run also takes papers and docs one grade below the relevance bar. arXiv was queried with every word of the
+question including fillers ("Which", "are", "available") and returned 0 papers for all six questions of the RAG goal; the
+query now uses content words only and is limited to the AI/ML categories (setting `arxiv_categories`, default cs.CL, cs.AI,
+cs.LG, cs.IR, cs.SE, cs.MA); the same six questions now find 4-5 papers each. Also: the relevance grade is bound to the
+component the question names; restated sentences are dropped; the v3 status table says Passages; table passages display as
+plain cells.
