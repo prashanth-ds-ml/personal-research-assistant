@@ -60,7 +60,11 @@ test("refuses unknown names, bad values and anything that could add a line", asy
 
 test("works when there is no .env yet", async () => {
   fs.rmSync(file, { force: true });
-  assert.equal((await readSettings()).WRITER_MODEL, "gemma4:e4b");
+  const s = await readSettings();
+  assert.equal(s.LOCAL_LLM, "qwen3.5:4b");                 // v3: one model
+  assert.equal(s.WRITER_MODEL, "");                        // blank = the same model
+  assert.equal(s.WRITE_THINKING, "False");
+  assert.equal((await writeSettings({ WRITE_THINKING: "True", WRITER_MODEL: "" })).ok, true);
   assert.equal((await writeSettings({ COVERAGE_CHECK: "False" })).ok, true);
   assert.match(fs.readFileSync(file, "utf-8"), /COVERAGE_CHECK=False/);
 });

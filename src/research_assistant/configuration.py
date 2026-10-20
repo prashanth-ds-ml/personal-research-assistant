@@ -24,7 +24,7 @@ PER_RUN_KEYS = frozenset({
     "ask_clarifying_questions", "require_plan_approval", "auto_ingest", "collect_sources", "seed_urls",
     "fetch_max_sources", "fetch_min_relevance", "docs_retrieval_k", "docs_top_k", "docs_chunk_size",
     "contact_email", "collect_review", "include_archived_pages", "coverage_check", "claim_labels",
-    "min_section_facts", "min_section_documents", "min_supported_share", "plan_thinking",
+    "min_section_facts", "min_section_documents", "min_supported_share", "plan_thinking", "write_thinking",
 })
 
 
@@ -241,6 +241,11 @@ class Configuration(BaseModel):
         default=False, title="Think When Planning",
         description="Let the model think before writing the plan (about 85 s per planning call instead of 8 s with "
                     "qwen3.5:4b; plans then vary between runs). Other steps never think.")
+    write_thinking: bool = Field(
+        default=False, title="Think When Writing",
+        description="Let the model think before writing each report section. In Tests B/C (4 sections) it cited more of its "
+                    "passages, used late ones as well as early ones and left no sentence uncited, at about 10x the time "
+                    "(~90 s instead of ~9 s per section).")
     claim_labels: bool = Field(
         default=True, title="Label Claims",
         description="Mark every sentence [established], [single source], [inference] or [inference: figures not from sources]")

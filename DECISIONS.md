@@ -460,3 +460,9 @@ best-graded passages, best first (equal grades keep retrieval order); the rest i
 (`passages_not_given` in the run stats), never silently. Expanding chunks with their neighbours doubled the input without
 improving use or drift, so it is not adopted. Thinking when writing looked clearly better on 4 writes but costs ~10x the
 time per section; that choice is the user's.
+
+## "Think when writing" is a setting, default off (2026-10-20)
+The user chose a setting after Tests B/C (thinking cited 88% vs 80% of passages, used late passages too, left nothing
+uncited, ~90 s vs ~9 s per section, 4 writes). `WRITE_THINKING` / `write_thinking` turns thinking on for the section writer
+only, with Qwen's thinking sampling; both thinking options are toggles on the dashboard Settings page, whose defaults now
+show the v3 setup (one model qwen3.5:4b, writer blank, 2 passages per section).

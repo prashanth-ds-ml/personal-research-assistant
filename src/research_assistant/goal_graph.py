@@ -81,7 +81,8 @@ class DeepOutput(TypedDict, total=False):
 def build_llms(cfg: Configuration) -> dict[str, deep_report.LLM]:
     """v3: one model (``local_llm``) in every role; the *_model settings can still override a role. Thinking is off
     (a good plan in 8 s) except, when ``plan_thinking`` is on, for the planning step itself ("thinker": ~85 s per call
-    with qwen3.5:4b, plans vary between runs; E-014). The many small calls never think."""
+    with qwen3.5:4b, plans vary between runs; E-014), and when ``write_thinking`` is on, for writing the sections (~90 s
+    each, Tests B/C). The many small calls (judging passages, queries, coverage) never think."""
     url = cfg.ollama_base_url.rstrip("/")
     return {
         # temperature 0: the same goal should give the same plan (it varied between 5 and 7 sections)
@@ -89,7 +90,7 @@ def build_llms(cfg: Configuration) -> dict[str, deep_report.LLM]:
                                           role="planner"),
         "extractor": deep_report.ollama_llm(cfg.extractor_model or cfg.local_llm, url, temperature=0, reasoning=False,
                                             role="judge"),
-        "writer": deep_report.ollama_llm(cfg.writer_model or cfg.local_llm, url, reasoning=False, role="writer"),
+        "writer": deep_report.ollama_llm(cfg.writer_model or cfg.local_llm, url, reasoning=cfg.write_thinking, role="writer"),
         "thinker": deep_report.ollama_llm(cfg.planner_model or cfg.local_llm, url, temperature=0,
                                           reasoning=cfg.plan_thinking, role="thinker" if cfg.plan_thinking else "planner"),
     }

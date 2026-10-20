@@ -16,7 +16,7 @@ Tests B and C next · branch `v3` · **Last updated:** 2026-10-19 (end of sessio
 | M5 Insights page + demo + README + case study | not started | 10-minute client demo |
 
 ## Next, in order
-1. Your call: "think when writing" as a setting (better sections in Test B/C's small sample, ~1.5 min per section).
+1. Try **Think when writing** (Settings → Quality, then restart the backend) on a real goal and compare with a run without it.
 2. Your feedback on the embeddings report (rate sources, flag sentences) and on new reports.
 3. M3 reranker (picks the 8 passages better than the 0-3 grade alone).
 4. Small wording leftovers: the progress text still says "Extracting evidence"; the status table says "Facts" for passages.

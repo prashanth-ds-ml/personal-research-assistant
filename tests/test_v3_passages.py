@@ -117,6 +117,10 @@ def test_M1_T08_one_model_in_every_role_thinking_off(monkeypatch):
     calls.clear()
     goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b", plan_thinking=True))
     assert [kw["reasoning"] for _, kw in calls] == [False, False, False, True]         # only the planning step thinks
+    calls.clear()
+    goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b", write_thinking=True))
+    assert [kw["reasoning"] for _, kw in calls] == [False, False, True, False]         # only the section writer thinks
+    assert Configuration().write_thinking is False
     assert deep_report.NUM_CTX == 16_384
 
 

@@ -177,8 +177,8 @@ export function SettingsView({ values: initial, defaults, installed, vault, libr
 
           {tab === "models" && (
             <>
-              {model("LOCAL_LLM", "Planner and extractor", "Plans, judges coverage and relevance, extracts and checks facts.", llms)}
-              {model("WRITER_MODEL", "Writer", "Writes the report sections and the summary.", llms)}
+              {model("LOCAL_LLM", "Model", "One model plans, judges which passages are useful and writes the report.", llms)}
+              {model("WRITER_MODEL", "Writer (optional)", "Leave blank to use the same model; set only to compare another writer.", llms)}
               {model("EMBEDDING_MODEL", "Embeddings", "Turns text into vectors for search. Changing it needs a library rebuild.", embeds)}
               <p className={hint}>Only one model sits in GPU memory at a time. The writer needs about 5.4 GB of free system RAM. The lists show the models Ollama has installed.</p>
             </>
@@ -219,14 +219,16 @@ export function SettingsView({ values: initial, defaults, installed, vault, libr
           {tab === "quality" && (
             <>
               {toggle("COVERAGE_CHECK", "Coverage check at plan approval", "Marks each question covered, thin or nothing before any long work.", "setting")}
-              {toggle("CLAIM_LABELS", "Label every sentence", "established, single source, inference, or figure not from sources.", "setting")}
+              {toggle("CLAIM_LABELS", "Check every sentence", "Flags a number, model name or wording not found in the cited source, and uncited sentences.", "setting")}
+              {toggle("PLAN_THINKING", "Think when planning", "About 85 s per plan instead of 8 s; plans vary between runs.", "setting")}
+              {toggle("WRITE_THINKING", "Think when writing", "About 90 s per section instead of 9 s; in tests it cited more passages and left nothing uncited.", "setting")}
               {toggle("REQUIRE_PLAN_APPROVAL", "Ask me to approve the plan", "Off lets a run go unattended.", "setting")}
               {toggle("ASK_CLARIFYING_QUESTIONS", "Ask clarifying questions", "Off skips straight to the plan.", "setting")}
               <div className={`${card} px-[18px] py-4`}>
                 <div className="mb-2 text-[15px] font-semibold">A section is written from evidence only if it has</div>
                 <div className="flex flex-wrap items-center gap-8 text-sm">
                   <span className="flex items-center gap-2">
-                    {step("MIN_SECTION_FACTS", 1, 20)} facts
+                    {step("MIN_SECTION_FACTS", 1, 20)} passages
                   </span>
                   <span className="flex items-center gap-2">
                     {step("MIN_SECTION_DOCUMENTS", 1, 10)} documents

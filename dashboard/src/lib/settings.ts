@@ -13,12 +13,12 @@ export const DEFAULT_SITES = [
   "huyenchip.com", "hamel.dev", "simonwillison.net", "pinecone.io",
 ];
 
-type Spec = { kind: "bool" } | { kind: "int"; min: number; max: number } | { kind: "model" } | { kind: "sites" } | { kind: "email" };
+type Spec = { kind: "bool" } | { kind: "int"; min: number; max: number } | { kind: "model"; optional?: boolean } | { kind: "sites" } | { kind: "email" };
 
 // name -> how to check it, and its default (the one the Python side uses when the line is absent)
 const SPECS: Record<string, { spec: Spec; def: string }> = {
-  LOCAL_LLM: { spec: { kind: "model" }, def: "llama3.1:8b" },
-  WRITER_MODEL: { spec: { kind: "model" }, def: "gemma4:e4b" },
+  LOCAL_LLM: { spec: { kind: "model" }, def: "qwen3.5:4b" },
+  WRITER_MODEL: { spec: { kind: "model", optional: true }, def: "" },            // v3: blank = LOCAL_LLM for every role
   EMBEDDING_MODEL: { spec: { kind: "model" }, def: "ollama:qwen3-embedding:0.6b" },
   COLLECT_HUGGINGFACE: { spec: { kind: "bool" }, def: "True" },
   COLLECT_AI_SITES: { spec: { kind: "bool" }, def: "True" },
@@ -27,9 +27,11 @@ const SPECS: Record<string, { spec: Spec; def: string }> = {
   COLLECT_EXTRA_SITES: { spec: { kind: "sites" }, def: DEFAULT_SITES.join(";") },
   COVERAGE_CHECK: { spec: { kind: "bool" }, def: "True" },
   CLAIM_LABELS: { spec: { kind: "bool" }, def: "True" },
+  PLAN_THINKING: { spec: { kind: "bool" }, def: "False" },
+  WRITE_THINKING: { spec: { kind: "bool" }, def: "False" },
   REQUIRE_PLAN_APPROVAL: { spec: { kind: "bool" }, def: "True" },
   ASK_CLARIFYING_QUESTIONS: { spec: { kind: "bool" }, def: "True" },
-  MIN_SECTION_FACTS: { spec: { kind: "int", min: 1, max: 20 }, def: "3" },
+  MIN_SECTION_FACTS: { spec: { kind: "int", min: 1, max: 20 }, def: "2" },
   MIN_SECTION_DOCUMENTS: { spec: { kind: "int", min: 1, max: 10 }, def: "2" },
   INCLUDE_ARCHIVED_PAGES: { spec: { kind: "bool" }, def: "False" },
   LANGCHAIN_TRACING_V2: { spec: { kind: "bool" }, def: "False" },
@@ -51,7 +53,7 @@ export function validSetting(key: string, value: unknown): value is string {
       return /^\d+$/.test(value) && n >= s.spec.min && n <= s.spec.max;
     }
     case "model":
-      return /^[\w.:/-]{1,100}$/.test(value);
+      return (s.spec.optional && value === "") || /^[\w.:/-]{1,100}$/.test(value);
     case "email":
       return value === "" || /^[^\s@;#]+@[^\s@;#]+\.[^\s@;#]+$/.test(value);
     case "sites":
