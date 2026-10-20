@@ -135,7 +135,7 @@ def test_D_T06_a_full_graph_run_is_traced_end_to_end(traced_flow):
     db = desk.db_path(str(vault))
 
     run = rows(db, "SELECT * FROM runs")[0]
-    assert run["run_id"] == "run-1" and run["outcome"] == "complete" and run["engine"] == deep_report.ENGINE_VERSION
+    assert run["run_id"] == "run-1" and run["outcome"] == "complete" and run["engine"] == deep_report.engine_version(True)
     assert json.loads(run["plan"])["questions"] == ["Does hybrid help recall?"]
     assert run["report_path"] == out["report_path"]
 
@@ -159,4 +159,4 @@ def test_D_T06_a_full_graph_run_is_traced_end_to_end(traced_flow):
     assert {c["step"] for c in calls} >= {"plan", "research", "write"} and all(c["ok"] for c in calls)
 
     post = frontmatter.load(out["report_path"])
-    assert post["run_id"] == "run-1" and post["engine"] == deep_report.ENGINE_VERSION
+    assert post["run_id"] == "run-1" and post["engine"] == deep_report.engine_version(True)

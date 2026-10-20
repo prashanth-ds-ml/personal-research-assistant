@@ -466,3 +466,10 @@ The user chose a setting after Tests B/C (thinking cited 88% vs 80% of passages,
 uncited, ~90 s vs ~9 s per section, 4 writes). `WRITE_THINKING` / `write_thinking` turns thinking on for the section writer
 only, with Qwen's thinking sampling; both thinking options are toggles on the dashboard Settings page, whose defaults now
 show the v3 setup (one model qwen3.5:4b, writer blank, 2 passages per section).
+
+## Defaults after the full test: reranker on, thinking when writing on, sections 400-600 words (2026-10-20)
+The user's choices after the three-run long-report test. Reranker (bge-reranker-v2-m3, CPU) on: offline top-3 88% -> 100%,
+~15 s per question. Think when writing on: 92% clean sentences and no flags vs 77-86% without, +~7 min per report.
+Section length 400-600 words (the user asked for the best): Test D found it as accurate as 150-300 with more passages used,
+and padding only from ~800. Engine version v3.1-rerank. Tests use a fake reranker (tests/conftest.py) so they never load the
+2 GB model. Planner fixed (E-019) before the final check run.

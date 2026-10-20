@@ -58,7 +58,7 @@ def test_M1_T03_the_writer_sees_whole_passages_with_their_location_and_the_v3_ru
                                      "Qwen3-4B was pretrained on 36T tokens [E2].")
     prompt = seen[0]
     assert "[E1] Thinking About Thinking" in prompt and "Batch size | 4 |" in prompt and "36T tokens" in prompt
-    assert "150-300 words" in prompt and "Read the document title" in prompt
+    assert f"{deep_report.SECTION_WORDS} words" in prompt and "Read the document title" in prompt
     assert "Extract facts" not in prompt and "[E2]" in body
 
 
@@ -113,14 +113,14 @@ def test_M1_T08_one_model_in_every_role_thinking_off(monkeypatch):
     monkeypatch.setattr(deep_report, "ollama_llm", lambda model, url, **kw: calls.append((model, kw)) or (lambda p: ""))
     goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b"))
     assert {m for m, _ in calls} == {"qwen3.5:4b"}
-    assert [kw["reasoning"] for _, kw in calls] == [False, False, False, False]        # planner, extractor, writer, thinker
+    assert [kw["reasoning"] for _, kw in calls] == [False, False, True, False]         # writer thinks by default (2026-10-20)
     calls.clear()
-    goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b", plan_thinking=True))
+    goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b", plan_thinking=True, write_thinking=False))
     assert [kw["reasoning"] for _, kw in calls] == [False, False, False, True]         # only the planning step thinks
     calls.clear()
-    goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b", write_thinking=True))
+    goal_graph.build_llms(Configuration(local_llm="qwen3.5:4b", write_thinking=True, plan_thinking=False))
     assert [kw["reasoning"] for _, kw in calls] == [False, False, True, False]         # only the section writer thinks
-    assert Configuration().write_thinking is False
+    assert Configuration().write_thinking is True                                     # default since 2026-10-20
     assert deep_report.NUM_CTX == 16_384
 
 

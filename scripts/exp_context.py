@@ -130,7 +130,7 @@ def evidence(passages: list[dict]) -> list:
                        sub_questions=[0], passage=True) for i, p in enumerate(passages, 1)]
 
 
-LENGTHS = ("150-300", "400-600", "800-1000")   # Test D targets; the pipeline's prompt says 150-300
+LENGTHS = ("150-300", "400-600", "800-1000")   # Test D targets (the pipeline now uses d.SECTION_WORDS)
 
 
 def repeats(text: str, threshold: float = 0.6) -> int:
@@ -145,9 +145,8 @@ def repeats(text: str, threshold: float = 0.6) -> int:
 def write_and_measure(item: dict, passages: list[dict], label: str, think: bool = False, length: str = "150-300") -> dict:
     ev = evidence(passages)
     section = {"title": item["question"], "questions": [0], "brief": ""}
-    template = d.PASSAGE_SECTION_PROMPT.replace("150-300 words", f"{length} words")
-    assert f"{length} words" in template
-    prompt = template.format(title=section["title"], brief="", goal=item["goal"], evidence=d._passage_block(ev, limit=10**9))
+    prompt = d.PASSAGE_SECTION_PROMPT.format(title=section["title"], brief="", goal=item["goal"], words=length,
+                                             evidence=d._passage_block(ev, limit=10**9))
     r = chat(prompt, think=think)
     body = d._keep_valid_citations(r["text"], {e.id for e in ev})
     stats: dict = {}

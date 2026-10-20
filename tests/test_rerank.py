@@ -54,8 +54,8 @@ def test_R_T02_the_pipeline_reads_a_wider_pool_and_keeps_the_reranked_best(tmp_p
     assert len(rows) == rerank.RERANK_POOL and rows[0] == (1, 21, 5.0)           # the whole pool is traced
 
 
-def test_R_T03_off_by_default_and_the_engine_version_says_when_it_is_on():
-    assert Configuration().rerank is False
+def test_R_T03_on_by_default_and_the_engine_version_says_when_it_is_on():
+    assert Configuration().rerank is True                                         # default since 2026-10-20
     assert deep_report.engine_version(False) == "v3.0-hybrid" and deep_report.engine_version(True) == "v3.1-rerank"
 
 

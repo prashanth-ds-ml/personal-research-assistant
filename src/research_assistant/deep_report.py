@@ -224,6 +224,7 @@ def _norm(s: str) -> str:
 MAX_PASSAGE_CHARS = 12_000     # ~3k tokens: the most of one passage a prompt may carry
 MAX_EVIDENCE_CHARS = 9_000     # evidence block handed to the section writer (extracted facts)
 MAX_PASSAGES_CHARS = 26_000    # passages handed to the section writer (~6.5k tokens of the 16k window; chunks are <= 3,000)
+SECTION_WORDS = "400-600"      # Test D: as accurate as 150-300 and uses more of its passages; padding starts at ~800
 SECTION_PASSAGES = 8           # Test C (EVALS "v3 Tests B and C"): a 150-300-word section cites ~8 passages; more are
                                # dropped, the late ones most (last third used 25% at 16), so give the best 8, best first
 MAX_SECTION_CHARS = 3_500      # how much of one finished section the summary / synthesis prompts may carry
@@ -476,12 +477,18 @@ Return JSON: {{"needed": true or false, "reason": "one short sentence"}}"""
 MIN_SCOPED_QUESTIONS = 3
 
 
-def scope_filter(plan: Plan, goal: str, llm: LLM) -> Plan:
+def scope_filter(plan: Plan, goal: str, llm: LLM, protected: list[str] | None = None) -> Plan:
     """Drop plan questions that cannot be traced back to the goal and the user's answers. A plan drifts when the model is
     handed context that is not the goal (library titles, earlier runs); this puts the goal back in charge. If a judgement
-    fails, the question stays (never remove on a model error); and at least MIN_SCOPED_QUESTIONS are always kept."""
+    fails, the question stays (never remove on a model error); and at least MIN_SCOPED_QUESTIONS are always kept.
+    A question that covers one of the ``protected`` topics (the topics the goal itself names) is never judged: the judge
+    removed the chunking and evaluation questions of a goal that named both (E-019)."""
     keep, dropped = [], []
+    topics = [_stem_words(t) for t in (protected or [])]
     for i, q in enumerate(plan.sub_questions):
+        if any(t and _covers(t, _stem_words(q)) for t in topics):
+            keep.append(i)
+            continue
         try:
             raw = _obj(_json(llm(SCOPE_PROMPT.format(goal=_clip(goal, 1500), question=q.replace('"', "'")), json_mode=True), {}))
             needed = str(raw.get("needed", "true")).lower() != "false"
@@ -509,25 +516,70 @@ phrase using the goal's OWN words (3 to 8 words). Do not add anything the goal d
 Return JSON: {{"topics": [strings]}}"""
 
 MAX_ADDED_TOPICS = 2
+QUESTION_PROMPT = """A research report has this goal:
+
+{goal}
+
+The plan's questions so far:
+{questions}
+
+No question uses the words of this part of the goal: "{topic}".
+If one of the questions above already asks about it in other words, return {{"covered": true}}.
+Otherwise write ONE specific research sub-question about it that technical documents (papers, docs, guides) can answer, in
+the goal's own terms, and a short section title for it.
+Return JSON: {{"covered": false, "question": str, "title": str}}"""
+_QUALIFIER = re.compile(r"^(for|with|on|in|to|of|by|at|from|using|without|within|across)\b", re.I)
 
 
-def add_missing_topics(plan: Plan, goal: str, llm: LLM) -> Plan:
-    """The planner sometimes drops half of a goal (a "reasoning and tool calling" goal planned with no tool-calling question).
-    The model only LISTS the topics the goal sentence names (each must appear in that sentence, word for word); plain
-    word-matching then decides whether any question covers each one, and a question and section are added for each that
-    none does, before the synthesis. A model error or a nothing-missing answer changes nothing."""
+def goal_topics(goal: str, llm: LLM) -> list[str]:
+    """The topics the goal names, in its own words (each must appear in the goal verbatim). Qualifiers ("for a small team")
+    and the goal's overall subject (the part before a colon, "Building a private RAG system") are not topics: they became
+    empty catch-all sections (E-019). A model error gives no topics, which changes nothing."""
     asked = goal.split("\n\nThe user also said")[0]
     try:
         raw = _obj(_json(llm(TOPICS_PROMPT.format(goal=_clip(asked, 1200)), json_mode=True), {}))
     except Exception:                                  # noqa: BLE001 - never lose a plan over this check
-        return plan
+        return []
     haystack = _norm(asked)
+    subject = _norm(asked.split(":", 1)[0]) if ":" in asked[:200] else ""
+    out = []
+    for item in raw.get("topics") if isinstance(raw.get("topics"), list) else []:
+        topic = re.sub(r"^(and|or|plus|also)\s+", "", item.strip(), flags=re.I) if isinstance(item, str) else ""
+        if len(topic) < 4 or _norm(topic) not in haystack or _QUALIFIER.match(topic):
+            continue
+        if subject and (_norm(topic) in subject or subject in _norm(topic)):
+            continue
+        out.append(topic)
+    return out
+
+
+def _question_for(topic: str, goal: str, llm: LLM, questions: list[str] | None = None) -> tuple[str, str] | None:
+    """A real research question and section title for a missing topic, or None when the model says an existing question
+    already covers it in other words ("run the whole system locally" vs "run the entire pipeline locally", 2026-10-20).
+    The old template only if the model fails."""
+    listed = "\n".join(f"- {q}" for q in questions or []) or "- (none)"
+    try:
+        raw = _obj(_json(llm(QUESTION_PROMPT.format(goal=_clip(goal, 1200), topic=topic.replace('"', "'"), questions=listed),
+                             json_mode=True), {}))
+    except Exception:                                  # noqa: BLE001
+        raw = {}
+    if str(raw.get("covered")).lower() == "true":
+        return None
+    question, title = str(raw.get("question") or "").strip(), str(raw.get("title") or "").strip()
+    if len(question) < 15 or not question.endswith("?"):
+        question = f"What methods, settings and evidence are documented for {topic}?"
+    return question, (title or topic[:1].upper() + topic[1:])[:80]
+
+
+def add_missing_topics(plan: Plan, goal: str, llm: LLM, topics: list[str] | None = None) -> Plan:
+    """The planner sometimes drops half of a goal (a "reasoning and tool calling" goal planned with no tool-calling question).
+    The model only LISTS the topics the goal sentence names (each must appear in that sentence, word for word); plain
+    word-matching then decides whether any question covers each one, and a question and section are added for each that
+    none does, before the synthesis. A model error or a nothing-missing answer changes nothing."""
+    topics = goal_topics(goal, llm) if topics is None else topics
     have = [_stem_words(q) for q in plan.sub_questions] + [_stem_words(s["title"]) for s in plan.outline]
     added = []
-    for item in raw.get("topics") if isinstance(raw.get("topics"), list) else []:
-        topic = item.strip() if isinstance(item, str) else ""
-        if len(topic) < 4 or _norm(topic) not in haystack:       # it must be the goal's own words
-            continue
+    for topic in topics:
         want = _stem_words(topic)
         if want and not any(_covers(want, h) for h in have):
             added.append(topic)
@@ -536,9 +588,15 @@ def add_missing_topics(plan: Plan, goal: str, llm: LLM) -> Plan:
     sub, outline = list(plan.sub_questions), [dict(sec) for sec in plan.outline]
     synthesis = [sec for sec in outline if sec.get("synthesis")]
     body = [sec for sec in outline if not sec.get("synthesis")]
-    for topic in added[:MAX_ADDED_TOPICS]:
-        sub.append(f"What does the evidence say about {topic}, for the goal as described?")
-        body.append({"title": topic[:1].upper() + topic[1:], "questions": [len(sub) - 1], "brief": "", "synthesis": False})
+    for topic in added:
+        if len(sub) - len(plan.sub_questions) >= MAX_ADDED_TOPICS:
+            break
+        written = _question_for(topic, goal, llm, sub)
+        if written is None:
+            continue
+        question, title = written
+        sub.append(question)
+        body.append({"title": title, "questions": [len(sub) - 1], "brief": "", "synthesis": False})
     return Plan(goal=plan.goal, title=plan.title, sub_questions=sub, outline=body + synthesis, dropped=plan.dropped)
 
 
@@ -593,9 +651,10 @@ def make_plan(goal: str, llm: LLM, notes: str = "", lessons: str = "") -> Plan:
         target = next((sec for sec in reversed(outline) if not sec["synthesis"]), outline[-1])
         target["questions"] += orphans
     plan = Plan(goal=goal, title=raw.get("title") or goal, sub_questions=qs, outline=outline)
+    topics = goal_topics(seen_goal, llm)
     if len(qs) > MIN_SCOPED_QUESTIONS:
-        plan = scope_filter(plan, seen_goal, llm)
-    plan = add_missing_topics(plan, seen_goal, llm)
+        plan = scope_filter(plan, seen_goal, llm, protected=topics)
+    plan = add_missing_topics(plan, seen_goal, llm, topics)
     return enforce_notes(plan, notes) if notes else plan
 
 
@@ -1068,7 +1127,7 @@ Rules:
 - Copy every number exactly from the passage you cite for it.
 - If the passages do not answer part of the section, say so in one sentence instead of guessing.
 - Where passages disagree, say so.
-- 150-300 words of clear, specific prose. A small markdown table only if it compares numbers across named subjects, with
+- {words} words of clear, specific prose. A small markdown table only if it compares numbers across named subjects, with
   every row cited. No headings, no recommendations (they come in a later section), no announcing what the section does.
 
 PASSAGES:
@@ -1103,7 +1162,8 @@ def write_section(section: dict, plan: Plan, evidence: list[Evidence], llm: LLM)
             LLM_STATS["passages_not_given"] += len(ranked) - SECTION_PASSAGES
         fit: list[int] = []
         prompt = PASSAGE_SECTION_PROMPT.format(title=section["title"], brief=section.get("brief", ""), goal=model_goal(plan.goal),
-                                               evidence=_passage_block(ranked[:SECTION_PASSAGES], included=fit))
+                                               evidence=_passage_block(ranked[:SECTION_PASSAGES], included=fit),
+                                               words=SECTION_WORDS)
         desk.current().section_inputs(section["title"], [e.id for e in ranked], fit[0], len(prompt))
         own = ranked[: fit[0]]                               # what the writer saw: citations and repair use only these
     else:

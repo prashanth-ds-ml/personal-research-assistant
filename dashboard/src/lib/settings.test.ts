@@ -63,7 +63,8 @@ test("works when there is no .env yet", async () => {
   const s = await readSettings();
   assert.equal(s.LOCAL_LLM, "qwen3.5:4b");                 // v3: one model
   assert.equal(s.WRITER_MODEL, "");                        // blank = the same model
-  assert.equal(s.WRITE_THINKING, "False");
+  assert.equal(s.WRITE_THINKING, "True");
+  assert.equal(s.RERANK, "True");
   assert.equal((await writeSettings({ WRITE_THINKING: "True", WRITER_MODEL: "" })).ok, true);
   assert.equal((await writeSettings({ COVERAGE_CHECK: "False" })).ok, true);
   assert.match(fs.readFileSync(file, "utf-8"), /COVERAGE_CHECK=False/);

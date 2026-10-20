@@ -242,13 +242,13 @@ class Configuration(BaseModel):
         description="Let the model think before writing the plan (about 85 s per planning call instead of 8 s with "
                     "qwen3.5:4b; plans then vary between runs). Other steps never think.")
     rerank: bool = Field(
-        default=False, title="Rerank Passages",
+        default=True, title="Rerank Passages",
         description="Read a wider pool of 24 passages per question with a cross-encoder and keep the best 8 (M3; runs on "
                     "the CPU, a few seconds per question). Reports record engine v3.1-rerank.")
     rerank_model: str = Field(default="BAAI/bge-reranker-v2-m3", title="Reranker Model",
                               description="Hugging Face cross-encoder used when reranking is on")
     write_thinking: bool = Field(
-        default=False, title="Think When Writing",
+        default=True, title="Think When Writing",
         description="Let the model think before writing each report section. In Tests B/C (4 sections) it cited more of its "
                     "passages, used late ones as well as early ones and left no sentence uncited, at about 10x the time "
                     "(~90 s instead of ~9 s per section).")

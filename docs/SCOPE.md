@@ -34,9 +34,9 @@ The fact-extraction step and the LLM judge are **removed**: the writer reads the
 
 | Role | Model | Notes |
 |---|---|---|
-| Plan, write, chat (the only LLM) | `qwen3.5:4b` | 3.4 GB, fits the 8 GB GPU; context 16k; thinking off, with optional *Think when planning* (~85 s per plan) and *Think when writing* (~90 s per section) settings, both default off |
+| Plan, write, chat (the only LLM) | `qwen3.5:4b` | 3.4 GB, fits the 8 GB GPU; context 16k; *Think when writing* ON by default (~90 s per section, 92% clean sentences); *Think when planning* optional, off |
 | Embeddings | `qwen3-embedding:0.6b` | unchanged (library built with it) |
-| Reranker (M3) | `bge-reranker-v2-m3` (multilingual) | via sentence-transformers; measured before it is switched on |
+| Reranker (M3) | `bge-reranker-v2-m3` (multilingual) | on the CPU via transformers; ON by default (offline top-3 88% -> 100%) |
 
 One setting changes the LLM; a better model replaces it when feedback says so.
 
@@ -51,7 +51,8 @@ characters sit on the same retrieval plateau; 600-1,000 are clearly worse at ran
 
 1. **Section = one sub-question = its own 6-8 chunks.** Every sentence cites a chunk `[C3]`. If the chunks do not answer,
    the section says so in one line (a gap), not a padded paragraph.
-2. **Length follows evidence:** ~150-300 words per section, ~1,500-2,500 words per report (v2 reports were 4,700-6,900).
+2. **Length follows evidence:** 400-600 words per section (Test D: accurate up to ~600, padding from ~800), at most 8
+   passages per section (Test C); a report is ~1,000-3,000 words of cited text (v2 reports were 4,700-6,900).
 3. **Context budget per section** (16k window): instructions ~700 tokens + 8 chunks × ~450 + output ~600 ≈ 5k tokens.
    Nothing is clipped silently; any cut is logged.
 4. **Summary only from section sentences,** with their citations: the recommendation plus each section's first cited

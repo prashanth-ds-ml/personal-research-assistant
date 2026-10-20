@@ -11,14 +11,15 @@ Tests B and C next · branch `v3` · **Last updated:** 2026-10-19 (end of sessio
 | M2 Source panel + feedback | built: run trace + desk database + rating buttons; layout fixed (margin no longer stretches chapters) | daily use starts |
 | Chunk size | **locked: `v2 text=1800 table=3000`** (Test A); library re-chunked and uniform; new sources follow automatically | done |
 | Tests B and C (neighbour expansion; passages per section / context use) | **done 2026-10-20**: best 8 passages per section, best first; no expansion; thinking-when-writing looks better but ~10x slower (your call) | done |
-| M3 Reranker | not started | measured offline, then before/after on your ratings |
+| M3 Reranker | **built, on by default** (2026-10-20): offline top-3 88% -> 100%; small effect on a small topic | before/after on your ratings |
 | M4 Chat over the library | not started | a week of your own use |
 | M5 Insights page + demo + README + case study | not started | 10-minute client demo |
 
 ## Next, in order
-1. Try **Think when writing** (Settings → Quality, then restart the backend) on a real goal and compare with a run without it.
+1. Final check run of the RAG goal with the new defaults (reranker, thinking when writing, 400-600-word sections, fixed
+   planner): all six topics covered? numbers for the case-study disclaimer.
 2. Your feedback on the embeddings report (rate sources, flag sentences) and on new reports.
-3. M3 reranker (picks the 8 passages better than the 0-3 grade alone).
+3. M4 chat over the library (the reranker, M3, is built and on by default).
 4. Small wording leftovers: the progress text still says "Extracting evidence"; the status table says "Facts" for passages.
 
 ## For you
