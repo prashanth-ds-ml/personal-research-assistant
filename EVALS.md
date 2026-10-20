@@ -461,3 +461,16 @@ written: the "different component" relevance rule rejected passages that answer 
 quality for "rerankers on an 8 GB GPU") or a pipeline component for a whole-pipeline question. Re-grading those 24
 passages with a refined rule (partial answers count; whole-system questions count every component) recovered the 2 wrongly
 rejected, kept the off-topic ones out, and admitted 1 doubtful LLM-benchmark passage.
+
+## v3 final report after all fixes (2026-10-20, run 01a158a7)
+Same RAG goal, library after the paper-aware collection, refined relevance rule, no collecting. 17.0 min.
+- 5 of 6 sections written; "embedding models on 8 GB" is an honest gap (the library holds no source on embedding-model
+  memory use). 2,979 words, 25 passages from 18 documents: 5 papers, 3 official docs / expert sites, 10 other web pages
+  (the audit before the source fixes: 1 paper, 15 web).
+- 155 sentences: 144 clean (93%), 8 uncited, 3 "check domain" (a medical study cited without naming its domain; one was
+  attached to the following sentence, E-023, fixed); 3 citations repaired; 0 thinking fallbacks.
+- Reranker head-to-head on this run: 25 useful chunks in its top 8 vs 27 for hybrid alone (the previous run: 32 vs 28).
+  Over two real runs the gain is small and mixed; offline it is clear (top-3 88% -> 100%). Kept on: it rescues chunks
+  hybrid buries (here from rank 18) at ~15 s per question.
+- Memory: the run needs ~11-12 GB of RAM (Ollama maps ~8 GB on Windows while both models are loaded, the backend with the
+  reranker ~3 GB); it ran down to 0.5 GB free and finished (E-022).

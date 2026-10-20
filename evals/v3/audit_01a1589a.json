@@ -1,0 +1,351 @@
+{
+ "run": "01a1589a-68dc-7c43-9451-f46bf5290763",
+ "engine": "v3.1-rerank",
+ "settings": {
+  "ask_clarifying_questions": false,
+  "require_plan_approval": false,
+  "coverage_check": true,
+  "collect_sources": false,
+  "collect_review": false,
+  "fetch_max_sources": 30,
+  "write_thinking": true,
+  "rerank": true
+ },
+ "health": {
+  "steps": [
+   [
+    "library",
+    "ok",
+    0.0
+   ],
+   [
+    "questions",
+    "ok",
+    0.0
+   ],
+   [
+    "clarify",
+    "ok",
+    0.0
+   ],
+   [
+    "plan",
+    "ok",
+    20.0
+   ],
+   [
+    "coverage",
+    "ok",
+    68.0
+   ],
+   [
+    "approve",
+    "ok",
+    0.0
+   ],
+   [
+    "discover",
+    "ok",
+    0.0
+   ],
+   [
+    "review",
+    "ok",
+    0.0
+   ],
+   [
+    "collect",
+    "ok",
+    0.0
+   ],
+   [
+    "research",
+    "ok",
+    244.0
+   ],
+   [
+    "write",
+    "ok",
+    359.0
+   ],
+   [
+    "save",
+    "ok",
+    0.0
+   ]
+  ],
+  "calls": [
+   [
+    "coverage",
+    "planner",
+    22,
+    54.0,
+    0,
+    0
+   ],
+   [
+    "plan",
+    "planner",
+    4,
+    20.0,
+    0,
+    0
+   ],
+   [
+    "research",
+    "judge",
+    48,
+    121.0,
+    0,
+    0
+   ],
+   [
+    "research",
+    "planner",
+    12,
+    43.0,
+    0,
+    0
+   ],
+   [
+    "write",
+    "writer",
+    4,
+    358.0,
+    0,
+    0
+   ]
+  ],
+  "stats": {
+   "llm_calls": 64,
+   "llm_gave_up": 0,
+   "llm_off_topic": 27,
+   "llm_cited_sentences": 85,
+   "llm_citations_repaired": 0,
+   "llm_tables_dropped": 0,
+   "llm_passages_not_given": 0,
+   "llm_thinking_fallbacks": 0,
+   "evidence": 21,
+   "words": 6929
+  }
+ },
+ "reranker": {
+  "per_question": [
+   {
+    "q": 0,
+    "kept": 1,
+    "rescued_from": [],
+    "swapped_out": 1
+   },
+   {
+    "q": 1,
+    "kept": 8,
+    "rescued_from": [
+     10,
+     11
+    ],
+    "swapped_out": 2
+   },
+   {
+    "q": 2,
+    "kept": 6,
+    "rescued_from": [],
+    "swapped_out": 0
+   },
+   {
+    "q": 3,
+    "kept": 1,
+    "rescued_from": [],
+    "swapped_out": 3
+   },
+   {
+    "q": 4,
+    "kept": 4,
+    "rescued_from": [
+     11
+    ],
+    "swapped_out": 4
+   },
+   {
+    "q": 5,
+    "kept": 1,
+    "rescued_from": [],
+    "swapped_out": 2
+   }
+  ],
+  "rescued": 3,
+  "kept": 21,
+  "swapped_out": 12
+ },
+ "writer": [
+  {
+   "section": "Document Chunking Strategy",
+   "given": 8,
+   "cited": 6
+  },
+  {
+   "section": "Hybrid Search Implementation",
+   "given": 6,
+   "cited": 6
+  },
+  {
+   "section": "Evaluation Methodology",
+   "given": 4,
+   "cited": 4
+  }
+ ],
+ "claims": {
+  "sentences": 115,
+  "flags": {
+   "clean": 109,
+   "domain": 2,
+   "inference": 4
+  },
+  "coverage": {
+   "<0.3": 0,
+   "0.3-0.5": 4,
+   "0.5-0.7": 6,
+   ">=0.7": 87
+  },
+  "weakest": [
+   {
+    "coverage": 0.43,
+    "section": "Evaluation Methodology",
+    "text": "This architecture allows distinct assessment of retrieval quality and answer quality [E20].",
+    "cites": [
+     "E20"
+    ]
+   },
+   {
+    "coverage": 0.44,
+    "section": "Executive summary",
+    "text": "Evaluation Methodology:** The evaluation pipeline follows a sequential flow where the retriever processes the query to produce Top-K Context before generating a response [E20].",
+    "cites": [
+     "E20"
+    ]
+   },
+   {
+    "coverage": 0.47,
+    "section": "Document Chunking Strategy",
+    "text": "Building a Private RAG Pipeline with a Local LLM requires consistent embedding formatting for indexing and queries to optimize local RAG precision and context window usage [E9].",
+    "cites": [
+     "E9"
+    ]
+   },
+   {
+    "coverage": 0.47,
+    "section": "Evaluation Methodology",
+    "text": "The evaluation pipeline follows a sequential flow where the retriever processes the query to produce Top-K Context before generating a response [E20].",
+    "cites": [
+     "E20"
+    ]
+   },
+   {
+    "coverage": 0.55,
+    "section": "Practical Recommendations",
+    "text": "Optimize retrieval quality by selecting Paragraph Group Chunking for legal or maths domains to maximize relevance precision, though fixed-size chunking often outperforms semantic on realistic sets [E2][E6].",
+    "cites": [
+     "E2",
+     "E6"
+    ]
+   },
+   {
+    "coverage": 0.58,
+    "section": "Executive summary",
+    "text": "Recommendation:** Prioritize implementing Hybrid Search with Reciprocal Rank Fusion to capture both exact identifiers and semantic meaning, as pure vector search misses IDs while keyword search misses paraphrases [E10].",
+    "cites": [
+     "E10"
+    ]
+   },
+   {
+    "coverage": 0.61,
+    "section": "Practical Recommendations",
+    "text": "Prioritize implementing Hybrid Search with Reciprocal Rank Fusion to capture both exact identifiers and semantic meaning, as pure vector search misses IDs while keyword search misses paraphrases [E10].",
+    "cites": [
+     "E10"
+    ]
+   },
+   {
+    "coverage": 0.62,
+    "section": "Evaluation Methodology",
+    "text": "Consequently, recall cannot be computed without knowing this total count [E17].",
+    "cites": [
+     "E17"
+    ]
+   }
+  ]
+ },
+ "sources": [
+  {
+   "title": "Building a Private RAG Pipeline with a Local LLM: A Practical Guide for ...",
+   "kind": "web",
+   "passages": 4
+  },
+  {
+   "title": "Hybrid Search - Vector + Keyword Retrieval Guide | Data AI Hub",
+   "kind": "web",
+   "passages": 3
+  },
+  {
+   "title": "Vector search vs keyword search: when to use hybrid - Big Iron",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "RAG Evaluation: How to Measure Retrieval and Answer Quality",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "breaktoprotect/poc-unstructured-docs-to-rag - GitHub",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "RAG Chunking Strategies That Survive Production (2026)",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Hybrid Search vs Vector Search: Full Comparison - KnowledgeHut",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "How important is Recall for Measuring Retrieval Quality?",
+   "kind": "pdf",
+   "passages": 1
+  },
+  {
+   "title": "Design and Evaluation of a Source-Grounded Medical LLM for Clinical Decision Support and Patient Care in Trustworthy Diagnostic Systems",
+   "kind": "paper",
+   "passages": 1
+  },
+  {
+   "title": "Daily Papers - Hugging Face",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Beyond Chunk-Then-Embed: A Comprehensive Taxonomy and Evaluation of ...",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Advanced RAG: Chunking Strategies Compared (2026 Guide)",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "A Systematic Investigation of Document Chunking Strategies and ...",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "A Systematic Investigation of Document Chunking Strategies ...",
+   "kind": "web",
+   "passages": 1
+  }
+ ],
+ "report_words": 2439
+}

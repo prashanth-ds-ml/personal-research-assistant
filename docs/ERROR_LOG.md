@@ -9,6 +9,8 @@ are tracked the same way.
 
 | ID | Date | Phase | Severity | Found by | Title | Status |
 |---|---|---|---|---|---|---|
+| E-023 | 2026-10-20 | M3 | Low | final report | A flag on a sentence cited after its full stop showed on the next sentence | fixed |
+| E-022 | 2026-10-20 | M3 | Medium | verification runs | Runs stopped twice by Claude Code under memory pressure; Ollama maps ~8 GB of RAM | worked around |
 | E-021 | 2026-10-20 | M3 | Medium | final run | Thinking used the whole budget on the largest prompt (recommendations): empty section | fixed |
 | E-020 | 2026-10-20 | M3 | Low | long-report test | Sentence split at "(approx." misplaced a label | fixed |
 | E-019 | 2026-10-20 | M3 | High | long-report test | Plan missed 2 of 6 goal topics and added malformed catch-all questions | fixed |
@@ -50,6 +52,25 @@ are tracked the same way.
 ```
 
 ## Entries
+
+### E-023: A flag on a sentence cited after its full stop showed on the next sentence
+
+- **Date found:** 2026-10-20 · **Phase:** M3 · **Severity:** Low · **Found by:** reading the final report's domain flags · **Status:** fixed
+
+**What happened:** "... decision support. [E22] [cited; domain ...] Consequently, ..." : the writer cited after the full stop and the
+flag was appended after the citation, so the report and the run trace attached it to the next sentence. **Fix:** a flag on
+"... X. [E22]" is written "... X [E22] [flag]."; the trace parser keeps a leading citation-plus-flag with the previous sentence.
+"clinically", "diagnostic", "patients", "medication" added to the medical words. **Regression test:** `test_Q_T09_...`.
+
+### E-022: Runs stopped under memory pressure; Ollama maps ~8 GB of system RAM
+
+- **Date found:** 2026-10-20 · **Phase:** M3 · **Severity:** Medium · **Found by:** two verification runs · **Status:** worked around
+
+**What happened:** Claude Code stopped the backend, the dashboard and a run twice when free RAM fell critically low; a stopped
+backend's run then hung. **Cause:** Ollama's llama-server held ~8 GB of RAM (both models fully on the GPU; Windows counts the
+mapped model files and staging buffers), the backend with the reranker ~3 GB, plus PDF conversion during collection and other
+apps. **Work-around:** check free RAM before a run (>= 11-12 GB), unload idle models (`keep_alive: 0`), watch memory during
+the run. **Backlog:** a doctor check for the run's real memory need; consider bge-reranker-base (smaller) when RAM is short.
 
 ### E-021: Thinking left no answer for the recommendations section
 

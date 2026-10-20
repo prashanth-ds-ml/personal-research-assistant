@@ -142,7 +142,7 @@ def _sentences(text: str) -> list[str]:
     parts.append(text[start:])
     merged: list[str] = []
     for part in parts:
-        lead = re.match(r"\s*((?:\[E\d+\])+)[.\s]*", part)
+        lead = re.match(r"\s*((?:\[E\d+\])+(?:\s*\[(?:cited;|inference)[^\]]*\])?)[.\s]*", part)
         if merged and lead:                                  # "Foo bar. [E3] Next one.": [E3] belongs to "Foo bar."
             merged[-1] = merged[-1].rstrip() + " " + lead.group(1)
             part = part[lead.end():]
@@ -229,7 +229,8 @@ def subjects(text: str) -> set[str]:
 # Application domains a source can belong to, as (domain, words that show it). A cited source whose title names a domain must
 # have that domain named in the sentence too: a medical study's evaluation result is not a general rule (2026-10-20).
 DOMAINS = (
-    ("medical", ("medical", "medicine", "clinical", "clinician", "patient", "biomedical", "health", "healthcare", "hospital",
+    ("medical", ("medical", "medicine", "clinical", "clinically", "clinician", "clinicians", "diagnostic", "diagnosis",
+                 "patient", "patients", "biomedical", "health", "healthcare", "hospital", "medication",
                  "radiology", "drug", "disease", "mesh", "pubmed")),
     ("legal", ("legal", "law", "court", "contract", "statute", "litigation")),
     ("financial", ("finance", "financial", "bank", "banking", "trading", "accounting", "fintech")),
@@ -355,11 +356,20 @@ def drop_restated(text: str, stats: dict | None = None) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
 
 
+_STOP_THEN_CITES = re.compile(r"^(.*?)([.!?])(\s*(?:\[E\d+\])+)\s*$", re.S)
+
+
 def _tag(sent: str, tag: str, before_stop: bool) -> str:
-    """Append a label. v3 (``before_stop``) puts it before the closing full stop, so it reads as part of its own sentence."""
+    """Append a label. v3 (``before_stop``) puts it before the closing full stop, so it reads as part of its own sentence;
+    a sentence written as "... support. [E22]" becomes "... support [E22] [tag]." (appending after "[E22]" made the
+    label read as the start of the NEXT sentence, in the report and in the run trace, 2026-10-20)."""
     sent = sent.rstrip()
-    if before_stop and sent[-1:] in ".!?":
-        return f"{sent[:-1]} {tag}{sent[-1]}"
+    if before_stop:
+        late = _STOP_THEN_CITES.match(sent)
+        if late:
+            return f"{late.group(1)}{late.group(3)} {tag}{late.group(2)}"
+        if sent[-1:] in ".!?":
+            return f"{sent[:-1]} {tag}{sent[-1]}"
     return f"{sent} {tag}"
 
 

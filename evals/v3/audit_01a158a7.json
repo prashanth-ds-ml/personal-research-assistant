@@ -1,0 +1,390 @@
+{
+ "run": "01a158a7-6f8e-7492-8e4c-a32f20b5fcd6",
+ "engine": "v3.1-rerank",
+ "settings": {
+  "ask_clarifying_questions": false,
+  "require_plan_approval": false,
+  "coverage_check": true,
+  "collect_sources": false,
+  "collect_review": false,
+  "fetch_max_sources": 30,
+  "write_thinking": true,
+  "rerank": true
+ },
+ "health": {
+  "steps": [
+   [
+    "library",
+    "ok",
+    0.0
+   ],
+   [
+    "questions",
+    "ok",
+    0.0
+   ],
+   [
+    "clarify",
+    "ok",
+    0.0
+   ],
+   [
+    "plan",
+    "ok",
+    20.0
+   ],
+   [
+    "coverage",
+    "ok",
+    69.0
+   ],
+   [
+    "approve",
+    "ok",
+    0.0
+   ],
+   [
+    "discover",
+    "ok",
+    0.0
+   ],
+   [
+    "review",
+    "ok",
+    0.0
+   ],
+   [
+    "collect",
+    "ok",
+    0.0
+   ],
+   [
+    "research",
+    "ok",
+    254.0
+   ],
+   [
+    "write",
+    "ok",
+    677.0
+   ],
+   [
+    "save",
+    "ok",
+    0.0
+   ]
+  ],
+  "calls": [
+   [
+    "coverage",
+    "planner",
+    22,
+    54.0,
+    0,
+    0
+   ],
+   [
+    "plan",
+    "planner",
+    4,
+    20.0,
+    0,
+    0
+   ],
+   [
+    "research",
+    "judge",
+    48,
+    121.0,
+    0,
+    0
+   ],
+   [
+    "research",
+    "planner",
+    12,
+    43.0,
+    0,
+    0
+   ],
+   [
+    "write",
+    "writer",
+    6,
+    677.0,
+    0,
+    0
+   ]
+  ],
+  "stats": {
+   "llm_calls": 66,
+   "llm_gave_up": 0,
+   "llm_off_topic": 23,
+   "llm_cited_sentences": 129,
+   "llm_citations_repaired": 3,
+   "llm_tables_dropped": 0,
+   "llm_passages_not_given": 0,
+   "llm_thinking_fallbacks": 0,
+   "evidence": 25,
+   "words": 8197
+  }
+ },
+ "reranker": {
+  "per_question": [
+   {
+    "q": 0,
+    "kept": 1,
+    "rescued_from": [],
+    "swapped_out": 1
+   },
+   {
+    "q": 1,
+    "kept": 8,
+    "rescued_from": [
+     10,
+     11
+    ],
+    "swapped_out": 2
+   },
+   {
+    "q": 2,
+    "kept": 7,
+    "rescued_from": [],
+    "swapped_out": 0
+   },
+   {
+    "q": 3,
+    "kept": 3,
+    "rescued_from": [
+     18
+    ],
+    "swapped_out": 3
+   },
+   {
+    "q": 4,
+    "kept": 4,
+    "rescued_from": [
+     11
+    ],
+    "swapped_out": 4
+   },
+   {
+    "q": 5,
+    "kept": 2,
+    "rescued_from": [],
+    "swapped_out": 2
+   }
+  ],
+  "rescued": 4,
+  "kept": 25,
+  "swapped_out": 12,
+  "head_to_head": {
+   "rerank_useful": 25,
+   "hybrid_useful": 27,
+   "swapped_useful": 6,
+   "swapped": 12
+  }
+ },
+ "writer": [
+  {
+   "section": "Document Chunking Strategy",
+   "given": 8,
+   "cited": 6
+  },
+  {
+   "section": "Hybrid Search Implementation",
+   "given": 7,
+   "cited": 6
+  },
+  {
+   "section": "Local Reranking Mechanism",
+   "given": 3,
+   "cited": 3
+  },
+  {
+   "section": "Evaluation Methodology",
+   "given": 4,
+   "cited": 4
+  },
+  {
+   "section": "System Deployment Constraints",
+   "given": 2,
+   "cited": 2
+  }
+ ],
+ "claims": {
+  "sentences": 155,
+  "flags": {
+   "clean": 144,
+   "inference": 8,
+   "domain": 3
+  },
+  "coverage": {
+   "<0.3": 2,
+   "0.3-0.5": 6,
+   "0.5-0.7": 14,
+   ">=0.7": 119
+  },
+  "weakest": [
+   {
+    "coverage": 0.17,
+    "section": "Executive summary",
+    "text": "System Deployment Constraints:** Engineering teams are advised to replace cloud RAG endpoints with local pipelines regarding the architecture required for an end-to-end private RAG stack [E24].",
+    "cites": [
+     "E24"
+    ]
+   },
+   {
+    "coverage": 0.2,
+    "section": "System Deployment Constraints",
+    "text": "Engineering teams are advised to replace cloud RAG endpoints with local pipelines regarding the architecture required for an end-to-end private RAG stack [E24].",
+    "cites": [
+     "E24"
+    ]
+   },
+   {
+    "coverage": 0.32,
+    "section": "Practical Recommendations",
+    "text": "Adding a local reranker can improve answer quality by 10\u201330% but incurs latency penalties, so measure diminishing returns against your team's speed requirements before implementation ([E18]).",
+    "cites": [
+     "E18"
+    ]
+   },
+   {
+    "coverage": 0.36,
+    "section": "Practical Recommendations",
+    "text": "Ensure parallel search execution does not introduce prohibitive latency delays compared to vector-only setups ([E12]).",
+    "cites": [
+     "E12"
+    ]
+   },
+   {
+    "coverage": 0.38,
+    "section": "Hybrid Search Implementation",
+    "text": "RRF is the safest default for fusing incompatible scores without tuning [E13].",
+    "cites": [
+     "E13"
+    ]
+   },
+   {
+    "coverage": 0.4,
+    "section": "Executive summary",
+    "text": "Recommendation:** Optimize your RAG architecture by prioritizing Hybrid Search (BM25 + Vector) and using 7B\u20138B models at 4-bit quantization on your 8GB GPU to ensure exact identifier matching and VRAM stability ([E11], [E25]).",
+    "cites": [
+     "E11",
+     "E25"
+    ]
+   },
+   {
+    "coverage": 0.4,
+    "section": "Hybrid Search Implementation",
+    "text": "Latency for hybrid search can be higher compared to vector-only due to the extra processing steps [E14].",
+    "cites": [
+     "E14"
+    ]
+   },
+   {
+    "coverage": 0.42,
+    "section": "Practical Recommendations",
+    "text": "Optimize your RAG architecture by prioritizing Hybrid Search (BM25 + Vector) and using 7B\u20138B models at 4-bit quantization on your 8GB GPU to ensure exact identifier matching and VRAM stability ([E11], [E25]).",
+    "cites": [
+     "E11",
+     "E25"
+    ]
+   }
+  ]
+ },
+ "sources": [
+  {
+   "title": "Building a Private RAG Pipeline with a Local LLM: A Practical Guide for ...",
+   "kind": "web",
+   "passages": 4
+  },
+  {
+   "title": "Hybrid Search - Vector + Keyword Retrieval Guide | Data AI Hub",
+   "kind": "web",
+   "passages": 3
+  },
+  {
+   "title": "Vector search vs keyword search: when to use hybrid - Big Iron",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "RAG Evaluation: How to Measure Retrieval and Answer Quality",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "breaktoprotect/poc-unstructured-docs-to-rag - GitHub",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "RAG Chunking Strategies That Survive Production (2026)",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Local LLM VRAM & RAM Requirements 2026: What Fits in 8GB, 12GB, 16GB ...",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Hybrid vs. Vector vs. Keyword Retrieval | The Prompt Bench",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Hybrid Search vs Vector Search: Full Comparison - KnowledgeHut",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "How important is Recall for Measuring Retrieval Quality?",
+   "kind": "pdf",
+   "passages": 1
+  },
+  {
+   "title": "Embedding model integrations - Docs by LangChain",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Design and Evaluation of a Source-Grounded Medical LLM for Clinical Decision Support and Patient Care in Trustworthy Diagnostic Systems",
+   "kind": "paper",
+   "passages": 1
+  },
+  {
+   "title": "Daily Papers - Hugging Face",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Beyond Chunk-Then-Embed: A Comprehensive Taxonomy and Evaluation of ...",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Best Local LLMs for 8GB VRAM: Real Hardware Benchmarks (2026)",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Advanced RAG: Chunking Strategies Compared (2026 Guide)",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "A Systematic Investigation of Document Chunking Strategies and ...",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "A Systematic Investigation of Document Chunking Strategies ...",
+   "kind": "web",
+   "passages": 1
+  }
+ ],
+ "report_words": 2979
+}

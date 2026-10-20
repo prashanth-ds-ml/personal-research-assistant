@@ -73,3 +73,17 @@ def test_Q_T08_a_domain_specific_source_must_be_named_as_such_in_the_sentence():
     assert rc.source_domains([med]) == {"medical"}
     assert "name the domain in" in deep_report.PASSAGE_SECTION_PROMPT
 
+
+def test_Q_T09_a_flag_on_a_sentence_cited_after_its_full_stop_stays_with_that_sentence():
+    from research_assistant import desk
+    med = deep_report.Evidence(id="E22", claim="Medical LLM › Eval", quote="DeepEval separates retrieval from generation errors.",
+                               source="Design and Evaluation of a Source-Grounded Medical LLM", heading="",
+                               sub_questions=[0], passage=True)
+    text = ("DeepEval separates retrieval errors from generation errors. [E22] "
+            "In this clinical study, answers were checked by clinicians. [E22]")
+    out = rc.label_text(text, {"E22": med}, rc.evidence_numbers([med]), flags_only=True)
+    assert "generation errors [E22] [cited; domain not stated from the cited evidence]." in out
+    rows = desk.report_sentences("## Evaluation\n\n" + out + "\n")
+    assert rows[0]["flag"] == "domain" and rows[1]["flag"] != "domain"        # not shifted onto the clinical sentence
+    assert rows[1]["text"].startswith("In this clinical study")
+
