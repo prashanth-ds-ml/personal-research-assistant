@@ -4,6 +4,7 @@
   python scripts/exp_context.py c [--sizes 4 8 12 16 24] [--repeats 2]   # Test C: passages per section
   python scripts/exp_context.py b [--n 6] [--repeats 2]                  # Test B: neighbour expansion on/off
   python scripts/exp_context.py think [--n 8] [--repeats 2]              # the chosen size again, with thinking on
+  python scripts/exp_context.py d [--sizes 8 16] [--repeats 2]           # Test D: how long can a section be?
 
 Every variant writes from the SAME cached pool (evals/v3/exp_pool.json), so only the variable under test changes.
 Passages are shuffled with a fixed seed per repeat, so position in the prompt is independent of relevance (that is what
@@ -129,11 +130,24 @@ def evidence(passages: list[dict]) -> list:
                        sub_questions=[0], passage=True) for i, p in enumerate(passages, 1)]
 
 
-def write_and_measure(item: dict, passages: list[dict], label: str, think: bool = False) -> dict:
+LENGTHS = ("150-300", "400-600", "800-1000")   # Test D targets; the pipeline's prompt says 150-300
+
+
+def repeats(text: str, threshold: float = 0.6) -> int:
+    """Sentences that say nearly the same as an earlier one in the section (content-word overlap >= threshold): the usual
+    way a small model fills a length it has no more material for."""
+    sents = [rc.content_words(s) for line in text.splitlines() if line.strip() and not line.lstrip().startswith("|")
+             for s in rc._sentences(line)]
+    sents = [s for s in sents if len(s) >= 5]
+    return sum(any(len(a & b) / len(a | b) >= threshold for b in sents[:i]) for i, a in enumerate(sents))
+
+
+def write_and_measure(item: dict, passages: list[dict], label: str, think: bool = False, length: str = "150-300") -> dict:
     ev = evidence(passages)
     section = {"title": item["question"], "questions": [0], "brief": ""}
-    prompt = d.PASSAGE_SECTION_PROMPT.format(title=section["title"], brief="", goal=item["goal"],
-                                             evidence=d._passage_block(ev, limit=10**9))
+    template = d.PASSAGE_SECTION_PROMPT.replace("150-300 words", f"{length} words")
+    assert f"{length} words" in template
+    prompt = template.format(title=section["title"], brief="", goal=item["goal"], evidence=d._passage_block(ev, limit=10**9))
     r = chat(prompt, think=think)
     body = d._keep_valid_citations(r["text"], {e.id for e in ev})
     stats: dict = {}
@@ -149,7 +163,8 @@ def write_and_measure(item: dict, passages: list[dict], label: str, think: bool 
             "cited_share": round(len(cited) / max(n, 1), 2), "use_first_mid_last": use,
             "cited_sentences": stats.get("cited", 0), "drift": stats.get("repaired", 0),
             "unsupported": labelled.count("[cited; wording"), "figure_flags": labelled.count("[cited; figure"),
-            "subject_flags": labelled.count("[cited; subject"), "uncited": labelled.count("[inference")}
+            "subject_flags": labelled.count("[cited; subject"), "uncited": labelled.count("[inference"),
+            "length_target": length, "repeats": repeats(repaired)}
 
 
 def log(row: dict):
@@ -160,7 +175,7 @@ def log(row: dict):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("test", choices=["pool", "c", "b", "think"])
+    ap.add_argument("test", choices=["pool", "c", "b", "think", "d"])
     ap.add_argument("--kb", default=knowledge.default_kb_path())
     ap.add_argument("--sizes", type=int, nargs="+", default=[4, 8, 12, 16, 24])
     ap.add_argument("--n", type=int, default=6)
@@ -182,6 +197,10 @@ def main():
                     chosen = ps[:size]
                     rng.shuffle(chosen)
                     log({**write_and_measure(item, chosen, "C"), "repeat": rep})
+            elif a.test == "d":                              # best-first, as the pipeline gives them since Test C
+                for size in a.sizes:
+                    for length in LENGTHS:
+                        log({**write_and_measure(item, ps[:size], "D", length=length), "repeat": rep})
             elif a.test == "b":
                 chosen = ps[: a.n]
                 for expand in (False, True):

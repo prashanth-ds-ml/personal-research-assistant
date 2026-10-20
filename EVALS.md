@@ -370,3 +370,22 @@ Twice the input, no gain. Decision: no expansion; citation repair handles drift 
 
 Thinking writes denser, fully cited sections with no position bias, at ~10x the time (~6.8k thinking tokens a section).
 Small sample (4 writes). Left to the user: a "think when writing" setting would add ~1.5 min per section.
+
+## v3 Test D: how long can a section be? (2026-10-20)
+
+Same fixed pool and measures as Tests B/C, passages best first (as the pipeline gives them), target length set in the
+section prompt (`scripts/exp_context.py d`, rows with "test": "D" in `evals/v3/exp_context.jsonl`). GPU at 115 W.
+48 sections in ~11 minutes. 8 writes per row (4 questions x 2 repeats). Uncited = sentences with no citation per section.
+
+| Target words | Passages | Words written | Passages cited | Drift | Unsupported | Uncited / section | Repeats | Seconds |
+|---|---|---|---|---|---|---|---|---|
+| 150-300 | 8 | 268 | 70% | 3.1% | 1.5% | 1.5 (~16%) | 0 | 9 |
+| 150-300 | 16 | 281 | 43% | 1.3% | 1.3% | 0.8 | 0 | 9 |
+| 400-600 | 8 | 469 | 80% | 2.5% | 3.3% | 2.9 (~16%) | 0 | 12 |
+| 400-600 | 16 | 507 | 49% | 1.7% | 1.7% | 2.5 | 0 | 13 |
+| 800-1000 | 8 | 804 | 86% | 2.9% | 1.8% | 7.2 (~25%) | 0 | 19 |
+| 800-1000 | 16 | 830 | 65% | 2.4% | 6.0% | 7.4 | 0 | 19 |
+
+The model hits every target and never repeats itself. Up to ~600 words a section keeps the same uncited share and low
+drift; at 800-1000 a quarter of its sentences carry no source and, with 16 passages, unsupported sentences reach 6%.
+Measured limit: ~600 words per section. Report = 3-6 sections, so ~1,000-3,000 words of cited text.
