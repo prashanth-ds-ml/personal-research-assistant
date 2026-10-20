@@ -9,6 +9,7 @@ are tracked the same way.
 
 | ID | Date | Phase | Severity | Found by | Title | Status |
 |---|---|---|---|---|---|---|
+| E-021 | 2026-10-20 | M3 | Medium | final run | Thinking used the whole budget on the largest prompt (recommendations): empty section | fixed |
 | E-020 | 2026-10-20 | M3 | Low | long-report test | Sentence split at "(approx." misplaced a label | fixed |
 | E-019 | 2026-10-20 | M3 | High | long-report test | Plan missed 2 of 6 goal topics and added malformed catch-all questions | fixed |
 | E-018 | 2026-10-19 | M2 | Medium | Test A | One embedding request per document (hundreds of chunks) made Ollama's runner fail | fixed |
@@ -49,6 +50,14 @@ are tracked the same way.
 ```
 
 ## Entries
+
+### E-021: Thinking left no answer for the recommendations section
+
+- **Date found:** 2026-10-20 · **Phase:** M3 · **Severity:** Medium · **Found by:** final long-report run · **Status:** fixed
+
+**What happened:** the synthesis call (all six sections, 19k chars) thought for 166 s and returned 0 characters; the report
+said "The model failed to write this section." **Fix:** a thinking call that returns nothing is redone once without
+thinking (`thinking_fallbacks` in the run stats). **Regression test:** `test_M1_T14_...`. Not yet re-run live.
 
 ### E-020: A bracketed abbreviation ended a sentence
 

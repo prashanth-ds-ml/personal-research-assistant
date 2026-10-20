@@ -173,3 +173,24 @@ def test_M1_T13_thinking_uses_qwen_sampling_a_big_budget_and_a_long_deadline(mon
     seen.clear()
     deep_report.ollama_llm("qwen3.5:4b", temperature=0, reasoning=False)("plan", json_mode=True)
     assert seen["temperature"] == 0 and "top_k" not in seen and seen["num_predict"] == deep_report.JSON_MAX_TOKENS
+
+
+def test_M1_T14_when_thinking_leaves_no_answer_the_call_is_redone_without_thinking(monkeypatch):
+    import langchain_ollama
+    made = []
+
+    class FakeChat:
+        def __init__(self, **kw):
+            made.append(kw["reasoning"])
+
+        def stream(self, prompt):
+            class C:
+                content = "" if made[-1] else "The section text [E1]."
+            yield C()
+
+    monkeypatch.setattr(langchain_ollama, "ChatOllama", FakeChat)
+    deep_report.reset_stats()
+    out = deep_report.ollama_llm("qwen3.5:4b", reasoning=True)("Write the recommendations")
+    assert out == "The section text [E1]." and made == [True, False]
+    assert deep_report.snapshot_stats()["thinking_fallbacks"] == 1
+

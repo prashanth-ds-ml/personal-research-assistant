@@ -429,3 +429,8 @@ Findings, from reading the three reports against their chunks:
 - The weak point for long reports is the PLAN (E-019): 2 of 6 goal topics (chunking, evaluation) got no question, and
   two malformed catch-all questions became empty gap sections. A passage about training-data loading (PyTorch DataLoader)
   was kept as deployment evidence in all runs.
+
+## v3 final check run (2026-10-20): fixed planner + reranker + thinking + 400-600-word sections
+Same RAG goal, collecting on. 27.4 min. All 6 goal topics planned and supported (runs 1-3: 4 of 6); 29 passages from 15
+documents; 2,893 words of main text; sections 373-472 words; 138 sentences, 133 clean (96%), 5 uncited, no flags.
+The recommendations section came out empty (E-021, fixed after the run, not yet re-run).

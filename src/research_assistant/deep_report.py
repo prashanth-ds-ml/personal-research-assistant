@@ -29,7 +29,8 @@ LLM = Callable[..., str]
 
 LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0, "off_topic": 0,
              "cited_sentences": 0, "citations_repaired": 0, "tables_dropped": 0,   # v3 report checks
-             "passages_not_given": 0}                                               # beyond SECTION_PASSAGES
+             "passages_not_given": 0,                                               # beyond SECTION_PASSAGES
+             "thinking_fallbacks": 0}                                               # thinking left no answer: redone without
 LLM_TIMEOUT = 300          # seconds Ollama may stay silent: a hung server must fail, not block the run forever
 CALL_DEADLINE = 240        # wall-clock seconds for one short JSON call however many tokens keep arriving (a read
                            # timeout alone never fires on a streaming response: every token resets it)
@@ -186,20 +187,29 @@ def ollama_llm(model: str, base_url: str = "http://localhost:11434", temperature
     model's default."""
     from langchain_ollama import ChatOllama
 
-    def raw(prompt: str, json_mode: bool, attempt: int) -> str:
+    def call(prompt: str, json_mode: bool, attempt: int, think: bool | None) -> str:
         # Each retry samples hotter and penalises repetition harder, which is what
         # breaks the degenerate loops that trigger Ollama's repeat-limit abort.
         max_tokens = JSON_MAX_TOKENS if json_mode else TEXT_MAX_TOKENS
-        sampling = dict(THINK_SAMPLING) if reasoning else {"temperature": temperature}
+        sampling = dict(THINK_SAMPLING) if think else {"temperature": temperature}
         sampling["temperature"] += 0.2 * attempt
         chat = ChatOllama(model=model, base_url=base_url, **sampling,
                           repeat_penalty=1.0 + 0.1 * attempt, num_ctx=num_ctx,
-                          num_predict=max_tokens + (THINK_TOKENS if reasoning else 0), reasoning=reasoning,
+                          num_predict=max_tokens + (THINK_TOKENS if think else 0), reasoning=think,
                           format="json" if json_mode else None, client_kwargs={"timeout": LLM_TIMEOUT})
         # Stream, so a model that never stops can be cut off (invoke() would wait for the whole generation).
         stream = (str(c.content) for c in chat.stream(prompt))
-        deadline = THINK_DEADLINE if reasoning else CALL_DEADLINE if json_mode else TEXT_DEADLINE
+        deadline = THINK_DEADLINE if think else CALL_DEADLINE if json_mode else TEXT_DEADLINE
         return consume(stream, max_chars=max_tokens * CHARS_PER_TOKEN, deadline_s=deadline, should_stop=_stopped)
+
+    def raw(prompt: str, json_mode: bool, attempt: int) -> str:
+        text = call(prompt, json_mode, attempt, reasoning)
+        if reasoning and not text.strip():
+            # Thinking used the whole budget and left no answer (the recommendations section of the 2026-10-20 final run:
+            # 166 s, 0 characters, from its largest prompt). Ask once more without thinking rather than lose the section.
+            LLM_STATS["thinking_fallbacks"] += 1
+            text = call(prompt, json_mode, attempt, False)
+        return text
 
     return resilient(raw, role=role)
 
