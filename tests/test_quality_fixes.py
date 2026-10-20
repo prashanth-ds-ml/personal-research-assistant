@@ -21,7 +21,9 @@ def test_Q_T02_unattended_runs_take_papers_and_docs_one_grade_below_the_bar_and_
 
 
 def test_Q_T03_the_relevance_grade_is_bound_to_the_component_the_question_names():
-    assert "DIFFERENT component" in deep_report.RELEVANT_PROMPT
+    assert "ONLY about a different component" in deep_report.RELEVANT_PROMPT
+    assert "every part of the question" in deep_report.RELEVANT_PROMPT          # partial answers count (2026-10-20 re-grade)
+    assert "whole system or pipeline, every component counts" in deep_report.RELEVANT_PROMPT
 
 
 def test_Q_T04_a_restated_sentence_is_dropped_and_counted():

@@ -451,3 +451,13 @@ writing, 400-600-word sections). 27.5 min (search 8, collect 1.5, research 4, wr
 - To improve: sources skew to web/blog guides (1 paper); section-level subject drift (an 8 GB LLM benchmark passage in the
   embedding-models section); some restating within 400-600-word sections (paraphrase, not caught by the repeat counter);
   a table chunk shows raw markup in its source card.
+
+## v3 verification after the source fixes (2026-10-20, runs 01a1587e collect + 01a1589a report)
+Collection (fixed arXiv query, authority ranking, papers/docs one grade below the bar): 24 sources (9 papers, 11 docs/expert
+sites, 4 web) vs 9 before (1 paper). The collect-on run was stopped by Claude Code under memory pressure after collecting
+(PDF conversion of many papers + reranker + other apps); the report run reused the library. Report: 95% clean sentences,
+2 "check domain" flags (a medical paper cited without naming its domain: the new check works), but only 3 of 6 sections
+written: the "different component" relevance rule rejected passages that answer part of a question (a reranker's effect on
+quality for "rerankers on an 8 GB GPU") or a pipeline component for a whole-pipeline question. Re-grading those 24
+passages with a refined rule (partial answers count; whole-system questions count every component) recovered the 2 wrongly
+rejected, kept the off-topic ones out, and admitted 1 doubtful LLM-benchmark passage.

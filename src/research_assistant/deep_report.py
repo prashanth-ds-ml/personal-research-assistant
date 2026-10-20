@@ -852,8 +852,10 @@ Is this passage useful evidence for answering the question? Score it:
 3 = answers the question directly
 2 = gives specific information that bears on the question (a method, setting, number, dataset or result), even if it is
     about a related system or stage, e.g. a fine-tuning recipe when the question is about pretraining (the report will
-    name its real subject). It must be about the component the question names: a passage about a DIFFERENT component
-    (for example the LLM's memory use when the question asks which embedding models to use) is 1, not 2
+    name its real subject). It counts if it gives specific information about the component or system the question names, even if it does
+    not cover every part of the question (for example a reranker's effect on quality, for a question about rerankers on a
+    small GPU). A passage ONLY about a different component (for example the LLM's memory use, when the question asks which
+    embedding models to use) is 1. When the question is about the whole system or pipeline, every component counts
 1 = same general field only, nothing specific for this question
 0 = unrelated, boilerplate, or a different modality or task (e.g. speech when the goal is text)
 Return JSON: {{"score": 0, 1, 2 or 3}}"""
