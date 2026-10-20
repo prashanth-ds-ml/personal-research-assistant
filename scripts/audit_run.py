@@ -163,8 +163,8 @@ def main():
     for title, kind, n in docs:
         print(f"   {n:2} x {kind or '?':4} {title[:90]}")
     out["sources"] = [{"title": t, "kind": k, "passages": n} for t, k, n in docs]
-    words = len(re.sub(r"\[[^\]]*\]", "", "\n".join(l for l in md.split("## Limitations")[0].splitlines()
-                                                     if not l.startswith("|"))).split())
+    words = len(re.sub(r"\[[^\]]*\]", "", "\n".join(line for line in md.split("## Limitations")[0].splitlines()
+                                                     if not line.startswith("|"))).split())
     print(f"\nreport main text: {words} words; questions {len(plan.get('questions', []))}; cited docs {len(cited_docs)}")
     out["report_words"] = words
     target = Path(a.out or ROOT / "evals" / "v3" / f"audit_{rid[:8]}.json")
