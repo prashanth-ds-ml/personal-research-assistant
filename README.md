@@ -1,6 +1,6 @@
 # Personal Research Assistant
 
-> **Status (2026-10-12):** v1.0 is being finished under a new scope: bounded, checked research reports with one larger local model, then chat with your library. See [docs/SCOPE.md](docs/SCOPE.md) and [docs/STATUS.md](docs/STATUS.md). Parts of this README describe the earlier version and will be rewritten in Phase 1d.
+> **Status (2026-10-20):** scope v3: checked research reports from library passages with one local model (qwen3.5:4b), hybrid search + reranker, and a feedback loop; chat over the library is next (M4). See [docs/SCOPE.md](docs/SCOPE.md) and [docs/STATUS.md](docs/STATUS.md). Parts of this README describe the earlier version and will be rewritten in M5.
 
 A fully local, personalized research agent. Fork of
 [langchain-ai/local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher)

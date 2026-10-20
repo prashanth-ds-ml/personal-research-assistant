@@ -20,7 +20,7 @@ Runs on one laptop, one local model, no cloud.
 ```
 collect (web + PDFs) → library: chunks + BM25 (FTS5) + vectors        [built]
                           ↓
-      retrieve: hybrid (RRF) top ~30 → reranker → best 6-8 chunks      [hybrid built; reranker M3]
+      retrieve: hybrid (RRF) top ~30 → reranker → best 6-8 chunks      [built; reranker on, M3]
       each chunk carries [document title › section heading]
              ↓                                   ↓
    Report: one section per sub-question,     Chat: answer from chunks,
