@@ -16,8 +16,8 @@ Tests B and C next · branch `v3` · **Last updated:** 2026-10-19 (end of sessio
 | M5 Insights page + demo + README + case study | not started | 10-minute client demo |
 
 ## Next, in order
-1. Final check run of the RAG goal with the new defaults (reranker, thinking when writing, 400-600-word sections, fixed
-   planner): all six topics covered? numbers for the case-study disclaimer.
+1. Done 2026-10-20: final RAG runs cover all six topics (2,893 / 3,534 words, 90-96% clean sentences); measured limits
+   are in the case study (section 7b).
 2. Your feedback on the embeddings report (rate sources, flag sentences) and on new reports.
 3. M4 chat over the library (the reranker, M3, is built and on by default).
 4. Small wording leftovers: the progress text still says "Extracting evidence"; the status table says "Facts" for passages.

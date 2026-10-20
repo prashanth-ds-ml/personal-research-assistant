@@ -113,6 +113,25 @@ _Filled from the scoreboard in `EVALS.md` at each gate._
 | Minutes per report (library only) | hours | 3.8 | — |
 | Wrong-subject claims found on reading (same goal) | several | 0 | — |
 
+## 7b. What it can and cannot do (measured limits)
+
+Research Desk runs one small local model (qwen3.5:4b on an 8 GB laptop GPU, no cloud). These limits were measured, not
+assumed (EVALS "v3 Test A" to "v3 final check run"):
+
+| Limit | Measured value | Evidence |
+|---|---|---|
+| Sources per report section | at most 8 passages (~3k tokens), best first | Test C: beyond ~8 the model drops sources, the late ones most |
+| Length per section | 400-600 words | Test D: accurate up to ~600; at 800-1,000 a quarter of sentences carried no source |
+| Report length | ~1,000-3,500 words of cited text (3-6 sections plus summary and recommendations) | final runs: 2,893 and 3,534 words over 6 sections, 90-96% of sentences cited and clean |
+| Longer reports | come from more sections, never longer ones; each needs its own evidence | sections without enough sources are reported as gaps, not padded |
+| Time per report | ~6 min (library only, no thinking) to ~30 min (web collecting + thinking) | RAG goal runs: 6.2 / 16.5 (thinking) / 27.4 min (thinking + collecting) |
+| Chunking | locked: 1,800-char text chunks, 3,000-char tables | Test A |
+
+What the checks do not catch: a source that is itself wrong (an explainer page called BERT "encoder-decoder" and the report
+repeated it), or a conclusion that does not follow from correct facts. Every claim is cited and every passage is one click
+away, so a reader can verify; the user's ratings are the ongoing evaluation. Tested on AI/ML research goals in English by
+one user; other domains and languages are not yet measured.
+
 ## 8. What I would do differently
 
 _Collected as we go; finalised at v1.0._

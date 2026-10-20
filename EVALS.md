@@ -434,3 +434,6 @@ Findings, from reading the three reports against their chunks:
 Same RAG goal, collecting on. 27.4 min. All 6 goal topics planned and supported (runs 1-3: 4 of 6); 29 passages from 15
 documents; 2,893 words of main text; sections 373-472 words; 138 sentences, 133 clean (96%), 5 uncited, no flags.
 The recommendations section came out empty (E-021, fixed after the run, not yet re-run).
+Re-run after the E-021 fix (no collecting, same library): 16.5 min, 6 of 6 sections plus a written recommendations section,
+29 passages from 15 documents, 3,534 words, sections 437-676 words, 181 sentences, 162 clean (90%), 19 uncited, no flags,
+4 citations repaired. Thinking finished every call this time (0 fallbacks), so the E-021 fallback is tested, not yet seen live.
