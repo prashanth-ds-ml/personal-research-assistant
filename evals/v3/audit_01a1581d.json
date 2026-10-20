@@ -1,0 +1,381 @@
+{
+ "run": "01a1581d-b030-7941-b21d-581158ddfdf9",
+ "engine": "v3.1-rerank",
+ "settings": {
+  "ask_clarifying_questions": false,
+  "require_plan_approval": false,
+  "coverage_check": true,
+  "collect_sources": false,
+  "collect_review": false,
+  "fetch_max_sources": 30,
+  "write_thinking": true,
+  "rerank": true
+ },
+ "health": {
+  "steps": [
+   [
+    "library",
+    "ok",
+    0.0
+   ],
+   [
+    "questions",
+    "ok",
+    0.0
+   ],
+   [
+    "clarify",
+    "ok",
+    0.0
+   ],
+   [
+    "plan",
+    "ok",
+    19.0
+   ],
+   [
+    "coverage",
+    "ok",
+    70.0
+   ],
+   [
+    "approve",
+    "ok",
+    0.0
+   ],
+   [
+    "discover",
+    "ok",
+    0.0
+   ],
+   [
+    "review",
+    "ok",
+    0.0
+   ],
+   [
+    "collect",
+    "ok",
+    0.0
+   ],
+   [
+    "research",
+    "ok",
+    228.0
+   ],
+   [
+    "write",
+    "ok",
+    674.0
+   ],
+   [
+    "save",
+    "ok",
+    0.0
+   ]
+  ],
+  "calls": [
+   [
+    "coverage",
+    "planner",
+    23,
+    56.0,
+    0,
+    0
+   ],
+   [
+    "plan",
+    "planner",
+    4,
+    19.0,
+    0,
+    0
+   ],
+   [
+    "research",
+    "judge",
+    46,
+    113.0,
+    0,
+    0
+   ],
+   [
+    "research",
+    "planner",
+    12,
+    43.0,
+    0,
+    0
+   ],
+   [
+    "write",
+    "writer",
+    7,
+    673.0,
+    0,
+    0
+   ]
+  ],
+  "stats": {
+   "llm_calls": 65,
+   "llm_gave_up": 0,
+   "llm_off_topic": 17,
+   "llm_cited_sentences": 149,
+   "llm_citations_repaired": 4,
+   "llm_tables_dropped": 0,
+   "llm_passages_not_given": 0,
+   "llm_thinking_fallbacks": 0,
+   "evidence": 29,
+   "words": 9329
+  }
+ },
+ "reranker": {
+  "per_question": [
+   {
+    "q": 0,
+    "kept": 4,
+    "rescued_from": [
+     9
+    ],
+    "swapped_out": 3
+   },
+   {
+    "q": 1,
+    "kept": 8,
+    "rescued_from": [
+     10,
+     11
+    ],
+    "swapped_out": 2
+   },
+   {
+    "q": 2,
+    "kept": 7,
+    "rescued_from": [
+     10,
+     11
+    ],
+    "swapped_out": 2
+   },
+   {
+    "q": 3,
+    "kept": 4,
+    "rescued_from": [
+     15
+    ],
+    "swapped_out": 2
+   },
+   {
+    "q": 4,
+    "kept": 3,
+    "rescued_from": [
+     16
+    ],
+    "swapped_out": 3
+   },
+   {
+    "q": 5,
+    "kept": 5,
+    "rescued_from": [
+     11
+    ],
+    "swapped_out": 2
+   }
+  ],
+  "rescued": 8,
+  "kept": 31,
+  "swapped_out": 14
+ },
+ "writer": [
+  {
+   "section": "Local Embedding Model Selection",
+   "given": 4,
+   "cited": 4
+  },
+  {
+   "section": "Document Chunking Strategy",
+   "given": 8,
+   "cited": 6
+  },
+  {
+   "section": "Hybrid Search Implementation",
+   "given": 7,
+   "cited": 6
+  },
+  {
+   "section": "Local Reranking Mechanism",
+   "given": 4,
+   "cited": 4
+  },
+  {
+   "section": "Evaluation Methodology",
+   "given": 3,
+   "cited": 3
+  },
+  {
+   "section": "System Deployment Constraints",
+   "given": 5,
+   "cited": 5
+  }
+ ],
+ "claims": {
+  "sentences": 181,
+  "flags": {
+   "clean": 162,
+   "inference": 19
+  },
+  "coverage": {
+   "<0.3": 2,
+   "0.3-0.5": 6,
+   "0.5-0.7": 15,
+   ">=0.7": 139
+  },
+  "weakest": [
+   {
+    "coverage": 0.2,
+    "section": "System Deployment Constraints",
+    "text": "For evaluation and hybrid search, the library does not provide specific details on how to evaluate retrieval and answer quality beyond a generic phase [E27].",
+    "cites": [
+     "E27"
+    ]
+   },
+   {
+    "coverage": 0.22,
+    "section": "System Deployment Constraints",
+    "text": "Chunking strategies are not detailed beyond general RAG context fit mentions [E2].",
+    "cites": [
+     "E2"
+    ]
+   },
+   {
+    "coverage": 0.33,
+    "section": "Local Embedding Model Selection",
+    "text": "The guide suggests comparing them on their own corpus before committing to a specific tool [E3].",
+    "cites": [
+     "E3"
+    ]
+   },
+   {
+    "coverage": 0.33,
+    "section": "System Deployment Constraints",
+    "text": "For the RAG pipeline architecture, an end-to-end private RAG stack requires specific layers defined by Open-Source tools [E4].",
+    "cites": [
+     "E4"
+    ]
+   },
+   {
+    "coverage": 0.39,
+    "section": "Executive summary",
+    "text": "Recommendation:** Prioritize a hybrid search pipeline fused with rank-based fusion (RRF) followed by a local cross-encoder reranker, as pure vector or keyword search alone fails to capture both semantic context and exact terminology [E13][E21].",
+    "cites": [
+     "E13",
+     "E21"
+    ]
+   },
+   {
+    "coverage": 0.41,
+    "section": "Practical Recommendations",
+    "text": "Prioritize a hybrid search pipeline fused with rank-based fusion (RRF) followed by a local cross-encoder reranker, as pure vector or keyword search alone fails to capture both semantic context and exact terminology [E13][E21].",
+    "cites": [
+     "E13",
+     "E21"
+    ]
+   },
+   {
+    "coverage": 0.42,
+    "section": "Practical Recommendations",
+    "text": "This architecture maximizes retrieval quality within the 8 GB VRAM constraint by leveraging the LLM's strength on GPU while embedding models can remain on CPU to preserve memory for context windows [E1][E27].",
+    "cites": [
+     "E1",
+     "E27"
+    ]
+   },
+   {
+    "coverage": 0.45,
+    "section": "Local Reranking Mechanism",
+    "text": "While embedding models are available locally, such as nomic-embed-text v1.5 which is 274 MB and mxbai-embed-large which is 670 MB, these are distinct from reranking models [E23].",
+    "cites": [
+     "E23"
+    ]
+   }
+  ]
+ },
+ "sources": [
+  {
+   "title": "Vector search vs keyword search: when to use hybrid - Big Iron",
+   "kind": "web",
+   "passages": 4
+  },
+  {
+   "title": "Local RAG in 2026: Build a Private Document AI That Never Leaves Your ...",
+   "kind": "web",
+   "passages": 3
+  },
+  {
+   "title": "Building a Private RAG Pipeline with a Local LLM: A Practical Guide for ...",
+   "kind": "web",
+   "passages": 3
+  },
+  {
+   "title": "Best Local LLMs for 8GB VRAM: Real Hardware Benchmarks (2026)",
+   "kind": "web",
+   "passages": 3
+  },
+  {
+   "title": "RAG Chunking Strategies That Survive Production (2026)",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "Hybrid Search vs Vector Search: Full Comparison - KnowledgeHut",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "Hybrid Search - Vector + Keyword Retrieval Guide | Data AI Hub",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "Chunking Strategies: How to Split Documents for Better Retrieval",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "Agentic Search POC \u2014 Hybrid Retrieval RAG on Elasticsearch",
+   "kind": "web",
+   "passages": 2
+  },
+  {
+   "title": "Hybrid vs. Vector vs. Keyword Retrieval | The Prompt Bench",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "GitHub - edwinyu2005/my-mini-llm-pipeline: An end-to-end ...",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Fine-tuning Embeddings for RAG: A Hands-on Walkthrough",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "Advanced RAG: Chunking Strategies Compared (2026 Guide)",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "A Systematic Investigation of Document Chunking Strategies and ...",
+   "kind": "web",
+   "passages": 1
+  },
+  {
+   "title": "A Systematic Analysis of Chunking Strategies for Reliable Question Answering",
+   "kind": "pdf",
+   "passages": 1
+  }
+ ],
+ "report_words": 3534
+}
