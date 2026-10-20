@@ -10,17 +10,15 @@ Tests B and C next · branch `v3` · **Last updated:** 2026-10-19 (end of sessio
 | M1 Research from chunks (one model, qwen3.5:4b) | built; first real report reviewed 2026-10-19; fixes in (citation repair, strict tables, extractive summary, flags before the stop) | your feedback on real reports |
 | M2 Source panel + feedback | built: run trace + desk database + rating buttons; layout fixed (margin no longer stretches chapters) | daily use starts |
 | Chunk size | **locked: `v2 text=1800 table=3000`** (Test A); library re-chunked and uniform; new sources follow automatically | done |
-| Tests B and C (neighbour expansion; passages per section / context use) | harness ready (`scripts/exp_context.py`); not run yet | numbers in EVALS; section budget chosen |
+| Tests B and C (neighbour expansion; passages per section / context use) | **done 2026-10-20**: best 8 passages per section, best first; no expansion; thinking-when-writing looks better but ~10x slower (your call) | done |
 | M3 Reranker | not started | measured offline, then before/after on your ratings |
 | M4 Chat over the library | not started | a week of your own use |
 | M5 Insights page + demo + README + case study | not started | 10-minute client demo |
 
-## Next session, in order
-1. Rebuild the Test B/C passage pool (the library was re-chunked after it was built, so its chunk ids are stale):
-   `python scripts/exp_context.py pool` (~5 min), then `... c`, `... b`, `... think` (~45 min, automatic).
-2. Pick passages per section and the context window from Test C; decide on neighbour expansion from Test B; record in
-   EVALS and DECISIONS; set the budgets in `deep_report.py`.
-3. Your feedback on the embeddings report (rate sources, flag sentences) and on new reports.
+## Next, in order
+1. Your call: "think when writing" as a setting (better sections in Test B/C's small sample, ~1.5 min per section).
+2. Your feedback on the embeddings report (rate sources, flag sentences) and on new reports.
+3. M3 reranker (picks the 8 passages better than the 0-3 grade alone).
 4. Small wording leftovers: the progress text still says "Extracting evidence"; the status table says "Facts" for passages.
 
 ## For you

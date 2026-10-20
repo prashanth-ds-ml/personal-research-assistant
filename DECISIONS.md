@@ -452,3 +452,11 @@ other settings (like the embedding model). Two chunker bugs were fixed inside v2
 pushed every piece over the limit (7,159 chars), and a broken 2,190-character PDF heading was prefixed to its chunks (now
 capped at 300). The library was re-chunked once (165 documents, 5,099 chunks, all within limits; retrieval unchanged
 80/88/96%). Embedding now goes in batches of 32 with retries.
+
+## Section budget: the best 8 passages, best first; no neighbour expansion (2026-10-20)
+Tests C and B (EVALS "v3 Tests B and C"). The 4B writer stays accurate up to ~5k tokens of sources, but a 150-300-word
+section only uses ~8 passages and drops late ones (last third used 25% at 16 passages). So each section gets its 8
+best-graded passages, best first (equal grades keep retrieval order); the rest is recorded in the run trace as not given
+(`passages_not_given` in the run stats), never silently. Expanding chunks with their neighbours doubled the input without
+improving use or drift, so it is not adopted. Thinking when writing looked clearly better on 4 writes but costs ~10x the
+time per section; that choice is the user's.

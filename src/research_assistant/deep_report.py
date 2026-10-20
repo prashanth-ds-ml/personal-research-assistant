@@ -28,7 +28,8 @@ LLM = Callable[..., str]
 
 
 LLM_STATS = {"calls": 0, "retries": 0, "gave_up": 0, "off_topic": 0,
-             "cited_sentences": 0, "citations_repaired": 0, "tables_dropped": 0}   # the last three: v3 report checks
+             "cited_sentences": 0, "citations_repaired": 0, "tables_dropped": 0,   # v3 report checks
+             "passages_not_given": 0}                                               # beyond SECTION_PASSAGES
 LLM_TIMEOUT = 300          # seconds Ollama may stay silent: a hung server must fail, not block the run forever
 CALL_DEADLINE = 240        # wall-clock seconds for one short JSON call however many tokens keep arriving (a read
                            # timeout alone never fires on a streaming response: every token resets it)
@@ -218,6 +219,8 @@ def _norm(s: str) -> str:
 MAX_PASSAGE_CHARS = 12_000     # ~3k tokens: the most of one passage a prompt may carry
 MAX_EVIDENCE_CHARS = 9_000     # evidence block handed to the section writer (extracted facts)
 MAX_PASSAGES_CHARS = 26_000    # passages handed to the section writer (~6.5k tokens of the 16k window; chunks are <= 3,000)
+SECTION_PASSAGES = 8           # Test C (EVALS "v3 Tests B and C"): a 150-300-word section cites ~8 passages; more are
+                               # dropped, the late ones most (last third used 25% at 16), so give the best 8, best first
 MAX_SECTION_CHARS = 3_500      # how much of one finished section the summary / synthesis prompts may carry
 MAX_QUOTE_WORDS = 60           # the prompt asks for 40; anything longer is not a quote, it is the passage
 
@@ -262,6 +265,7 @@ class Evidence:
     kind: str = ""                # "pdf", "paper", "web" or "document" (see knowledge.classify_source)
     passage: bool = False         # v3: a whole library chunk (quote = its text, claim = "title › heading"), not a fact
     chunk_id: int | None = None   # library chunks.id of a passage (for the run trace and feedback)
+    score: int = 0                # the 0-3 relevance grade a passage got when it was first kept
     path: str = ""                # library path of the passage's document
 
 
@@ -828,7 +832,7 @@ def gather_passages(plan: Plan, search: Callable[[str], list[dict]], llm: LLM,
             ev = Evidence(id=f"E{len(evidence) + 1}", claim=location(hit), quote=_clip(hit["text"], MAX_PASSAGE_CHARS),
                           source=hit["title"], heading=hit.get("heading", "") or "", sub_questions=[qi],
                           url=hit.get("source_url", "") or "", kind=hit.get("source_kind", "") or "", passage=True,
-                          chunk_id=hit.get("chunk_id"), path=hit.get("path", "") or "")
+                          chunk_id=hit.get("chunk_id"), path=hit.get("path", "") or "", score=score)
             trace.judgement(qi, hit, score, True, ev.id)
             by_key[key] = ev
             evidence.append(ev)
@@ -1080,10 +1084,14 @@ def write_section(section: dict, plan: Plan, evidence: list[Evidence], llm: LLM)
     if not own:
         return "*No supporting evidence was found in the knowledge base for this section.*"
     if own[0].passage:
+        ranked = sorted(own, key=lambda e: -e.score)        # stable: equal grades keep retrieval order
+        if len(ranked) > SECTION_PASSAGES:
+            LLM_STATS["passages_not_given"] += len(ranked) - SECTION_PASSAGES
         fit: list[int] = []
-        prompt = PASSAGE_SECTION_PROMPT.format(title=section["title"], brief=section.get("brief", ""),
-                                               goal=model_goal(plan.goal), evidence=_passage_block(own, included=fit))
-        desk.current().section_inputs(section["title"], [e.id for e in own], fit[0], len(prompt))
+        prompt = PASSAGE_SECTION_PROMPT.format(title=section["title"], brief=section.get("brief", ""), goal=model_goal(plan.goal),
+                                               evidence=_passage_block(ranked[:SECTION_PASSAGES], included=fit))
+        desk.current().section_inputs(section["title"], [e.id for e in ranked], fit[0], len(prompt))
+        own = ranked[: fit[0]]                               # what the writer saw: citations and repair use only these
     else:
         prompt = SECTION_PROMPT.format(title=section["title"], brief=section.get("brief", ""),
                                        goal=model_goal(plan.goal), evidence=_evidence_block(own))

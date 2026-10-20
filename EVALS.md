@@ -333,7 +333,40 @@ Read against its chunks: claims mostly exact; problems found: citation drift bet
 model-written summary, flags placed on the next sentence, errors copied from a source (IBM: "encoder-decoder ... BERT"),
 and thin coverage of "which datasets" (only CCPairs). Fixes: see DECISIONS "Report checks tightened".
 
-## v3 Tests B and C: harness ready, not run (2026-10-19)
-`scripts/exp_context.py`: fixed graded passage pool for 4 questions (11/12/7/14 passages scored 2+), shuffled positions,
-exact token counts from Ollama, 32k window; C varies passages per section 4/8/12/16/24, B neighbour expansion on/off,
-`think` repeats the best size with thinking. The pool must be rebuilt first (library re-chunked after it was built).
+## v3 Tests B and C: how much can the model use per section? (2026-10-20)
+
+`scripts/exp_context.py`, raw rows `evals/v3/exp_context.jsonl`. Fixed graded pool for 4 questions (2 embeddings, 2 tool
+calling; 11/12/7/14 passages scored 2+, filled with score-1 above that), positions shuffled with a fixed seed, exact token
+counts from Ollama, 32k window, qwen3.5:4b, GPU at 50 W (times are slow-machine times). 24 passages was skipped: no question
+had 24 usable passages. Drift / unsupported are shares of cited sentences.
+
+**Test C: passages per section** (8 writes per row: 4 questions x 2 repeats)
+
+| Passages | Input tokens | Passages cited | Use first / middle / last third | Cited sentences | Drift | Unsupported | Words | Seconds |
+|---|---|---|---|---|---|---|---|---|
+| 4 | 1.9k | 97% | 1.00 / 1.00 / 0.94 | 8.4 | 1.5% | 3.0% | 252 | 8 |
+| 8 | 3.1k | 80% | 0.94 / 0.88 / 0.63 | 8.1 | 0% | 1.5% | 264 | 9 |
+| 12 | 4.4k | 54% | 0.75 / 0.41 / 0.47 | 8.6 | 0% | 0% | 280 | 9 |
+| 16 | 5.4k | 45% | 0.60 / 0.53 / 0.25 | 9.0 | 4.2% | 0% | 273 | 10 |
+
+Accuracy holds at every size (up to ~5k tokens of sources). Use saturates at ~8: a 150-300-word section carries ~8-9 cited
+sentences, so more passages are dropped, and the late ones most (last third 25% at 16). Decision: 8 per section, best first.
+
+**Test B: neighbour expansion** (6 chosen chunks; expanded = each with its neighbours, touching chunks merged)
+
+| | Input chars | Passages cited | Cited sentences | Drift | Unsupported | Words |
+|---|---|---|---|---|---|---|
+| plain | 7.5k | 77% | 9.8 | 1.3% | 0% | 318 |
+| expanded | 14k | 79% | 7.9 | 3.2% | 0% | 248 |
+
+Twice the input, no gain. Decision: no expansion; citation repair handles drift between neighbouring chunks.
+
+**Thinking when writing** (8 passages; 4 writes with thinking vs the 8 without from Test C)
+
+| | Passages cited | Use first / middle / last | Cited sentences | Uncited / figure flags | Words | Seconds |
+|---|---|---|---|---|---|---|
+| no thinking | 80% | 0.94 / 0.88 / 0.63 | 8.1 | 1.4 / 0.4 | 264 | 9 |
+| thinking | 88% | 0.88 / 0.83 / 0.92 | 11.8 | 0 / 0 | 183 | 92 |
+
+Thinking writes denser, fully cited sections with no position bias, at ~10x the time (~6.8k thinking tokens a section).
+Small sample (4 writes). Left to the user: a "think when writing" setting would add ~1.5 min per section.

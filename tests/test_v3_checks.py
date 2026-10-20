@@ -75,3 +75,17 @@ def test_V3_T06_the_trace_reads_v3_flags_placed_before_the_full_stop():
     rows = desk.report_sentences(md)
     assert [r["flag"] for r in rows] == ["wording", "figure"] and rows[1]["cites"] == ["E8"]
     assert "[cited;" not in rows[0]["text"] and rows[0]["text"].endswith("[E7].")
+
+
+def test_V3_T07_a_section_gets_its_best_8_passages_best_first_and_the_rest_is_recorded():
+    evs = [deep_report.Evidence(id=f"E{i}", claim=f"Doc {i} › s", quote=f"Passage number {i} about embeddings.",
+                                source=f"Doc {i}", heading="", sub_questions=[0], passage=True, score=3 if i in (11, 12) else 2)
+           for i in range(1, 13)]
+    plan = deep_report.Plan(goal="g", title="t", sub_questions=["q"], outline=[{"title": "S", "questions": [0]}])
+    seen = []
+    deep_report.reset_stats()
+    deep_report.write_section(plan.outline[0], plan, evs, lambda p, json_mode=False: seen.append(p) or "Text [E11].")
+    prompt = seen[0]
+    assert prompt.index("[E11]") < prompt.index("[E12]") < prompt.index("[E1]")              # the 3s first, then retrieval order
+    assert "[E6]" in prompt and "[E7]" not in prompt and "[E10]" not in prompt                # 8 given: E11, E12, E1..E6
+    assert deep_report.snapshot_stats()["passages_not_given"] == 4

@@ -1,0 +1,850 @@
+[
+ {
+  "goal": "Embedding models: what they are and the datasets used to train them",
+  "question": "Which datasets are used to train general-purpose text embedding models?",
+  "passages": [
+   {
+    "rank": 1,
+    "score": 3,
+    "chunk_id": 14230,
+    "title": "Bagging-Based Model Merging for Robust General Text Embeddings",
+    "heading": "Bagging-Based Model Merging for Robust General Text Embeddings > 4.1 Training Data",
+    "text": "[Bagging-Based Model Merging for Robust General Text Embeddings > 4.1 Training Data]\nOur training framework utilizes two primary datasets: the specialized Eng-Text-Data and a broader, more comprehensive collection termed General-Full-Data, which encompasses multilingual text retrieval, code retrieval, and additional diverse training sources.\n\nEng-Text-Data. We adopt the extensively curated dataset introduced by Li et al. [30], which integrates multiple publicly available benchmarks across several key tasks:\n\n- Retrieval: ELI5 [13], HotpotQA [63], FEVER [53], MSMARCO passage and document ranking [3], NQ [24], NLI, SQuAD [46], TriviaQA [23], and FiQA [39].\n- Reranking: StackOverFlowDupQuestions [36].\n- Classification: AmazonReviews-Classification [40], Banking77Classification [7], Emotion-Classification [48], MTOPIntentClassification [31], IMDB-Classification [38], ToxicConversationsClassification [1], TweetSentimentExtraction-Classification [57], AmazonCounterfactual-Classification [45].\n- Clustering: Arxiv/Biorxiv/Medrxiv/Reddit/StackExchangeClustering-S2S/P2P, TwentyNewsgroups-Clustering [25].\n- Semantic Text Similarity (STS): STS12 [2], STS22 [9], STSBenchmark [8].\n\nThe original training data provided by BGE-en-ICL [30] includes three datasets-Quora Duplicate Questions [52], SCIDOCS-RR [10], and ArguAna [54]-for which MTEB provides only test or development splits, but no training data. To avoid potential data contamination, we exclude these datasets from Eng-Text-Data. In total, this comprehensive training corpus comprises 31 distinct datasets, encompassing approximately 2M data points."
+   },
+   {
+    "rank": 2,
+    "score": 2,
+    "chunk_id": 14222,
+    "title": "Bagging-Based Model Merging for Robust General Text Embeddings",
+    "heading": "Bagging-Based Model Merging for Robust General Text Embeddings > 2.1 General Text Embedding",
+    "text": "[Bagging-Based Model Merging for Robust General Text Embeddings > 2.1 General Text Embedding]\nGeneral text embedding represents a critical research direction in information retrieval and natural language processing, with diverse applications across web search, question answering, and retrievalaugmented generation. The prevailing approach employs a dualencoder framework, in which queries and documents are encoded independently. The cosine similarity between their embeddings then serves as an estimate of semantic relevance, forming the core methodological principle behind general text embedding.\n\nPLM-based Embedding. During the development of pre-trained language models (PLMs) such as BERT and T5, numerous impactful methods have been proposed to advance the use of text embeddings for general tasks. Notable examples include Contriever [20], E5 [56], BGE [58], SGPT [41], Open Text Embedding [44], and GTE [35]. These models can generally be categorized into two main types: (1) Unsupervised and Weakly-Supervised Contrastive Learning [20, 44]: For example, Contriever [20] generates pseudo-positive pairs by independently cropping two distinct spans from the same document and treating them as semantically equivalent. Open Text Embedding [44] leverages large-scale contrastive pre-training on neighboring text pairs, which are mined from the internet (e.g., adjacent snippets). (2) Multi-Stage and Instruction-Tuned Training [35, 56, 58]: These models typically undergo weakly-supervised contrastive pre-training on large datasets of text pairs collected from diverse web sources (such as citation graphs and Reddit), followed by supervised fine-tuning on labeled datasets."
+   },
+   {
+    "rank": 3,
+    "score": 2,
+    "chunk_id": 13756,
+    "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+    "heading": "Text Embeddings by Weakly-Supervised Contrastive Pre-training > 6 Conclusion",
+    "text": "[Text Embeddings by Weakly-Supervised Contrastive Pre-training > 6 Conclusion]\nIn this work, we train a general-purpose text embedding model E5 from weak supervision signals. We adopt a simple contrastive training framework with in-batch negatives and learn from a large-scale text pair dataset we harvest from heterogeneous data sources across the web. E5 offers strong off-the-shelf performance for a wide range of tasks requiring single-vector text representations such as retrieval, semantic textual similarity, and text matching. When further customized for downstream tasks, E5 achieves superior fine-tuned performance compared to existing embedding models with 40× more parameters on the large, 56-task MTEB benchmark datasets.\n\nTable 8: Comparison of different negative sampling strategies."
+   },
+   {
+    "rank": 4,
+    "score": 3,
+    "chunk_id": 13731,
+    "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+    "heading": "Text Embeddings by Weakly-Supervised Contrastive Pre-training > 3 CCPairs: A Large Collection of Text Pair Dataset",
+    "text": "[Text Embeddings by Weakly-Supervised Contrastive Pre-training > 3 CCPairs: A Large Collection of Text Pair Dataset]\nThe quality and diversity of the data is crucial for training general-purpose text embeddings. In this work, we mine and assemble CCPairs, a large high-quality text pair dataset from web sources which provide diverse training signals transferring well to a wide range of tasks.\n\n[2 https://github.com/UKPLab/sentence-transformers](https://github.com/UKPLab/sentence-transformers)\n\nFigure 1: Overview of our data curation pipeline and model architecture.\n\n<!-- image -->\n\nHarvesting semi-structured data sources Large-scale high-quality datasets like C4 [48] and CCMatrix [51] are vital for the success of language model pre-training and machine translation. For learning text embeddings, existing works either utilize small-scale human-annotated data such as NLI [22] and MS-MARCO [8] or adopt heuristics such as random cropping [28] to obtain large-scale but very noisy supervision signals.\n\nInstead, we curate a text pair dataset CCPairs (Colossal Clean text Pairs) by harvesting heterogeneous semi-structured data sources. Let (q, p) denote a text pair consisting of a query q and a passage p. Here we use \"passage\" to denote word sequences of arbitrary length, which can be a short sentence, a paragraph, or a long document. Our dataset includes (post, comment) pairs from Reddit 3 , (question, upvoted answer) pairs from Stackexchange 4 , (entity name + section title, passage) pairs from English Wikipedia, (title, abstract) and citation pairs from Scientific papers [36], and (title, passage) pairs fromCommon Crawl 5 web pages and various News sources."
+   },
+   {
+    "rank": 5,
+    "score": 1,
+    "chunk_id": 14217,
+    "title": "Bagging-Based Model Merging for Robust General Text Embeddings",
+    "heading": "Bagging-Based Model Merging for Robust General Text Embeddings > 1 Introduction",
+    "text": "[Bagging-Based Model Merging for Robust General Text Embeddings > 1 Introduction]\nText embeddings encode natural language into dense vectors and underpin a wide range of natural language processing (NLP) and information retrieval (IR) applications, including retrieval, reranking, classification, clustering, and semantic textual similarity (STS) [20, 35, 41, 44, 56, 58]. They are also a core component in retrievalaugmented generation (RAG), where embedding quality directly affects the relevance of retrieved evidence and the quality of generated outputs [14, 28]. The rapid progress of general-purpose embedding models has been accelerated by standardized evaluations, such as the Massive Text Embedding Benchmark (MTEB)[12, 42], where models are expected to perform well across diverse task families and domains. A central challenge is generalization: representations should remain effective across both seen and unseen tasks and domains.\n\n[1 Our code and datasets can be found at https://anonymous.4open.science/r/BaggingBased-Model-Merging-3E60/README.md.](https://anonymous.4open.science/r/Bagging-Based-Model-Merging-3E60/README.md)"
+   },
+   {
+    "rank": 6,
+    "score": 0,
+    "chunk_id": 15278,
+    "title": "Choosing an Embedding Model - Pinecone",
+    "heading": "openai embedding function > Embedding via local models > Generating the embeddings",
+    "text": "[openai embedding function > Embedding via local models > Generating the embeddings]\n| Model | Batch size | Time taken | Vector dim | \n|---|---|---|---|\n| embed-english-v3.0 | 128 | 05:32 | 1024 | \n| text-embedding-ada-002 | 128 | 09:07 | 1536 | \n| intfloat/e5-base-v2 | 256 | 03:53 | 768 | "
+   },
+   {
+    "rank": 7,
+    "score": 0,
+    "chunk_id": 13830,
+    "title": "Vec2Vec: A Compact Neural Network Approach for Transforming Text Embeddings with High Fidelity",
+    "heading": "Vec2Vec: A Compact Neural Network Approach for Transforming Text Embeddings with High Fidelity",
+    "text": "[Vec2Vec: A Compact Neural Network Approach for Transforming Text Embeddings with High Fidelity]\nAndrew Kean Gao Stanford University\n\ngaodrew@stanford.edu"
+   },
+   {
+    "rank": 8,
+    "score": 1,
+    "chunk_id": 14267,
+    "title": "Bagging-Based Model Merging for Robust General Text Embeddings",
+    "heading": "Bagging-Based Model Merging for Robust General Text Embeddings > 7 Conclusion and FutureWork",
+    "text": "[Bagging-Based Model Merging for Robust General Text Embeddings > 7 Conclusion and FutureWork]\nFor future work, critical directions include: (1) Our current approach leverages existing model merging methods such as MultiSLERP, and our experiments reveal that the more recent model merging method may not be directly suitable for general text embedding tasks. Therefore, developing new merging methods tailored for general-purpose text embedding remains an important direction for future research. (2) In addition, assessing the effectiveness of our results on downstream applications-including retrieval-augmented generation. Such an evaluation will ensure that robust and generalizable text embeddings can be reliably deployed in evolving NLP environments."
+   },
+   {
+    "rank": 9,
+    "score": 3,
+    "chunk_id": 13727,
+    "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+    "heading": "Text Embeddings by Weakly-Supervised Contrastive Pre-training > 1 Introduction",
+    "text": "[Text Embeddings by Weakly-Supervised Contrastive Pre-training > 1 Introduction]\nIn this work, we learn a high-quality general-purpose text embedding termed E5, EmbEddings from bidirEctional Encoder rEpresentations. E5 aims to provide strong off-the-shelf text embeddings suitable for any tasks requiring single-vector representations in both zero-shot or fine-tuned settings. To achieve this goal, instead of relying on limited labeled data or low-quality synthetic text pairs, we contrastively train E5 embeddings from CCPairs, a curated web-scale text pair dataset containing heterogeneous training signals. We construct the CCPairs dataset by combining various semistructured data sources such as CommunityQA, Common Crawl and Scientific papers, and perform aggressive filtering with a consistency-based filter [15] to improve data quality. We choose a simple contrastive learning recipe using in-batch negatives with a large batch-size to train our model. Extensive experiments on both BEIR and MTEB benchmarks demonstrate the effectiveness of the proposed method. On the BEIR zero-shot retrieval benchmark [53], E5 is the first model to outperform the strong BM25 baseline without using any labeled data. When fine-tuned on labeled datasets, the performance can be further improved. Results on 56 datasets from the recently introduced MTEB benchmark [40] show that our E5base is competitive against GTRxxl and Sentence-T5xxl, which have 40× more parameters.\n\n1 E5: EmbEddings from bidirEctional Encoder rEpresentations"
+   },
+   {
+    "rank": 10,
+    "score": 2,
+    "chunk_id": 15232,
+    "title": "Embeddings in Machine Learning - GeeksforGeeks",
+    "heading": "Important terms used for Embedding > Visualization using t-SNE > Step 2: Load Data and Train Word2Vec Model",
+    "text": "[Important terms used for Embedding > Visualization using t-SNE > Step 2: Load Data and Train Word2Vec Model]\nLoads a sample text dataset and uses it to train a Word2Vec model which creates word vectors.\n\ncorpus = api.load('text8')\nmodel = Word2Vec(corpus)"
+   },
+   {
+    "rank": 11,
+    "score": 2,
+    "chunk_id": 14005,
+    "title": "PhysBERT: A Text Embedding Model for Physics Scientific Literature",
+    "heading": "PhysBERT: A Text Embedding Model for Physics Scientific Literature > I. INTRODUCTION",
+    "text": "[PhysBERT: A Text Embedding Model for Physics Scientific Literature > I. INTRODUCTION]\nGeneral-purpose text embedding models [19], typically trained on a diverse range of internet texts [20], lack the specialized knowledge required to accurately represent the language of specific disciplines. Specialized embedding models have demonstrated significant improvements across various fields in natural science, including chemistry [21], material science [22], and the biomedical domain [23]. However, the domain of physics notably lacks embedding models specifically tailored to its unique semantic characteristics. Consequently, general-purpose embedding models are currently utilized in physics NLP applications due to the absence of specialized alternatives [24-28].\n\nIn this context we introduce PhysBERT, a sentence embedding model specifically designed for the field of physics. Leveraging the BERT [12] architecture, PhysBERT is trained on a curated corpus of physics literature based on 1.2 million physics papers available on arXiv [29], encompassing a wide range of sub-disciplines within the field. To validate the effectiveness of PhysBERT, we create specific datasets and downstream evaluation tasks such as information retrieval, classification, and semantic similarity, all tailored to the physics domain. The combination of comprehensive pre-training and targeted, supervised fine-tuning equips PhysBERT with a deep understanding of physics language, enabling it to significantly outperform general-purpose models on these physics-related NLP tasks. Additionally, we demonstrate that PhysBERT serves as an excellent starting point for fine-tuning in specific physics subdomains, highlighting its adaptability and potential for further specialization."
+   },
+   {
+    "rank": 12,
+    "score": 0,
+    "chunk_id": 14398,
+    "title": "Embedding model integrations - Docs by LangChain",
+    "heading": "Overview > Top integrations > Beyond single-vector dense embeddings > Late-interaction and multi-vector",
+    "text": "[Overview > Top integrations > Beyond single-vector dense embeddings > Late-interaction and multi-vector]\nColBERT-style models produce a vector per token rather than per chunk, then score queries against documents via late interaction. This is typically more accurate than single-vector dense retrieval on complex queries, at the cost of higher storage and more complex indexing. Current open models in this space include`jinaai/jina-colbert-v2`, `answerdotai/answerai-colbert-small-v1`, and newer late-interaction variants such as `lightonai/LateOn`. LangChain’s built-in retrievers target single-vector embeddings; late interaction typically requires a specialist index (Vespa, Qdrant’s multi-vector support, or PyLate)."
+   },
+   {
+    "rank": 13,
+    "score": 0,
+    "chunk_id": 11843,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning",
+    "text": "[Developing an LLM: Building, Training, Finetuning]\nFoundation model Dataset with class labels Classifier Personal assistant Instruction dataset"
+   },
+   {
+    "rank": 14,
+    "score": 1,
+    "chunk_id": 15240,
+    "title": "What is Text Embedding? - GeeksforGeeks",
+    "heading": "Types of Text Embeddings > **1. Word Embeddings** > **2. Sentence Embeddings**",
+    "text": "[Types of Text Embeddings > **1. Word Embeddings** > **2. Sentence Embeddings**]\n**2. Sentence Embeddings**\n\n- **Doc2Vec** : An extension of Word2Vec that generates vector representations for entire documents, rather than individual words.\n\n- **Universal Sentence Encoder (USE)** : This model generates fixed-length sentence embeddings and is used in a variety of NLP tasks, such as semantic textual similarity.\n\n- **Sentence-BERT (SBERT)** : A modification of BERT (Bidirectional Encoder Representations from Transformers) designed specifically for generating sentence embeddings. It allows for better semantic search and sentence similarity tasks."
+   },
+   {
+    "rank": 15,
+    "score": 1,
+    "chunk_id": 13543,
+    "title": "Multi-Task Label Embedding for Text Classification",
+    "heading": "Multi-Task Label Embedding for Text Classification > Introduction",
+    "text": "[Multi-Task Label Embedding for Text Classification > Introduction]\nText classification is a common Natural Language Processing task that tries to infer the most appropriate label for a given sentence or document, for example, sentiment analysis, topic classification and so on. With the developments and prosperities of Deep Learning (Bengio, Courville, and Vincent 2013), many neural network based models have been exploited by a large body of literature and achieved inspiring performance gains on various text classification tasks. These models are robust at feature engineering and can represent word sequences as fix-length vectors with rich semantic information, which are notably ideal for subsequent NLP tasks.\n\nDue to numerous parameters to train, neural network based models rely heavily on adequate amounts of annotated corpora, which can not always be met as constructions of large-scale high-quality labeled datasets are extremely timeconsuming and labor-intensive. Multi-Task Learning solves this problem by jointly training multiple related tasks and leveraging potential correlations among them to increase corpora size implicitly, extract common features and yield classification improvements. Inspired by (Caruana 1997), there are lots of works dedicated for multi-task learning with neural network based models (Collobert and Weston 2008; Liu et al. 2015b; Liu, Qiu, and Huang 2016a; Liu, Qiu, and Huang 2016b; Zhang et al. 2017). These models usually contain a pre-trained lookup layer that map words into dense, low-dimension and real-value vectors with semantic implications, which is known as Word Embedding (Mikolov et al. 2013b), and utilize some lower layers to capture common features that are further fed to follow-up task-specific layers. However, most existing models have the following three disadvantages:"
+   },
+   {
+    "rank": 16,
+    "score": 1,
+    "chunk_id": 11852,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > Llama 1 was trained on 1.4T tokens",
+    "text": "[Developing an LLM: Building, Training, Finetuning > Llama 1 was trained on 1.4T tokens]\nLLaMA: Open and Efficient Foundation Language Models (2023), https://arxiv.org/abs/2302.13971"
+   },
+   {
+    "rank": 17,
+    "score": 2,
+    "chunk_id": 14597,
+    "title": "Embedding Models: Architecture, Pooling & Selection",
+    "heading": "Embedding Model Architecture and Selection",
+    "text": "[Embedding Model Architecture and Selection]\nThe challenge of creating sentence-level representations from word-level models predates transformers. Early approaches averaged word2vec or GloVe vectors, which worked reasonably well for short texts but failed to capture word order, negation, and compositional meaning. The InferSent model (2017) used BiLSTMs trained on natural language inference data to produce better sentence embeddings. The Universal Sentence Encoder (2018) used transformer architectures but relatively shallow ones. Sentence-BERT (2019) marked a turning point by showing that deep transformer encoders, fine-tuned with siamese networks and contrastive objectives, could produce dramatically better semantic embeddings than any prior approach. Since then, the field has advanced rapidly, with modern models like E5-Mistral and GTE-Qwen2 using billion-parameter LLMs as embedding backbones."
+   },
+   {
+    "rank": 18,
+    "score": 2,
+    "chunk_id": 13725,
+    "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+    "heading": "Text Embeddings by Weakly-Supervised Contrastive Pre-training > Abstract",
+    "text": "[Text Embeddings by Weakly-Supervised Contrastive Pre-training > Abstract]\nThis paper presents E5 1 , a family of state-of-the-art text embeddings that transfer well to a wide range of tasks. The model is trained in a contrastive manner with weak supervision signals from our curated large-scale text pair dataset (called CCPairs). E5 can be readily used as a general-purpose embedding model for any tasks requiring a single-vector representation of texts such as retrieval, clustering, and classification, achieving strong performance in both zero-shot and fine-tuned settings. We conduct extensive evaluations on 56 datasets from the BEIR and MTEB benchmarks. For zero-shot settings, E5 is the first model that outperforms the strong BM25 baseline on the BEIR retrieval benchmark without using any labeled data. When fine-tuned, E5 obtains the best results on the MTEB benchmark, beating existing embedding models with 40× more parameters."
+   },
+   {
+    "rank": 19,
+    "score": 0,
+    "chunk_id": 11879,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > CodeLlama example",
+    "text": "[Developing an LLM: Building, Training, Finetuning > CodeLlama example]\n<!-- image -->\n\nCode Llama: Open Foundation Models for Code, https://arxiv.org/abs/2308.12950"
+   },
+   {
+    "rank": 20,
+    "score": 1,
+    "chunk_id": 14601,
+    "title": "Embedding Models: Architecture, Pooling & Selection",
+    "heading": "Embedding Model Architecture and Selection > From Token Embeddings to Sentence Embeddings",
+    "text": "[Embedding Model Architecture and Selection > From Token Embeddings to Sentence Embeddings]\nThis insight motivated the development of dedicated embedding models: transformer encoders that are fine-tuned with objectives that explicitly shape the geometry of the output space. The contrastive learning techniques from the previous chapter are precisely how this fine-tuning is done. By training the model to push embeddings of semantically similar texts closer together while pulling embeddings of dissimilar texts apart, the fine-tuning process turns a collection of token-level representations into a structured embedding space where distances encode semantic similarity. The pre-trained transformer provides a strong foundation of linguistic knowledge; the contrastive fine-tuning teaches the model how to organize that knowledge into a space that supports retrieval."
+   },
+   {
+    "rank": 21,
+    "score": 1,
+    "chunk_id": 11851,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > The GPT-3 dataset was 499 billion tokens",
+    "text": "[Developing an LLM: Building, Training, Finetuning > The GPT-3 dataset was 499 billion tokens]\nLanguage Models are Few-Shot Learners (2020), https://arxiv.org/abs/2005.14165"
+   },
+   {
+    "rank": 22,
+    "score": 2,
+    "chunk_id": 13117,
+    "title": "TranslateGemma Complete Guide: Benchmarks, Setup & Usage ...",
+    "heading": "TranslateGemma Complete Guide: Benchmarks, Setup & Usage (2026) > Key Highlights",
+    "text": "[TranslateGemma Complete Guide: Benchmarks, Setup & Usage (2026) > Key Highlights]\n- **Efficiency** : The**12B model** outperforms the baseline Gemma 3 27B on the WMT24++ benchmark using MetricX, achieving high quality with fewer parameters.\n- **Foundation** : Built on**Gemma 3** (2B, 4B, 12B, 27B) instruction-tuned base models, retaining multimodal capabilities.\n- **Training** : Trained using a mix of human-translated data and synthetic data generated by Gemini models, followed by a reinforcement learning (RL) phase using an ensemble of reward models (MetricX, Gemma-AutoMQM) to refine quality.\n- **Multimodal Capabilities** : Integrates a**SigLIP (Sigmoid Loss for Language-Image Pre-training)** vision encoder for handling images (resized to 896x896 pixels, tokenized to 256 tokens).\n- **License** : Open under Google's Gemma Terms of Use; requires acceptance on Hugging Face for access.\n- **Official Report** : Detailed in the arXiv technical report**2601.09012** .\n- **Current Release** : As of**January 19, 2026** , models are available on Hugging Face, Kaggle, and Vertex AI."
+   },
+   {
+    "rank": 23,
+    "score": 2,
+    "chunk_id": 14083,
+    "title": "GATE: General Arabic Text Embedding for Enhanced Semantic Textual Similarity with Matryoshka Representation Learning and Hybrid Loss Training",
+    "heading": "GATE: General Arabic Text Embedding for Enhanced Semantic Textual Similarity with Matryoshka Representation Learning and Hybrid Loss Training > 1 Introduction",
+    "text": "[GATE: General Arabic Text Embedding for Enhanced Semantic Textual Similarity with Matryoshka Representation Learning and Hybrid Loss Training > 1 Introduction]\nText embeddings drive advances in clustering, information retrieval, and semantic similarity (Reimers, 2019; Gao et al., 2023; Asai et al., 2023; Gao et al., 2021). These models aim to map textual information into dense, low-dimensional vector representations that preserve nuanced semantic and contextual relationships. At the heart of many highly effective embedding models lies contrastive learning, a paradigm that optimizes the quality of representation by pulling semantically similar (positive) samples closer while pushing dissimilar (negative) samples apart (Gao et al., 2021; He et al., 2020; Radford et al., 2021).\n\nDespite the versatility and success of contrastive learning, most existing text embedding pipelines rely on a two-stage pre-train-fine-tuning process:\n\nweakly supervised large-scale pre-training followed by fine-tuning on high-quality text pairs acquired through data mining or manual annotation (Li et al., 2023; Wang et al., 2022; Xiao et al., 2023). Although effective, this approach often relies on the standard InfoNCE loss with in-batch negative samples (He et al., 2020), achieving robust representations predominantly by using large batch sizes and numerous negative samples. However, InfoNCE alone is not sufficient for all downstream tasks. In particular, sentence-level tasks such as Semantic Textual Similarity (STS) have been shown to benefit less from InfoNCE-based training, indicating a limitation in capturing fine-grained similarity cues (Huang et al., 2024). Likewise, key NLP tasks such as STS and classification have yet to be thoroughly integrated into general embedding training objectives."
+   },
+   {
+    "rank": 24,
+    "score": 1,
+    "chunk_id": 15261,
+    "title": "What is vector embedding? - IBM",
+    "heading": "",
+    "text": "Though image and text data tend to receive the most attention, particularly for generative AI use cases, a wide variety of data modalities can benefit from vector embedding.\n\nTraditional databases are rarely optimized to work the high-dimensional data common to vector embeddings. Vector databases such as IBM® watsonx.data™ are advanced solutions designed for organizing and retrieving data objects in high-dimensional vector space.\n\nA primary benefit of an effective vector database solution is to optimize the efficiency and accuracy of *vector search* operations: finding, sorting and retrieving relevant data and documents by way of the semantic similarity of their respective vector embeddings to those of your search terms.\n\nThis type of similarity search is typically through straightforward nearest-neighbor algorithms that infer connections between data points based on their proximity in high-dimensional vector space.\n\n**Semantic search** Semantic search uses vector embeddings to power searches that transcend simple keyword matching. For example, returning results for “apples” and “oranges” even though the original query was “fruit.” \n\nThis type of semantic search is also used to enable retrieval augmented generation (RAG), a framework used to supplement the knowledge base of LLMs without having to undergo more fine-tuning.\n\nIn RAG, vector search is used to survey external data sources, as in, data sources that were not part of a foundation model’s training data and whose information could thus not be otherwise reflected in the LLM's output, to *retrieve* relevant information, then use that information to *augment* the responses *generated* by the LLM."
+   },
+   {
+    "rank": 25,
+    "score": 1,
+    "chunk_id": 15001,
+    "title": "Embeddings, Representations, and Latent Space Compared",
+    "heading": "",
+    "text": "While all three concepts, embedding vectors, vectors in latent space, and representations, are often used synonymously, we can make slight distinctions:\n\n- representations are encoded versions of the original input;\n- latent vectors are intermediate representations;\n- embedding vectors are representations where similar items are close to each other.\n\n**Embeddings**\n\nEmbedding vectors, or *embeddings* for short, encode relatively high-dimensional data into relatively low-dimensional vectors.\n\nWe can apply embedding methods to create a dense vector from a one-hot encoding. However, we can also use embedding methods for dense data such as images.\n\nTaking it to the extreme, embedding methods can be used to encode data into two-dimensional dense and continuous representations for visualization purposes and clustering analysis.\n\nA fundamental property of embeddings is that they encode *distance* or *similarity*. This means that embeddings capture the semantics of the data such that similar inputs are close in the embeddings space.\n\n**Latent space**\n\n*Latent space* is typically used synonymously with *embedding space* – the space into which embedding vectors are mapped.\n\nSimilar items can appear close in the latent space; however, this is not a strict requirement. More loosely, we can think of the latent space as any feature space that contains the features, often a compressed version of the original input features. These latent space features can be learned by a neural network, for example, an autoencoder that reconstructs input images, as shown in the figure below.\n\n**Representation**"
+   },
+   {
+    "rank": 26,
+    "score": 1,
+    "chunk_id": 14431,
+    "title": "GitHub - yunzeliu/awesome-unified-embedding: A curated list ...",
+    "heading": "",
+    "text": "A curated list of papers, models, datasets, and benchmarks for **unified multi-modal embedding models** — from CLIP to Gemini Embedding 2.\n\n**Last updated**: 2026-04 · **References**: 500+"
+   },
+   {
+    "rank": 27,
+    "score": 1,
+    "chunk_id": 13596,
+    "title": "word representation or word embedding in Persian text",
+    "heading": "Word representation or word embedding in Persian texts > 4.3. Preparation of CBOW vectors",
+    "text": "[Word representation or word embedding in Persian texts > 4.3. Preparation of CBOW vectors]\n| describtion                                                      |   value | parameters     |\n|------------------------------------------------------------------|---------|----------------|\n| Number of training batch                                         |     128 | Batch_size     |\n| Dimensions of word vectors                                       |     128 | Embedding_size |\n| The number of considered words in left and right for target word |       1 | Skip_window    |\n| Number of epoch                                                  |  100000 | Num_step       |"
+   },
+   {
+    "rank": 28,
+    "score": 1,
+    "chunk_id": 12480,
+    "title": "Training Multilingual Pre-trained Language Model with Byte-level Subwords",
+    "heading": "TRAINING MULTILINGUAL PRE-TRAINED LANGUAGE MODELS WITH BYTE-LEVEL SUBWORDS > 2.2 Pre-trained Language Models",
+    "text": "[TRAINING MULTILINGUAL PRE-TRAINED LANGUAGE MODELS WITH BYTE-LEVEL SUBWORDS > 2.2 Pre-trained Language Models]\nThe pre-trained language models [6, 7, 8, 9, 10, 11, 3, 5, 12, 13] utilizes a massive amount of unsupervized text data in the pre-training phase and thus, the deep contextualized representations of words are obtained. In the finetuning phase, the representations could be successfully transferred to a wide range of NLP tasks including Text Classification, Natural Language Inference, Machine Comprehension, etc. The multilingual pre-trained language models [7, 14] works as a universal encoder which applies to many different languages and embedds them into a unified vector space. Compared with the monolingual models, the multilingual models enjoy the sharing of semantic information among different languages (esp., the language-agnostic part) and thus, highly boost the performance on low-resource languages."
+   },
+   {
+    "rank": 29,
+    "score": 0,
+    "chunk_id": 14181,
+    "title": "Beyond ImageNet: Understanding Cross-Dataset Robustness of Lightweight Vision Models",
+    "heading": "Beyond ImageNet: Understanding Cross-Dataset Robustness of Lightweight Vision Models > 1.2 Problem",
+    "text": "[Beyond ImageNet: Understanding Cross-Dataset Robustness of Lightweight Vision Models > 1.2 Problem]\nDespite being specifically designed for resource-limited environments and often targeting simpler vision classification tasks, mobile models are predominantly benchmarked on ImageNet-the de facto standard for measuring accuracy and efficiency [2, 18]. Achieving competitive ImageNet performance, however, often demands models with larger parameter counts and deeper hierarchies, directly contradicting the core design philosophy of compact, deployable architectures [7, 12, 48]. This paradox exposes several key research questions:\n\n- Do Mobile Architectures Generalize or Mainly Specialize? When trained from scratch under identical and limited parameter budgets and optimization constraints, can a mobile architecture maintain consistent performance across diverse datasets and visual domains? Or do dataset-specific tuning and NAS-driven optimizations induce overfitting, limiting its ability to generalize beyond the dataset it was designed for?\n- Is ImageNet a Fair Benchmark for Mobile Models? Are mobile architectures fundamentally suited for training on large-scale datasets such as ImageNet, or do smaller yet diverse datasets provide a more realistic and efficient foundation for benchmarking and evaluation? More broadly, how can we establish a fair and scalable metric that balances accuracy, robustness, and computational efficiency under constrained resources?\n- What Defines Robustness in Mobile Vision Architectures? Which architectural design principles-such as channel expansion, attention mechanisms, or spatial resolution preservation-consistently promote crossdomain robustness within tight parameter and FLOP budgets? And how can these insights guide the next generation of lightweight, general-purpose mobile vision models?"
+   }
+  ]
+ },
+ {
+  "goal": "Embedding models: what they are and the datasets used to train them",
+  "question": "How are text embedding models trained: objectives, negatives and fine-tuning?",
+  "passages": [
+   {
+    "rank": 1,
+    "score": 2,
+    "chunk_id": 14083,
+    "title": "GATE: General Arabic Text Embedding for Enhanced Semantic Textual Similarity with Matryoshka Representation Learning and Hybrid Loss Training",
+    "heading": "GATE: General Arabic Text Embedding for Enhanced Semantic Textual Similarity with Matryoshka Representation Learning and Hybrid Loss Training > 1 Introduction",
+    "text": "[GATE: General Arabic Text Embedding for Enhanced Semantic Textual Similarity with Matryoshka Representation Learning and Hybrid Loss Training > 1 Introduction]\nText embeddings drive advances in clustering, information retrieval, and semantic similarity (Reimers, 2019; Gao et al., 2023; Asai et al., 2023; Gao et al., 2021). These models aim to map textual information into dense, low-dimensional vector representations that preserve nuanced semantic and contextual relationships. At the heart of many highly effective embedding models lies contrastive learning, a paradigm that optimizes the quality of representation by pulling semantically similar (positive) samples closer while pushing dissimilar (negative) samples apart (Gao et al., 2021; He et al., 2020; Radford et al., 2021).\n\nDespite the versatility and success of contrastive learning, most existing text embedding pipelines rely on a two-stage pre-train-fine-tuning process:\n\nweakly supervised large-scale pre-training followed by fine-tuning on high-quality text pairs acquired through data mining or manual annotation (Li et al., 2023; Wang et al., 2022; Xiao et al., 2023). Although effective, this approach often relies on the standard InfoNCE loss with in-batch negative samples (He et al., 2020), achieving robust representations predominantly by using large batch sizes and numerous negative samples. However, InfoNCE alone is not sufficient for all downstream tasks. In particular, sentence-level tasks such as Semantic Textual Similarity (STS) have been shown to benefit less from InfoNCE-based training, indicating a limitation in capturing fine-grained similarity cues (Huang et al., 2024). Likewise, key NLP tasks such as STS and classification have yet to be thoroughly integrated into general embedding training objectives."
+   },
+   {
+    "rank": 2,
+    "score": 2,
+    "chunk_id": 13756,
+    "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+    "heading": "Text Embeddings by Weakly-Supervised Contrastive Pre-training > 6 Conclusion",
+    "text": "[Text Embeddings by Weakly-Supervised Contrastive Pre-training > 6 Conclusion]\nIn this work, we train a general-purpose text embedding model E5 from weak supervision signals. We adopt a simple contrastive training framework with in-batch negatives and learn from a large-scale text pair dataset we harvest from heterogeneous data sources across the web. E5 offers strong off-the-shelf performance for a wide range of tasks requiring single-vector text representations such as retrieval, semantic textual similarity, and text matching. When further customized for downstream tasks, E5 achieves superior fine-tuned performance compared to existing embedding models with 40× more parameters on the large, 56-task MTEB benchmark datasets.\n\nTable 8: Comparison of different negative sampling strategies."
+   },
+   {
+    "rank": 3,
+    "score": 2,
+    "chunk_id": 13738,
+    "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+    "heading": "Text Embeddings by Weakly-Supervised Contrastive Pre-training > 5.1 Pre-training and Fine-tuning Configurations",
+    "text": "[Text Embeddings by Weakly-Supervised Contrastive Pre-training > 5.1 Pre-training and Fine-tuning Configurations]\nPre-training We pre-train on our proposed text pair dataset for three model sizes: E5small, E5base and E5large initialized fromMiniLM [59], bert-base-uncased, and bert-large-uncased-whole-wordmasking respectively. The batch size is set to a large value of 32, 768 to increase the number of negatives. The learning rate is {3, 2, 1}×10-4 for the {small, base, large} models, with linear decay and the first 1, 000 steps for warmup. We pre-train for 20k steps in total with AdamW optimizer, which is approximately 2.5 epochs over the dataset. It takes {16, 32, 64} V100 GPUs and {1, 1, 2} days for the {small, base, large} models. To improve training efficiency and reduce GPU memory usage, we adopt mixed precision training and gradient checkpointing.\n\nFine-tuning is performed on the concatenation of 3 datasets: MS-MARCO passage ranking [8], NQ [32, 30], and NLI [22] datasets. We reuse the mined hard negatives and re-ranker scores from SimLM [58] for the first two datasets. Models are fine-tuned for 3 epochs with batch size 256 on 8 GPUs. Learning rate is {3, 2, 1}×10-5 for the {small, base, large} models with 400 steps warmup. For each example, we use 7 hard negatives. Since the NLI dataset only has 1 hard negative for each example, 6 sentences are randomly sampled from the entire corpus.\n\nWe use E5-PT to denote models with contrastive pre-training only. More implementation details can be found in Appendix B."
+   },
+   {
+    "rank": 4,
+    "score": 2,
+    "chunk_id": 13735,
+    "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+    "heading": "Text Embeddings by Weakly-Supervised Contrastive Pre-training > 4.2 Fine-tuning with Labeled Data",
+    "text": "[Text Embeddings by Weakly-Supervised Contrastive Pre-training > 4.2 Fine-tuning with Labeled Data]\nWhile contrastive pre-training on the CCPairs provides a solid foundation for general-purpose embeddings, further training on labeled data can inject human knowledge into the model to boost the performance. Although these datasets are small, existing works [43, 44] have shown that supervised fine-tuning leads to consistent performance gains. In this paper, we choose to further train with a combination of 3 datasets: NLI 6 (Natural Language Inference), MS-MARCO passage ranking dataset [8], and NQ (Natural Questions) dataset [30, 32]. Empirically, tasks like STS (Semantic Textual Similarity) and linear probing benefit from NLI data, while MS-MARCO and NQ datasets transfer well to retrieval tasks.\n\nBuilding on the practices of training state-of-the-art dense retrievers [50, 58], we use mined hard negatives and knowledge distillation from a cross-encoder (CE) teacher model for the MS-MARCO and NQ datasets. For the NLI dataset, contradiction sentences are regarded as hard negatives. The loss function is a linear interpolation between contrastive loss Lcont for hard labels and KL divergence DKL for distilling soft labels from the teacher model.\n\n<!-- formula-not-decoded -->\n\nWhere pce and pstu are the probabilities from the cross-encoder teacher model and our student model. α is a hyperparameter to balance the two loss functions. Lcont is the same as in Equation 1."
+   },
+   {
+    "rank": 5,
+    "score": 0,
+    "chunk_id": 13830,
+    "title": "Vec2Vec: A Compact Neural Network Approach for Transforming Text Embeddings with High Fidelity",
+    "heading": "Vec2Vec: A Compact Neural Network Approach for Transforming Text Embeddings with High Fidelity",
+    "text": "[Vec2Vec: A Compact Neural Network Approach for Transforming Text Embeddings with High Fidelity]\nAndrew Kean Gao Stanford University\n\ngaodrew@stanford.edu"
+   },
+   {
+    "rank": 6,
+    "score": 2,
+    "chunk_id": 13766,
+    "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+    "heading": "Text Embeddings by Weakly-Supervised Contrastive Pre-training > C Negative Results",
+    "text": "[Text Embeddings by Weakly-Supervised Contrastive Pre-training > C Negative Results]\nHere are some attempts that we eventually give up on:\n\nAdding BM25 hard negatives Similar to DPR [30], we add one BM25 hard negative for each positive pair during training. When using 15M data, this strategy improves the overall results by ∼ 0.5 points on the BEIR benchmark. However, running the BM25 algorithm over a 250M+ dataset is too time-consuming even with multi-node and multi-process parallelism.\n\nUsing RoBERTa instead of BERT for initialization Though RoBERTa shows consistent gains on many NLP tasks, we empirically find that RoBERTa performs worse than BERT initialization on most of the BEIR benchmark datasets.\n\nAuxiliary MLM objective We add a masked language modeling loss for 25% of the training text pairs. The numbers are on par with removing this auxiliary objective, but the training cost goes up.\n\nTable 13: Results for each dataset in the MTEB benchmark [40]. The numbers for the Retrieval category are not included here since the datasets are the same as the BEIR benchmark."
+   },
+   {
+    "rank": 7,
+    "score": 1,
+    "chunk_id": 14215,
+    "title": "Bagging-Based Model Merging for Robust General Text Embeddings",
+    "heading": "Bagging-Based Model Merging for Robust General Text Embeddings > Keywords",
+    "text": "[Bagging-Based Model Merging for Robust General Text Embeddings > Keywords]\nGeneral Text Embedding, Model Merging, Ensemble Learning"
+   },
+   {
+    "rank": 8,
+    "score": 2,
+    "chunk_id": 14601,
+    "title": "Embedding Models: Architecture, Pooling & Selection",
+    "heading": "Embedding Model Architecture and Selection > From Token Embeddings to Sentence Embeddings",
+    "text": "[Embedding Model Architecture and Selection > From Token Embeddings to Sentence Embeddings]\nThis insight motivated the development of dedicated embedding models: transformer encoders that are fine-tuned with objectives that explicitly shape the geometry of the output space. The contrastive learning techniques from the previous chapter are precisely how this fine-tuning is done. By training the model to push embeddings of semantically similar texts closer together while pulling embeddings of dissimilar texts apart, the fine-tuning process turns a collection of token-level representations into a structured embedding space where distances encode semantic similarity. The pre-trained transformer provides a strong foundation of linguistic knowledge; the contrastive fine-tuning teaches the model how to organize that knowledge into a space that supports retrieval."
+   },
+   {
+    "rank": 9,
+    "score": 0,
+    "chunk_id": 14264,
+    "title": "Bagging-Based Model Merging for Robust General Text Embeddings",
+    "heading": "Bagging-Based Model Merging for Robust General Text Embeddings > 6.3 Experimental Results",
+    "text": "[Bagging-Based Model Merging for Robust General Text Embeddings > 6.3 Experimental Results]\nnd maintenance of large-scale text embedding models in incremental learning environments."
+   },
+   {
+    "rank": 10,
+    "score": 0,
+    "chunk_id": 12702,
+    "title": "Accelerating Transformer Pre-training with 2:4 Sparsity",
+    "heading": "Accelerating Transformer Pre-training with 2:4 Sparsity",
+    "text": "[Accelerating Transformer Pre-training with 2:4 Sparsity]\nYuezhou Hu 1 Kang Zhao Weiyu Huang 1 Jianfei Chen 1 Jun Zhu 1"
+   },
+   {
+    "rank": 11,
+    "score": 2,
+    "chunk_id": 14657,
+    "title": "Embedding Models: Architecture, Pooling & Selection",
+    "heading": "Ground truth: indices of relevant documents for each query > Summary",
+    "text": "[Ground truth: indices of relevant documents for each query > Summary]\n- \nEmbedding models are transformer encoders fine-tuned with contrastive objectives to produce semantically meaningful sentence and passage vectors. The key challenge they solve is distilling a sequence of token-level hidden states into a single vector that captures the overall meaning of the text. Standard pre-trained models like BERT do not do this well without further fine-tuning.\n- \nPooling strategies determine how token embeddings are compressed into a single vector. Mean pooling is the most common and effective strategy for encoder models, computing a mask-weighted average of all token hidden states. CLS pooling uses only the first token's hidden state, which is effective after proper contrastive fine-tuning. Last token pooling is the natural choice for decoder-based embedding models where causal attention makes the last position the best-informed one. The pooling strategy must match what the model was trained with.\n- \nThe worked example showed that mean pooling is a simple masked average followed by L2 normalization. The entire operation is differentiable, allowing training to shape the hidden states so they aggregate into a useful representation. The normalization step places all embeddings on the unit hypersphere, simplifying cosine similarity to a dot product at retrieval time.\n- \nEmbedding dimensionality involves a trade-off between representational capacity and computational cost. Most production systems use 384 to 1024 dimensions. Matryoshka representation learning enables flexible dimensionality from a single model by training the loss jointly at multiple truncation lengths, forcing the model to pack the most important semantic content into the earliest dimensions.\n- \nModel selection should be guided by retrieval performance on your specific data, language"
+   },
+   {
+    "rank": 12,
+    "score": 1,
+    "chunk_id": 14995,
+    "title": "Ch. 17: Encoder and Decoder Transformers | Sebastian Raschka, PhD",
+    "heading": "",
+    "text": "17-1. As discussed in this chapter, BERT-style encoder models are pretrained using masked language modeling and next-sentence prediction pretraining objectives. How could we adopt such a pretrained model for a classification task (for example, predicting whether a text has a positive or negative sentiment)?\n\n17-2. Can we fine-tune a decoder-only model like GPT for classification?"
+   },
+   {
+    "rank": 13,
+    "score": 1,
+    "chunk_id": 13341,
+    "title": "Cross-lingual language model pretraining (XLM) - GitHub",
+    "heading": "Chinese > transformer parameters",
+    "text": "[Chinese > transformer parameters]\n--emb_dim 1024                           # embeddings / model dimension\n--n_layers 12                            # number of layers\n--n_heads 8                              # number of heads\n--dropout 0.1                            # dropout\n--attention_dropout 0.1                  # attention dropout\n--gelu_activation true                   # GELU instead of ReLU"
+   },
+   {
+    "rank": 14,
+    "score": 1,
+    "chunk_id": 14595,
+    "title": "Embedding Models: Architecture, Pooling & Selection",
+    "heading": "Embedding Model Architecture and Selection",
+    "text": "[Embedding Model Architecture and Selection]\nIn the previous chapters on dense retrieval and contrastive learning, we established *why* we need dense vector representations and *how* models learn to place semantically similar texts near each other in vector space. We explored the mechanics of contrastive loss functions and saw how training pairs can sculpt a continuous geometry of meaning. However, we did not address a necessary question: how does a transformer, which produces a sequence of token-level hidden states, yield a single vector that represents an entire sentence or paragraph? The answer lies in the architecture and design choices of **embedding models**, the specialized systems that convert variable-length text into fixed-dimensional vectors suitable for similarity search.\n\nEmbedding models sit at the heart of every RAG pipeline. The quality of your retrieval, and therefore the quality of your generated answers, depends directly on how well your embedding model captures semantic meaning. A poorly chosen or misconfigured embedding model will return irrelevant chunks no matter how sophisticated the rest of your pipeline is. You could have the most advanced reranker, the most carefully designed prompts, and the most capable generative LLM in the world, but if your retriever returns the wrong passages, none of that sophistication can compensate. The embedding model is the foundation on which everything else stands."
+   },
+   {
+    "rank": 15,
+    "score": 1,
+    "chunk_id": 10837,
+    "title": "Fine-tuning | OpenAI Developers",
+    "heading": "Fine-tuning > Building with Open Models > DevDay — distillation breakout > Fine-tuning best practices",
+    "text": "[Fine-tuning > Building with Open Models > DevDay — distillation breakout > Fine-tuning best practices]\nRecommendations for effective and efficient model fine-tuning."
+   },
+   {
+    "rank": 16,
+    "score": 2,
+    "chunk_id": 12215,
+    "title": "Unsupervised Training for Sentence Transformers - Pinecone",
+    "heading": "Unsupervised Training for Sentence Transformers > Unsupervised Or Not? > Natural Language Inference",
+    "text": "[Unsupervised Training for Sentence Transformers > Unsupervised Or Not? > Natural Language Inference]\nNatural language inference (NLI) is the most common approach to fine-tuning a generic monolingual sentence transformer. It uses optimization functions like softmax loss or multiple negatives ranking to learn how to distinguish between similar and dissimilar sentences [2] [3].\n\nAn NLI dataset contains sentence pairs labeled as either (1) *entailing/inferring* each other, being (2) *neutral* (e.g., they’re not necessarily related), and sometimes (3) *contradictory*.\n\nSome methods like multiple negatives ranking only require positive *entailment* pairs but work better when we add ‘hard negatives’ (contradictory) pairs.\n\nSuppose you have these ‘positive’ pairs of sentences. In that case, a good pretrained transformer can usually be fine-tuned to a reasonable performance with just 20,000 pairs. If you have less than this, you may still be able to successfully fine-tune — it depends on the complexity of your domain and language."
+   },
+   {
+    "rank": 17,
+    "score": 1,
+    "chunk_id": 12739,
+    "title": "Accelerating Transformer Pre-training with 2:4 Sparsity",
+    "heading": "Accelerating Transformer Pre-training with 2:4 Sparsity > 6. Experiments",
+    "text": "[Accelerating Transformer Pre-training with 2:4 Sparsity > 6. Experiments]\n| PARAMS   | METHOD     | EM        | F1        |\n|----------|------------|-----------|-----------|\n| 124M     | DENSE OURS | 67.6 67.5 | 78.8 78.5 |\n| 350M     | DENSE OURS | 73.2 71.9 | 83.6 82.4 |\n| 774M     | DENSE OURS | 74.3 74.3 | 84.9 84.6 |"
+   },
+   {
+    "rank": 18,
+    "score": 1,
+    "chunk_id": 15278,
+    "title": "Choosing an Embedding Model - Pinecone",
+    "heading": "openai embedding function > Embedding via local models > Generating the embeddings",
+    "text": "[openai embedding function > Embedding via local models > Generating the embeddings]\n| Model | Batch size | Time taken | Vector dim | \n|---|---|---|---|\n| embed-english-v3.0 | 128 | 05:32 | 1024 | \n| text-embedding-ada-002 | 128 | 09:07 | 1536 | \n| intfloat/e5-base-v2 | 256 | 03:53 | 768 | "
+   },
+   {
+    "rank": 19,
+    "score": 1,
+    "chunk_id": 10834,
+    "title": "Fine-tuning | OpenAI Developers",
+    "heading": "Fine-tuning > Building with Open Models > DevDay — distillation breakout > Reinforcement fine-tuning overview",
+    "text": "[Fine-tuning > Building with Open Models > DevDay — distillation breakout > Reinforcement fine-tuning overview]\nGuide on reinforcement learning-based fine-tuning techniques."
+   },
+   {
+    "rank": 20,
+    "score": 0,
+    "chunk_id": 15243,
+    "title": "What is Text Embedding? - GeeksforGeeks",
+    "heading": "Types of Text Embeddings > Text Embedding using Sentence Transformer (HuggingFace)",
+    "text": "[Types of Text Embeddings > Text Embedding using Sentence Transformer (HuggingFace)]\nfrom transformers import AutoTokenizer, AutoModel\nimport torch\nimport numpy as np"
+   },
+   {
+    "rank": 21,
+    "score": 0,
+    "chunk_id": 14336,
+    "title": "MolEmb: Multimodal Large Language Models Can Be Strong Molecular Embedding Models",
+    "heading": "MolEmb: Multimodal Large Language Models Can Be Strong Molecular Embedding Models > MolCAR-Natural hard negative (same molecule, wrong task).",
+    "text": "[MolEmb: Multimodal Large Language Models Can Be Strong Molecular Embedding Models > MolCAR-Natural hard negative (same molecule, wrong task).]\nTable 3: MolCAR-Structured results. Base: alignment-pretrained on the Mixed corpus. + Continued Alignment: after continued alignment on MolCAR-Train. Inst: query with task-specific instruction; NoInst: generic query without task specification. ∆ = Inst - NoInst (percentage points). Mol. R@1: correct molecule in top-1. Doc. R@1: correct document (molecule + context) in top-1. Doc. MRR: 100×mean reciprocal rank of the correct document. Doc. R@5: correct document in top-5. Context R@1: correct context ranked first within the same molecule."
+   },
+   {
+    "rank": 22,
+    "score": 2,
+    "chunk_id": 14609,
+    "title": "Embedding Models: Architecture, Pooling & Selection",
+    "heading": "Embedding Model Architecture and Selection > Embedding Model Architectures > Modern Embedding Architectures",
+    "text": "[Embedding Model Architecture and Selection > Embedding Model Architectures > Modern Embedding Architectures]\nRecent embedding models have pushed performance significantly through several complementary innovations. These advances reflect a broader trend in the field: rather than relying on a single breakthrough technique, the best embedding models combine multiple strategies to achieve state-of-the-art results. Understanding these innovations helps you evaluate available embedding models and anticipate where the field is heading.\n\nThe first major innovation is the use of larger and better base models. Early embedding models used BERT-base (110M parameters) or BERT-large (340M parameters) as their backbone. More recent models have moved to much larger encoders or even decoder-based models. Models like E5-Mistral use a decoder-only LLM (Mistral 7B, with 7 billion parameters) as the backbone, applying special pooling to extract embeddings. The intuition here is that larger language models develop richer internal representations of language during pre-training on vastly larger datasets. These richer representations provide a better starting point for embedding fine-tuning, and they can encode more fine-grained semantic distinctions than smaller models."
+   },
+   {
+    "rank": 23,
+    "score": 2,
+    "chunk_id": 15218,
+    "title": "Embeddings in Machine Learning - GeeksforGeeks",
+    "heading": "Important terms used for Embedding > Working > 5. Negative sampling and batching",
+    "text": "[Important terms used for Embedding > Working > 5. Negative sampling and batching]\nGive the model tricky “hard negative” examples, things that seem alike but aren’t so it learns to tell them apart better."
+   },
+   {
+    "rank": 24,
+    "score": 2,
+    "chunk_id": 14872,
+    "title": "Contrastive learning of adverse events to provide effective and interpretable vector representations for machine-assisted pharmacovigilance.",
+    "heading": "Contrastive learning of adverse events to provide effective and interpretable vector representations for machine-assisted pharmacovigilance > Discussion",
+    "text": "[Contrastive learning of adverse events to provide effective and interpretable vector representations for machine-assisted pharmacovigilance > Discussion]\nInstead of relying on AERs for the training data to our drug–event association prediction model, we utilized data where the drug–event pairs are validated to have strong positive associations [42–44]. Although these same three validated datasets were used for the dispersion analysis of related reactions, they presented a fundamentally different objective there, i.e. a heuristic measurement of the interpretable drug-safety-related information. This difference is best showcased by the LLM-derived embeddings achieving relatively comparable results to our contrastive embeddings on the association prediction task (Fig. 7) but orders of magnitude worse gain norm values during dispersion analysis (Supplementary Table S9). Further deviating from this task, we generated additional negative associations for the supervised training of our classifier by randomly recombining the established positive pairs. Here, we also encountered the problem of easy negatives. We observed that the main contributor to the varying performance of the classifier was whether we sampled the other constituent of the negative pair uniformly or proportionally to its occurrence frequency (Fig. 6). Sampling uniformly made it too easy for the model to separate the uniform negatives from the heavily skewed positives, which resulted in high performance metrics during training but low values during testing. Matching the frequency of the constituents created a more balanced dataset and an overall harder training task (as shown by the loss values in Supplementary Table S10), leading to better generalization capabilities. The best performance coincided with the hardest negative sampling approach, where by keeping the reactions and sampling the drugs by their frequency, the distributions of reactions on the positive"
+   },
+   {
+    "rank": 25,
+    "score": 2,
+    "chunk_id": 14008,
+    "title": "PhysBERT: A Text Embedding Model for Physics Scientific Literature",
+    "heading": "PhysBERT: A Text Embedding Model for Physics Scientific Literature > II. TRAINING",
+    "text": "[PhysBERT: A Text Embedding Model for Physics Scientific Literature > II. TRAINING]\nof input tokens are randomly replaced with a [MASK] token. The model's objective is to accurately predict the original words based on the surrounding context, allowing it to learn deep bidirectional text representations by considering both preceding and succeeding words.\n\nThe pre-training phase involves two steps: first, MLM training with a sequence length of 128 tokens, followed by an extension to 512 tokens to capture longer dependencies. When starting from random weights, this incremental approach is more robust and enables faster convergence then starting directly with the full context length of 512. Pre-training is conducted over 10 epochs with a batch size of 8, an MLM probability of 15%, and a learning rate of 1E-4, using Adam [32] as the optimizer.\n\nAs illustrated in Fig. 1, the pre-trained model demonstrates a significantly improved ability to distinguish and group physics-related keywords compared to generalpurpose text embedding models. However, a notable limitation of the BERT network structure is that it does not produce independent sentence1 embeddings, making it difficult to obtain semantically meaningful sentence representations directly from BERT [7]. In response to these limitations, we fine-tune [33] our model using Simple Contrastive Learning of Sentence Embeddings (SimCSE) [34] in the final stage of our training process within the Sentence Transformer [7] framework. SimCSE is an efficient contrastive learning method that enhances the model's ability to produce semantically meaningful sentence representations by minimizing the distance between positive pairs (similar sentences) and maximizing the distance between negative pairs (dissimilar sentences)."
+   }
+  ]
+ },
+ {
+  "goal": "How do small language models (1B-8B) learn reliable tool calling: training data, fine-tuning methods and evaluation",
+  "question": "What training data and fine-tuning methods give small language models reliable tool calling?",
+  "passages": [
+   {
+    "rank": 1,
+    "score": 2,
+    "chunk_id": 12250,
+    "title": "Tool-use reliability, function-calling robustness, and structured ...",
+    "heading": "Tool-Use Reliability for LLM Agents: Function Calling, Structured Outputs, and the Boundary Between Valid JSON and Safe Action > The Benchmark Landscape: What Each Benchmark Measures and Misses > Gorilla and APIBench: API Call Generation at Scale",
+    "text": "[Tool-Use Reliability for LLM Agents: Function Calling, Structured Outputs, and the Boundary Between Valid JSON and Safe Action > The Benchmark Landscape: What Each Benchmark Measures and Misses > Gorilla and APIBench: API Call Generation at Scale]\nGorilla was an early inflection point. Patil et al. connected a fine-tuned LLaMA-based model to large API collections and introduced AST-based evaluation for generated API calls. In the NeurIPS 2024 version, Gorilla’s zero-shot overall accuracy was reported as 59.13 on Torch Hub, 71.68 on HuggingFace, and 83.79 on TensorHub, with hallucination rates of 6.98, 10.95, and 5.40 respectively; with an oracle retriever, TensorHub overall accuracy reached 94.16 and hallucination dropped to 1.89 (Gorilla, NeurIPS 2024). (proceedings.nips.cc) The paper also validated AST matching against human evaluation on 100 sampled generations, with both giving 78% API-call accuracy and 72% end-to-end code executability (Gorilla, NeurIPS 2024). (proceedings.nips.cc)\n\nGorilla’s durable contribution is not that one model beat another. It is that tool-use evaluation needs executable or structurally grounded metrics. Free-form judging is too loose for API boundaries."
+   },
+   {
+    "rank": 2,
+    "score": 1,
+    "chunk_id": 11876,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > Rules of thumb",
+    "text": "[Developing an LLM: Building, Training, Finetuning > Rules of thumb]\nPretraining from scratch Expensive, almost never necessary\n\nContinued pretraining Add new knowledge\n\nFinetuning Special usecase, follow instructions"
+   },
+   {
+    "rank": 3,
+    "score": 2,
+    "chunk_id": 10449,
+    "title": "LLM Agents Already Know When to Call Tools -- Even Without Reasoning",
+    "heading": "LLM Agents Already Know When to Call Tools - Even Without Reasoning > H Additional baseline: Compare PROBE&amp;PREFILL with Supervised Fine-Tuning (SFT)",
+    "text": "[LLM Agents Already Know When to Call Tools - Even Without Reasoning > H Additional baseline: Compare PROBE&amp;PREFILL with Supervised Fine-Tuning (SFT)]\nTo provide a stronger baseline, we compare PROBE&amp;PREFILL against supervised fine-tuning (SFT) that directly modifies model weights to learn tool-call decisions. We note that this comparison is inherently asymmetric: SFT requires full fine-tuning on multiple GPUs for hours, while PROBE&amp;PREFILL trains a linear probe in seconds on CPU with no weight modification.\n\nTraining data collection. We construct SFT training data from the 900 single-hop training tasks using the same binary labels as the probe. For each task, we first evaluate the model without tool access. If the model answers correctly (tool unnecessary, y=0), we use that direct-answer trajectory as the training target. If the model fails (tool necessary, y=1), we run the model with the Default prompt and tools available, collecting the full multi-round trajectory (tool call, tool response, and final answer). This gives the model examples of both when to answer directly and when to call tools.\n\nTraining setup. We perform full-parameter fine-tuning using theHuggingFace Trainer with gradient checkpointing across 4 GPUs. We train for 2 epochs with learning rate 10-5 and mask all nonassistant tokens (system prompt, user messages, tool responses) so the model only learns from its own response tokens at each turn. We evaluate on Qwen3-1.7B, Qwen3-4B-Instruct, and Llama-3.1-8B."
+   },
+   {
+    "rank": 4,
+    "score": 0,
+    "chunk_id": 15283,
+    "title": "Choosing an Embedding Model - Pinecone",
+    "heading": "openai embedding function > Embedding via local models > Performance > Q1: Why should I use Llama 2?",
+    "text": "[openai embedding function > Embedding via local models > Performance > Q1: Why should I use Llama 2?]\n| Ada 002 | Embed v3 | E5 base v2 | \n|---|---|---|\n| ✅ \"These closed product LLMs are heavily fine-tuned to align with human preferences, which greatly enhances their usability and safety. We develop and release Llama 2, a family of pretrained and fine-tuned LLMs, at scales up to 70B parameters. On the series of helpfulness and safety benchmarks we tested, Llama 2 models generally perform better than existing open-source models. They also appear to be on par with some of the closed-source models.\" | ✅ \"These closed product LLMs are heavily fine-tuned to align with human preferences, which greatly enhances their usability and safety. We develop and release Llama 2, a family of pretrained and fine-tuned LLMs, at scales up to 70B parameters. On the series of helpfulness and safety benchmarks we tested, Llama 2 models generally perform better than existing open-source models. They also appear to be on par with some of the closed-source models.\" | ✅ \"These closed product LLMs are heavily fine-tuned to align with human preferences, which greatly enhances their usability and safety. We develop and release Llama 2, a family of pretrained and fine-tuned LLMs, at scales up to 70B parameters. On the series of helpfulness and safety benchmarks we tested, Llama 2 models generally perform better than existing open-source models. They also appear to be on par with some of the closed-source models.\" | "
+   },
+   {
+    "rank": 5,
+    "score": 0,
+    "chunk_id": 11852,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > Llama 1 was trained on 1.4T tokens",
+    "text": "[Developing an LLM: Building, Training, Finetuning > Llama 1 was trained on 1.4T tokens]\nLLaMA: Open and Efficient Foundation Language Models (2023), https://arxiv.org/abs/2302.13971"
+   },
+   {
+    "rank": 6,
+    "score": 0,
+    "chunk_id": 11884,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > Slides",
+    "text": "[Developing an LLM: Building, Training, Finetuning > Slides]\n[🗺 https://sebastianraschka.com/pdf/slides/2024-build-llms.pdf](https://sebastianraschka.com/pdf/slides/2024-build-llms.pdf)"
+   },
+   {
+    "rank": 7,
+    "score": 2,
+    "chunk_id": 12190,
+    "title": "What is fine-tuning? - IBM",
+    "heading": "",
+    "text": "LoRA eschews direct optimization of the matrix of model weights and instead optimizes a matrix of updates to model weights (or *delta weights*), which is inserted into the model. That matrix of weight updates is, in turn, represented as two smaller (i.e., *lower rank*) matrices, greatly reducing the number of parameters to be updated—which, in turn, dramatically speeds up fine-tuning and reduces memory needed to store model updates. The pre-trained model weights themselves remain frozen.\n\nAn added benefit of LoRA is that, since what’s being optimized and stored are not new model weights but rather the difference (or delta) between the original pre-trained weights and fine-tuned weights, different task-specific LoRAs can be “swapped in” as needed to adapt the pre-trained model—whose actual parameters remain unchanged—to a given use case.\n\nA variety of LoRA derivatives has been developed, such as *QLoRA*, which further reduces computational complexity by quantizing the transformer model prior to LoRA.\n\nFine-tuning is an essential part of the LLM development cycle, allowing the raw linguistic capabilities of base foundation models to be adapted for a variety of use cases, from chatbots to coding to other domains both creative and technical."
+   },
+   {
+    "rank": 8,
+    "score": 1,
+    "chunk_id": 11419,
+    "title": "Finetuning LLMs Efficiently with Adapters",
+    "heading": "**Why Finetuning LLMs?** > **Parameter-Efficient Finetuning Methods**",
+    "text": "[**Why Finetuning LLMs?** > **Parameter-Efficient Finetuning Methods**]\nAs discussed in a previous article, many different types of parameter-efficient methods are out there. In an earlier post, I wrote about prompt and prefix tuning. (Although the techniques are somewhat related, you don't need to know or read about prefix tuning before reading this article about adapters.)\n\nIn a nutshell, prompt tuning (different from prompting) appends a tensor to the embedded inputs of a pretrained LLM. The tensor is then tuned to optimize a loss function for the finetuning task and data while all other parameters in the LLM remain frozen. For example, imagine an LLM pretrained on a general dataset to generate texts. Prompt (fine)tuning would entail taking this pretrained LLM, adding prompt tokens to the embedded inputs, and then finetuning the LLM to perform, for example, sentiment classification on a finetuning dataset.\n\nThe main idea behind prompt tuning, and parameter-efficient finetuning methods in general, is to add a small number of new parameters to a pretrained LLM and only finetune the newly added parameters to make the LLM perform better on (a) a target dataset (for example, a domain-specific dataset like medical or legal documents) and (b) a target task (for example, sentiment classification).\n\nIn this article, we are now discussing a related method called *adapters*, which is centered around the idea of adding tunable layers to the various transformer blocks of an LLM, as opposed to only modifying the input prompts."
+   },
+   {
+    "rank": 9,
+    "score": 0,
+    "chunk_id": 10569,
+    "title": "A Framework to Assess and Optimize LLM Tool Calling - arXiv",
+    "heading": "To Call or Not to Call:",
+    "text": "[To Call or Not to Call:]\nA Framework to Assess and Optimize LLM Tool Calling"
+   },
+   {
+    "rank": 10,
+    "score": 1,
+    "chunk_id": 12143,
+    "title": "Fine Tuning Large Language Model (LLM) - GeeksforGeeks",
+    "heading": "How is Fine-Tuning Performed?",
+    "text": "[How is Fine-Tuning Performed?]\n1. **Select Base Model:** Choose a pre-trained model based on our task and compute budget.\n2. **Choose Fine-Tuning Method:** Select the most appropriate method like**I** nstruction Fine-Tuning, Supervised Fine-Tuning, PEFT, LoRA, QLoRA, etc based on the task and dataset.\n3. **Prepare Dataset:** Structure  our data for task-specific training, ensuring the format matches the model's requirements.\n4. **Training:** Use frameworks like TensorFlow, PyTorch or high-level libraries like Transformers to fine-tune the model.\n5. **Evaluate and Iterate:** Test the model, refine it as necessary and re-train to improve performance."
+   },
+   {
+    "rank": 11,
+    "score": 1,
+    "chunk_id": 10552,
+    "title": "Tool Calling Best Practices for LLMs (2026 Guide) | AI/TLDR",
+    "heading": "In plain English",
+    "text": "[In plain English]\nYou already know *what* tool calling is — the model asks your code to run a function and returns the result (see What Is Function Calling?). The harder question is: **how do you build it so the model chooses the right tool, fills in the right arguments, and keeps working when something goes wrong?**\n\nThat is what this article is about. Tool calling reliability lives almost entirely in three places: the JSON schema you give the model, the plain-English description attached to each tool and each parameter, and the error-handling logic in your agent loop. Get those three right and a well-tuned model will pick the right function, supply valid arguments, and recover gracefully when the external call fails."
+   },
+   {
+    "rank": 12,
+    "score": 1,
+    "chunk_id": 11058,
+    "title": "Telugu-learning LLM: Fine-Tuning LLaMA 3 (8B) for Telugu ... - GitHub",
+    "heading": "",
+    "text": "- Telugu Wikisource (classical literature)\n- Public domain poetry collections\n- Traditional Telugu songs and verses\n- Aya Telugu Poems dataset\n- Classical works (Vemana, Sumathi, Bhaskara Satakams)\n\n- Base Model: LLaMA 3 8B\n- Training Approach: Two-stage fine-tuning\n- Hardware Requirements: A100 GPU (80GB) or equivalent\n- Training Framework: Hugging Face Transformers\n\n```\ntraining_args = {\n    \"per_device_train_batch_size\": 2,\n    \"gradient_accumulation_steps\": 8,\n    \"learning_rate\": 2e-5,\n    \"warmup_ratio\": 0.03,\n    \"bf16\": True,\n    \"evaluation_strategy\": \"steps\"\n}\n```\n- Mixed Precision Training (BF16)\n- Gradient Checkpointing\n- LoRA/QLoRA for efficient fine-tuning\n- Distributed Training support\n\n1. Gather general Telugu corpus\n2. Clean and deduplicate data\n3. Collect literary and poetic texts\n4. Prepare validation sets\n\n1. Analyze LLaMA 3 tokenizer\n2. Extend vocabulary for Telugu\n3. Train custom tokenizer if needed\n4. Implement efficient text processing\n\n1. General Telugu language training\n2. Poetry and literature specialization\n3. Continuous evaluation and optimization\n\n1. Perplexity measurements\n2. Generation quality assessment\n3. Poetry style and accuracy validation\n4. Human evaluation\n\n- Python 3.8+\n- PyTorch with CUDA support\n- Transformers library\n- High-performance GPU (A100 recommended)\n\n```\npip install torch transformers datasets accelerate\npip install bitsandbytes  # for 8-bit training\npip install wandb  # for logging\n```\n```\nfrom datasets import load_dataset\ndataset = load_dataset('text', data_files={'train': 'all_telugu_train.txt'})"
+   },
+   {
+    "rank": 13,
+    "score": 2,
+    "chunk_id": 12644,
+    "title": "Paramanu: A Family of Novel Efficient Indic Generative Foundation Language Models",
+    "heading": "PARAMANU: Compact and Competitive Monolingual Language Models for Low-Resource Morphologically Rich Indian Languages > Limitations",
+    "text": "[PARAMANU: Compact and Competitive Monolingual Language Models for Low-Resource Morphologically Rich Indian Languages > Limitations]\nInstruction Tuning and Safety. We instruction-tuned the models using 15,000 machine-translated instructions generated via Google Translate. This may introduce grammatical errors or semantic inconsistencies, as machine translation quality for Indic languages remains below human-level accuracy. No safety mechanisms such as prompt filtering, fact-checking, or toxicity detection were applied. The outputs shown in this paper are raw model responses, without post-processing. As a result, models may generate factually incorrect, biased, or inappropriate content. We emphasize the need for responsible use and future work on safety and alignment.\n\nEvaluation. Evaluation was conducted in a zero-shot setting without task-specific fine-tuning. This limits performance, especially on complex or domain-specific tasks. Benchmarks like MMLU highlight the impact of limited training data and the absence of instruction tuning aligned with task objectives. Future improvements can be expected through more diverse data and supervised finetuning."
+   },
+   {
+    "rank": 14,
+    "score": 1,
+    "chunk_id": 11895,
+    "title": "Ch. 18: Fine-Tuning Transformers | Sebastian Raschka, PhD",
+    "heading": "",
+    "text": "Supervised fine-tuning is a foundational step in training an LLM. An\nadditional, more advanced step is *reinforcement learning with human\nfeedback (RLHF)*, which can be used to further improve the model’s\nalignment with human preferences. For example, ChatGPT and its\npredecessor, InstructGPT, are two popular examples of pretrained LLMs\n(GPT-3) fine-tuned\nusing RLHF.\n\nIn RLHF, a pretrained model is fine-tuned using a combination of\nsupervised learning and reinforcement learning. This approach was\npopularized by the original ChatGPT model, which was in turn based on\nInstructGPT. Human feedback is collected by having humans rank or rate\ndifferent model outputs, providing a reward signal. The collected reward\nlabels can be used to train a reward model that is then used to guide\nthe LLMs’ adaptation to human preferences. The reward model is learned\nvia supervised learning, typically using a pretrained LLM as the base\nmodel, and is then used to adapt the pretrained LLM to human preferences\nvia additional fine-tuning. The training in this additional fine-tuning\nstage uses a flavor of reinforcement learning called *proximal policy\noptimization*.\n\nRLHF uses a reward model instead of training the pretrained model on the human feedback directly because involving humans in the learning process would create a bottleneck since we cannot obtain feedback in realtime.\n\nWhile fine-tuning all layers of a pretrained LLM remains the gold standard for adaption to new target tasks, several efficient alternatives exist for leveraging pretrained transformers. For instance, we can effectively apply LLMsto new tasks while minimizing computational costs and resources by utilizing feature-based methods, in-context learning, or parameter-efficient fine-tuning techniques."
+   },
+   {
+    "rank": 15,
+    "score": 1,
+    "chunk_id": 12147,
+    "title": "Fine Tuning Large Language Model (LLM) - GeeksforGeeks",
+    "heading": "How is Fine-Tuning Performed? > Types of Fine Tuning Methods > **4. Reinforcement Learning with Human Feedback (RLHF)**",
+    "text": "[How is Fine-Tuning Performed? > Types of Fine Tuning Methods > **4. Reinforcement Learning with Human Feedback (RLHF)**]\n- Uses human ratings to teach a model to align outputs with human preferences.\n- Involves three steps: generate outputs, train a reward model from human feedback and optimize model behavior using reinforcement learning (like PPO).\n- Ideal for tasks requiring alignment with human values and nuanced preferences such as generating helpful, safe or ethical content."
+   },
+   {
+    "rank": 16,
+    "score": 0,
+    "chunk_id": 10418,
+    "title": "LLM Agents Already Know When to Call Tools -- Even Without Reasoning",
+    "heading": "LLM Agents Already Know When to Call Tools - Even Without Reasoning > B Detailed single-hop results",
+    "text": "[LLM Agents Already Know When to Call Tools - Even Without Reasoning > B Detailed single-hop results]\nFull single-hop results. Table 8 reports accuracy (%) and total tool calls (TC) for all 6 models across all prompt modes, reasoning settings, and probe thresholds on the 2,250-task single-hop test set.\n\nTable 8: Full single-hop results (2,250 test tasks, mean±std over 3 runs). F/D/N/S/X = Force/Default/Necessary/Sparse/No-tool. τ = probe threshold."
+   },
+   {
+    "rank": 17,
+    "score": 0,
+    "chunk_id": 12508,
+    "title": "Training Multilingual Pre-trained Language Model with Byte-level Subwords",
+    "heading": "TRAINING MULTILINGUAL PRE-TRAINED LANGUAGE MODELS WITH BYTE-LEVEL SUBWORDS > 4.4.1 Comparison between BBPE and BUnigram",
+    "text": "[TRAINING MULTILINGUAL PRE-TRAINED LANGUAGE MODELS WITH BYTE-LEVEL SUBWORDS > 4.4.1 Comparison between BBPE and BUnigram]\nIn this section, we empirically compare two different word segmentation algorithms on the segmentation/tokenization of byte-level text. One is BPE which we adopted in our experiment and the other one is Unigram [22]. The two algorithms are commonly used for word segmentation and are integrated in a renowned tool, namely SentencePiece 10 . Since they both handle byte-level text, we call them BBPE and BUnigram, respectively. It is worth mentioning that BUnigram is space-consuming and could not affort to process all multilingual corpora. Thus, for each of the 11 languages we adopted for the pre-training, we sampled a subset of it and constructed a small version of the pre-training corpora. The result is as shown in Table 3. From the result, we could observe that BBPE consistently ourperforms BUnigram on the seven languages tested.\n\nTable 3: Comparison between BBPE and BUnigram (Based on a Small Version of Data)"
+   },
+   {
+    "rank": 18,
+    "score": 1,
+    "chunk_id": 10819,
+    "title": "Tool Calling Explained: The Core of AI Agents (2026 Guide)",
+    "heading": "2. Handle tool calls - use provider.handle_tool_calls() > Frequently Asked Questions > Can I use Tool Calling with open-source models like Llama 3?",
+    "text": "[2. Handle tool calls - use provider.handle_tool_calls() > Frequently Asked Questions > Can I use Tool Calling with open-source models like Llama 3?]\nYes. Modern open-source models like Llama 3 and Mistral Large have been fine-tuned for tool calling and are compatible with standard formats. However, for complex multi-step orchestration, frontier models like Claude 4.5 Sonnet or GPT-5 still offer higher reliability in adhering to strict JSON schemas compared to smaller local models."
+   },
+   {
+    "rank": 19,
+    "score": 0,
+    "chunk_id": 11871,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > AlpacaEval",
+    "text": "[Developing an LLM: Building, Training, Finetuning > AlpacaEval]\nCompare to response by GPT-4 Preview using a GPT-4 based auto-annotator\n\n<!-- image -->"
+   },
+   {
+    "rank": 20,
+    "score": 1,
+    "chunk_id": 12193,
+    "title": "What is fine-tuning? - IBM",
+    "heading": "",
+    "text": "To better align model outputs with ideal human behavior, especially for conversational use cases like chatbots, SFT may be supplemented with reinforcement learning—more specifically, reinforcement learning from human feedback (RLHF). RLHF, also called *reinforcement learning from human preferences*, helps fine-tune models for qualities that are complex, ill-defined or difficult to specify through discrete examples.\n\nConsider comedy: to teach a model to be “funny” with SFT not only requires the cost and labor of writing (or acquiring) enough jokes to constitute a learnable pattern, but also requires that what a given data scientist thinks is funny aligns with what the user base would find funny. RLHF essentially provides a mathematically crowdsourced alternative: prompt the LLM to generate jokes and have human testers rate their quality. These ratings can be used to train a *reward model* to predict the kinds of jokes that will receive positive feedback, and in turn that reward model can be use to train the LLM through reinforcement learning. \n\nMore practically, RLHF aims to address existential challenges of LLMs, like hallucinations, reflecting societal biases inherent in training data or dealing with rude or adversarial user inputs.\n\nFine-tuning can be used for a wide range of purposes, from customizing to supplementing the model’s core knowledge to extending the model to entirely new tasks and domains.\n\n**Customizing style**: Models can be fine-tuned to reflect a brand’s desired tone, from implementing complex behavioral patterns and idiosyncratic illustration styles to simple modifications like beginning each exchange with a polite salutation.\n\n "
+   },
+   {
+    "rank": 21,
+    "score": 2,
+    "chunk_id": 10414,
+    "title": "LLM Agents Already Know When to Call Tools -- Even Without Reasoning",
+    "heading": "LLM Agents Already Know When to Call Tools - Even Without Reasoning > A.7 Difficulty validation",
+    "text": "[LLM Agents Already Know When to Call Tools - Even Without Reasoning > A.7 Difficulty validation]\n| Model          |   Train (1,080 tasks) - Easy |   Train (1,080 tasks) - Med |   Train (1,080 tasks) - Hard |   Train (1,080 tasks) - Avg |   Test (2,700 tasks) - Easy |   Test (2,700 tasks) - Med |   Test (2,700 tasks) - Hard |   Test (2,700 tasks) - Avg |\n|----------------|------------------------------|-----------------------------|------------------------------|-----------------------------|-----------------------------|----------------------------|-----------------------------|----------------------------|\n| Qwen3-1.7B     |                         34.7 |                        26.1 |                          4.7 |                        21.9 |                        37.0 |                       25.2 |                         6.3 |                       22.9 |\n| Qwen3-4B-Inst. |                         73.6 |                        64.4 |                         21.9 |                        53.3 |                        74.4 |                       61.2 |                        20.4 |                       52.0 |\n| Qwen3-14B      |                         81.1 |                        61.1 |                         17.5 |                        53.2 |                        77.9 |                       58.1 |                        15.2 |                       50.4 |\n| Qwen3-32B      |                         83.3 |                        69.4 |                         20.3 |                        57.7 |                        82.8 |                       69.1 |                        21.3 |                       57.7 |\n| Llama-3.1-8B   |                         69.7 |                        48.6 |                          9.2 |                        42.5 |                        69.8 |                       48.9 |                         9.4 |                       42.7 |\n| Llama-3.3-70B  |                         75.8 |                        65.0 |                         22.2 |                        54.4 |                        74.7 |                       63.7 |                        20.6 |                       53.0 |\n| Average        |                         69.7 |                        55.8 |                         16.0 |                        47.2 |                        69.4 |                       54.4 |                        15.5 |                       46.4 |"
+   },
+   {
+    "rank": 22,
+    "score": 2,
+    "chunk_id": 11480,
+    "title": "LLM Tuning & Dataset Perspectives - Sebastian Raschka, PhD",
+    "heading": "**Articles & Trends** > **Finetuning Task-Specific LLMs for Your Business Needs** > **Making Finetuning More Efficient**",
+    "text": "[**Articles & Trends** > **Finetuning Task-Specific LLMs for Your Business Needs** > **Making Finetuning More Efficient**]\nThe Goat model covered in the section above was finetuned using low-rank adaptation (LoRA) to make the finetuning more parameter-efficient, which allows for finetuning a 7B-parameter LLaMA model using a single 24 Gb GPU. (PS: If you want to use LoRA for finetuning LLaMA, we implement this in our lit-llama open-source repository.)\n\nNow, how about training a 65B (instead of 7B) parameter LLaMA model on a single GPU Related to LoRA, a new method called QLoRA (short for quantized LoRA) was just published a few days ago that allows users to do that.\n\nQLoRA (quantized low-rank adaptation) is the newest entry in the parameter-efficient LLM finetuning category. It reduces the memory requirements of a 65B LLaMA model such that it fits onto a single 48 GB GPU (like an A100). The resulting 65B Guanaco model, from quantized 4-bit training, maintains full 16-bit finetuning task performance, reaching 99.3% of the ChatGPT performance after only 24h of finetuning."
+   },
+   {
+    "rank": 23,
+    "score": 0,
+    "chunk_id": 14426,
+    "title": "Fine-tuning Embeddings for RAG: A Hands-on Walkthrough",
+    "heading": "Compare results",
+    "text": "[Compare results]\nmetrics = [\"context_relevancy\", \"faithfulness\", \"answer_relevancy\", \"context_recall\", \"harmfulness\"]\ncomparison = pd.DataFrame({\n    \"Metric\": metrics,\n    \"Base Model\": [base_result[m] for m in metrics],\n    \"Fine-tuned Model\": [finetune_result[m] for m in metrics],\n    \"Improvement\": [(finetune_result[m] - base_result[m]) / base_result[m] * 100 for m in metrics]\n})\n```\nFine-tuning embedding models for domain-specific RAG represents a high-impact optimization. Based on this walkthrough and current research, here are some best practices:\n\n1. \n**Generate high-quality synthetic data** : Ensure that synthetic questions reflect the types of queries users might actually ask about your domain.\n2. \n**Use specialized loss functions** : MultipleNegativesRankingLoss and MatryoshkaLoss are particularly effective for embedding model fine-tuning.\n3. \n**Test on domain-specific queries** : Evaluate your models on questions that require understanding of domain-specific terminology and concepts.\n4. \n**Consider dimensional efficiency** : Matryoshka embeddings allow for using smaller dimensions (like 128 or 256) without sacrificing much performance, leading to faster retrieval.\n5. \n**Compare against strong baselines** : Always benchmark your fine-tuned model against both the base model and state-of-the-art models like OpenAI's embeddings.\n\nAccording to AWS, \"Domain-specific embeddings can significantly improve the quality of vector representations, leading to more accurate retrieval of relevant context from the vector database\" [9]. This has been confirmed by our experiments and the broader research community.\n\nBy following these practices, you can significantly enhance the retrieval performance of your RAG systems, leading to more accurate and relevant responses."
+   },
+   {
+    "rank": 24,
+    "score": 1,
+    "chunk_id": 11528,
+    "title": "The State of Reinforcement Learning for LLM Reasoning",
+    "heading": "**Understanding reasoning models** > **RLHF basics: where it all started**",
+    "text": "[**Understanding reasoning models** > **RLHF basics: where it all started**]\nFor simplicity, we will look at the RLHF pipeline in three separate steps:\n\n- RLHF Step 1 (prerequisite): Supervised fine-tuning (SFT) of the pre-trained model\n- RLHF Step 2: Creating a reward model\n- RLHF Step 3: Fine-tuning via proximal policy optimization (PPO)\n\nRLHF Step 1, shown below, is a supervised fine-tuning step to create the base model for further RLHF fine-tuning.\n\nIn RLHF step 1, we create or sample prompts (from a database, for example) and ask humans to write good-quality responses. We then use this dataset to fine-tune the pre-trained base model in a supervised fashion. As mentioned before, this is not technically part of RL training but merely a prerequisite.\n\nIn RLHF Step 2, we then use this model from supervised fine-tuning (SFT) to create a reward model, as shown below.\n\nAs depicted in the figure above, for each prompt, we generate four responses from the fine-tuned LLM created in the prior step. Human annotators then rank these responses based on their preferences. Although this ranking process is time-consuming, it might be somewhat less labor-intensive than creating the dataset for supervised fine-tuning. This is because ranking responses is likely simpler than writing them.\n\nUpon compiling a dataset with these rankings, we can design a reward model that outputs a reward score for the optimization subsequent stage in RLHF Step 3. The idea here is that the reward model replaces and automates the labor-intensive human ranking to make the training feasible on large datasets."
+   },
+   {
+    "rank": 25,
+    "score": 1,
+    "chunk_id": 10665,
+    "title": "Beyond Function Calling: Benchmarking Tool-Using Agents under Tool ...",
+    "heading": "Beyond Function Calling: Benchmarking Tool-Using Agents under Tool-Environment Unreliability > ToolBench-X > Benchmark Construction > Task and Tool Construction.",
+    "text": "[Beyond Function Calling: Benchmarking Tool-Using Agents under Tool-Environment Unreliability > ToolBench-X > Benchmark Construction > Task and Tool Construction.]\nFor each scenario, A large language model is employed to produce both detailed task specifications and the Python toolset required for task completion. Each tool is accompanied by a natural language description, input schema, executable implementation, and deterministic output behavior. Additionally, we provide a clean result for each task, in which the task can be successfully solved through correct tool selection, parameter specification, execution, and answer synthesis."
+   },
+   {
+    "rank": 26,
+    "score": 2,
+    "chunk_id": 10241,
+    "title": "TinyGSM: achieving >80% on GSM8k with small language models",
+    "heading": "TinyGSM: achieving &gt; 80% on GSM8k with small language models > 1 Introduction",
+    "text": "[TinyGSM: achieving &gt; 80% on GSM8k with small language models > 1 Introduction]\nOne fascinating phenomenon regarding large language models (LLMs) is the emergence of capbilities as both the model and dataset sizes scale up (Wei et al., 2022a; Chan et al., 2022). Among many capabilities, mathematical reasoning is one particular aspect that has received tremendous attention Lewkowycz et al. (2022); Lightman et al. (2023). However, it is unclear to what extend scale is a necessity for mathematical reasoning, and the potential of small language models (SLMs) remains largely under-explored.\n\nIn this work, we push the boundaries of SLMs' math reasoning capabilities. As a first step towards general mathematics, our primary testing ground is grade school math problems, to solve which require both mathematical understanding and language comprehension. The gold-standard benchmark in this regime is GSM8K (Cobbe et al., 2021), a collection of 8.8K grade-school math word problems (with a 7k-1k train-test split) that involve 2 to 11 reasoning steps. GSM8K has been widely regarded to be challenging for LLMs. Even though the questions appear rather simple for humans, there have been few models that achieve &gt; 80%, and they are commonly of prohibitive sizes, e.g. 34B and above (see Table 1)."
+   },
+   {
+    "rank": 27,
+    "score": 1,
+    "chunk_id": 11416,
+    "title": "Finetuning Large Language Models - Sebastian Raschka, PhD",
+    "heading": "evaluate model > Conclusion",
+    "text": "[evaluate model > Conclusion]\nFine-tuning all layers of a pretrained LLM remains the gold standard for adapting to new target tasks, but there are several efficient alternatives for using pretrained transformers. Methods such as feature-based approaches, in-context learning, and parameter-efficient finetuning techniques enable effective application of LLMs to new tasks while minimizing computational costs and resources.\n\nMoreover, reinforcement learning with human feedback (RLHF) serves as an alternative to supervised finetuning, potentially enhancing model performance.\n\n*This magazine is a personal passion project. For those who wish to support me beyond a paid subscription, please consider purchasing a copy of one of my books. If you find them insightful and beneficial, please feel free to recommend them to your friends and colleagues.*\n\n**Your support means a great deal! Thank you!**\n\nThank you! This is an incredible intro to understanding fine tuning. I’m curious though how these different approaches impact model output/performance. 1. What are the a ways that researchers assess output/performance 2. How different is performance between in context v. Indexing v. Retraining etc.\n\nHi Sebastian, I am rediscovering this post after running into some issues with fine tuning. Thanks for the awesome post!\n\nI am particularly interested in your opinions on fine tuning all layers vs fine tuning the last layer (maybe plus gradual unfreezing) for repurposing the pretrained model, e.g., for training reward models."
+   }
+  ]
+ },
+ {
+  "goal": "How do small language models (1B-8B) learn reliable tool calling: training data, fine-tuning methods and evaluation",
+  "question": "How is tool-calling ability of language models evaluated: benchmarks and metrics?",
+  "passages": [
+   {
+    "rank": 1,
+    "score": 2,
+    "chunk_id": 12286,
+    "title": "Tool-use reliability, function-calling robustness, and structured ...",
+    "heading": "Tool-Use Reliability for LLM Agents: Function Calling, Structured Outputs, and the Boundary Between Valid JSON and Safe Action > Evaluation: How to Know Whether an Agent Is Reliable > Layer 2: Tool Selection Evals",
+    "text": "[Tool-Use Reliability for LLM Agents: Function Calling, Structured Outputs, and the Boundary Between Valid JSON and Safe Action > Evaluation: How to Know Whether an Agent Is Reliable > Layer 2: Tool Selection Evals]\nBuild a benchmark of realistic user requests with candidate tools. Include:\n\n- no-tool cases;\n- ambiguous cases;\n- semantically adjacent tools;\n- deprecated tools;\n- read versus write alternatives;\n- staging versus production variants;\n- multi-tool requests;\n- irrelevant distracting tools.\n\nReport top-1 accuracy, abstention accuracy, and confusion matrices by tool family. Tool selection should be evaluated both with the full tool belt and with the router’s shortlisted tools."
+   },
+   {
+    "rank": 2,
+    "score": 2,
+    "chunk_id": 10464,
+    "title": "Beyond Function Calling: Benchmarking Tool-Using Agents under Tool-Environment Unreliability",
+    "heading": "Beyond Function Calling: Benchmarking Tool-Using Agents under Tool-Environment Unreliability > Problem Formulation",
+    "text": "[Beyond Function Calling: Benchmarking Tool-Using Agents under Tool-Environment Unreliability > Problem Formulation]\nSince tool-use tasks are inherently multi-step, even localized perturbations can propagate through subsequent argument generation, evidence aggregation, and final answer synthesis. For a fixed policy π, the key metric is therefore not only its nominal performance V π P0 , but also the degradation V π P0 - V π Ph induced by unreliable tools environment. This is crucial, as it better reflects the model's true capabilities in real-world scenarios.\n\nFurthermore, an environment with unreliable tools is partially observable. The agent cannot directly determine whether a returned field is stale, whether an exception reflects a transient failure, or whether conflicting outputs stem from corrupted sources. As a result, the optimal policy under Ph may differ substantially from that under P0, leading to degraded decision quality when the agent relies on incomplete, inconsistent, or unreliable tool observations. This distinction highlights the limitations of conventional functioncalling benchmark as a measure of reliable tool-agent performance. A model may perform strongly under P0 yet exhibit substantial degradation under Ph, because traditional benchmarks rarely capture the reliability hazards present in tool-environment interactions. Our work addresses this gap by explicitly constructing hazards and evaluating both the resulting performance degradation under Ph and the performance improvements enabled by additional reliability signals. Table 1 shows the comparison of ToolBench-X and other representative tools using benchmarks."
+   },
+   {
+    "rank": 3,
+    "score": 2,
+    "chunk_id": 10426,
+    "title": "LLM Agents Already Know When to Call Tools -- Even Without Reasoning",
+    "heading": "LLM Agents Already Know When to Call Tools - Even Without Reasoning > C Multi-hop evaluation",
+    "text": "[LLM Agents Already Know When to Call Tools - Even Without Reasoning > C Multi-hop evaluation]\n|                    | Qwen3-1.7B - Acc   | Qwen3-1.7B - TC   | Qwen3-4B - Acc   | Qwen3-4B - TC   | Qwen3-14B - Acc   | Qwen3-14B - TC   | Qwen3-32B - Acc   | Qwen3-32B - TC   | Llama-8B - Acc   | Llama-8B - TC   | Llama-70B - Acc   | Llama-70B - TC   |\n|--------------------|--------------------|-------------------|------------------|-----------------|-------------------|------------------|-------------------|------------------|------------------|-----------------|-------------------|------------------|\n| F                  | 28.8±.4            | 1438±23           | 76.1±.7          | 2002±10         | 88.0±.4           | 1787±2           | 89.4±.5           | 1797±20          | 42.4±1.1         | 1288±20         | 77.8±1.6          | 1243±12          |\n| Prompt-only D      | 21.2±.6            | 1180±37           | 82.1±.2          | 1719±14         | 87.5±.8           | 1503±4           | 88.9±.8           | 1634±22          | 40.2±1.7         | 1005±23         | 62.4±.5           | 985±32           |\n| N                  | 23.3±1.0           | 1230±21           | 84.3±.5          | 1390±17         | 87.0±.5           | 1495±10          | 85.4±3.1          | 1586±14          | 40.1±.5          | 1017±20         | 60.9±1.3          | 793±8            |\n| S                  | 41.3±1.2           | 397±16            | 83.6±.6          | 83±4            | 74.4±1.2          | 496±9            | 87.6±.8           | 832±28           | 41.3±1.0         | 595±42          | 67.6±.6           | 347±40           |\n| X                  | 26.7±.9            | 108±4             | 75.9±.5          | 13±2            | 67.4±.9           | 384±8            | 70.1±.5           | 58±10            | 34.3±1.2         | 639±36          | 36.7±2.8          | 385±22           |\n| Reason-then-Act F  | 51.9±.5            | 841±24            | 83.5±.7          | 940±4           | 87.3±1.1          | 1326±9           | 88.6±.7           | 1306±21          | 23.2±.9          | 1±0             | 56.0±1.2          | 0±0              |\n| D                  | 55.7±2.4           | 345±14            | 83.6±.6          | 652±7           | 85.7±.4           | 789±24           | 86.7±1.1          | 1010±21          | 29.3±.9          | 2±1             | 57.0±1.7          | 0±0              |\n| N                  | 56.4±2.0           | 348±23            | 83.9±.5          | 636±6           | 84.4±.8           | 863±26           | 87.1±.5           | 1036±21          | 29.6±.8          | 5±2             | 58.3±.6           | 0±0              |\n| S                  | 60.6±.6            | 175±13            | 81.9±.9          | 253±6           | 76.1±.2           | 404±16           | 82.0±.8           | 565±9            | 37.0±2.7         | 4±4             | 60.6±1.2          | 0±0              |"
+   },
+   {
+    "rank": 4,
+    "score": 2,
+    "chunk_id": 10671,
+    "title": "Beyond Function Calling: Benchmarking Tool-Using Agents under Tool ...",
+    "heading": "Beyond Function Calling: Benchmarking Tool-Using Agents under Tool-Environment Unreliability > Experiments > Experimental Setup",
+    "text": "[Beyond Function Calling: Benchmarking Tool-Using Agents under Tool-Environment Unreliability > Experiments > Experimental Setup]\nWe conduct a comprehensive evaluation on ToolBench-X by benchmarking twelve prominent large language models, covering both proprietary and open-source systems. The complete list of evaluated models is provided in Table 7. We report final-task accuracy as the primary metric. A task is considered correct if the execution state recorded by the backend at task completion matches the ground truth, or if the model’s final response explicitly contains the ground-truth answer."
+   },
+   {
+    "rank": 5,
+    "score": 2,
+    "chunk_id": 10360,
+    "title": "LLM Agents Already Know When to Call Tools -- Even Without Reasoning",
+    "heading": "LLM Agents Already Know When to Call Tools - Even Without Reasoning > A.2 Evaluation framework",
+    "text": "[LLM Agents Already Know When to Call Tools - Even Without Reasoning > A.2 Evaluation framework]\nWHEN2TOOL reports two quantities per model per setting:\n\nAccuracy. Each task has an exact-form expected answer (number, string, or list). The model's final response is extracted from the \\boxed{} output format and compared against the ground truth using a deterministic evaluator that handles numeric tolerance, case-insensitive string matching, and equivalent representations (e.g., different date formats). No LLM-based judging is used.\n\nTotal tool calls. We count the total number of tool calls made across the test set. Combined with the three difficulty levels (easy, medium, hard), this allows users to compare how different models or methods trade off accuracy against tool usage at each difficulty, revealing whether a method reduces calls indiscriminately or adaptively targets unnecessary ones.\n\nReproducibility. All tasks are generated with fixed random seeds. All experiments are run 3 times with different random seeds; we report mean and standard deviation. The benchmark, evaluation code, and all task generators will be released upon acceptance."
+   },
+   {
+    "rank": 6,
+    "score": 2,
+    "chunk_id": 10516,
+    "title": "Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation",
+    "heading": "Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation > 1 Introduction",
+    "text": "[Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation > 1 Introduction]\nHowever, benchmark validity requires more than task coverage and scale. An evaluation must correctly distinguish successful from unsuccessful executions, faithfully capture user intent, and produce reproducible scores under repeated evaluation. Prior work has already shown that tool-use and LLM evaluation can be sensitive to API instability, automatic evaluator design, judge bias, and preference-aggregation artifacts [Guo et al., 2024, Zheng et al., 2023, Dubois et al., 2024, Chiang et al., 2024]. We find that many existing tool-calling benchmarks fail to satisfy these requirements in more fundamental ways. Through a systematic audit of four widely used benchmarks, we identify pervasive evaluation artifacts that are often unrelated to actual tool-use ability. Deterministic benchmarks suffer from brittle state comparisons, exact-match constraints, incorrect ground-truth annotations, trajectory lock-in, and reward formulations that fail to capture task completion. LLM-judge benchmarks exhibit a different failure mode: stochastic rubric generation, judge variance, hallucinated evaluations, and implementation-paper mismatches that introduce substantial score instability."
+   },
+   {
+    "rank": 7,
+    "score": 2,
+    "chunk_id": 10513,
+    "title": "Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation",
+    "heading": "Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation",
+    "text": "[Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation]\nAbstract. Tool-calling benchmarks are increasingly used to rank language-model agents, yet their scores are often treated as ground truth without validating the evaluators themselves. We present a systematic validity and reproducibility audit of four major tool-calling benchmark families: BFCL v4, τ 2 -Bench, LiveMCPBench, and MCP-Atlas. Across 496 expert-reviewed benchmark tasks, we find 92 evaluator-human disagreements, corresponding to an 18.5% misalignment rate. The failures are not isolated annotation mistakes: deterministic benchmarks exhibit brittle state matching, trajectory lock-in, incorrect ground truths, substring-based communication failures, and reward-basis misalignment, while LLMjudge benchmarks exhibit rubric drift, hallucinated completion, answer-only scoring, and substantial run-to-run variance. In LiveMCPBench, 23 repeated evaluations of the same setup produce scores ranging from 57.9% to 76.8%, a spread of 18.9 percentage points, large enough to change leaderboard conclusions. These results show that current toolcalling scores can reflect evaluator artifacts rather than agent capability. We introduce a unified taxonomy of tool-calling evaluation failures, release trace-level audit artifacts and corrected evaluation components, and argue for decomposed metrics that separately measure tool invocation, task completion, and outcome verification. Our findings suggest that progress in tool-using agents requires benchmarks whose evaluators are themselves reproducible, auditable, and aligned with human judgments of task success. We further introduce Tool-Veritas, a configurable benchmark that combines deterministic state verification with optional qualitative judging, and Harness Lab, an open-source system for benchmark execution, trace inspection, repeated"
+   },
+   {
+    "rank": 8,
+    "score": 0,
+    "chunk_id": 11873,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > GPT-4 scoring",
+    "text": "[Developing an LLM: Building, Training, Finetuning > GPT-4 scoring]\n[https://github.com/rasbt/LLMs-from-scratch/blob/main/ch07/03\\_model-evaluation/llm-instruction-eval-openai.ipynb](https://github.com/rasbt/LLMs-from-scratch/blob/main/ch07/03_model-evaluation/llm-instruction-eval-openai.ipynb)"
+   },
+   {
+    "rank": 9,
+    "score": 0,
+    "chunk_id": 11839,
+    "title": "Build a Large Language Model (From Scratch)",
+    "heading": "Study Guide > Related From-Scratch Articles > LLM Evaluation from Scratch",
+    "text": "[Study Guide > Related From-Scratch Articles > LLM Evaluation from Scratch]\nBenchmarks, verifiers, leaderboards, and LLM judges as practical tools for checking model behavior.\n\nRead the article"
+   },
+   {
+    "rank": 10,
+    "score": 1,
+    "chunk_id": 10418,
+    "title": "LLM Agents Already Know When to Call Tools -- Even Without Reasoning",
+    "heading": "LLM Agents Already Know When to Call Tools - Even Without Reasoning > B Detailed single-hop results",
+    "text": "[LLM Agents Already Know When to Call Tools - Even Without Reasoning > B Detailed single-hop results]\nFull single-hop results. Table 8 reports accuracy (%) and total tool calls (TC) for all 6 models across all prompt modes, reasoning settings, and probe thresholds on the 2,250-task single-hop test set.\n\nTable 8: Full single-hop results (2,250 test tasks, mean±std over 3 runs). F/D/N/S/X = Force/Default/Necessary/Sparse/No-tool. τ = probe threshold."
+   },
+   {
+    "rank": 11,
+    "score": 2,
+    "chunk_id": 14047,
+    "title": "POINTS: Improving Your Vision-language Model with Affordable Strategies",
+    "heading": "POINTS: IMPROVING YOUR VISION-LANGUAGE MODEL WITH AFFORDABLE STRATEGIES > 4.1 EVALUATION SETUP",
+    "text": "[POINTS: IMPROVING YOUR VISION-LANGUAGE MODEL WITH AFFORDABLE STRATEGIES > 4.1 EVALUATION SETUP]\nBefore embarking on our exploration, we sought a robust evaluation metric to comprehensively assess the various capabilities of our model. This is where OpenCompass (Contributors, 2023) proves helpful. OpenCompass proposes eight benchmarks to balance the evaluation of a model from different perspectives. These benchmarks include MMBench (Liu et al., 2023c) and MMStar (Chen et al., 2024b) for diagnosing general abilities, MMMU (Yue et al., 2024) for testing STEMrelated abilities, HallusionBench (Liu et al., 2023a) for model hallucination, MathVista (Lu et al., 2023) for math-related abilities, AI2D (Kembhavi et al., 2016) for chart-related abilities, OCRBench (Liu et al., 2023d) for OCR capabilities, and MMVet (Yu et al., 2023b) for subjective evaluation. By averaging the metrics from these benchmarks, OpenCompass derives a score that represents the comprehensive ability of a model. Additionally, it offers a useful tool, VLMEvalKit (Duan et al., 2024), for one-click evaluation. Therefore, unless otherwise specified, we will use these eight benchmarks for our ablation study, with the exception of MMBench, for which we will use the dev-en split."
+   },
+   {
+    "rank": 12,
+    "score": 2,
+    "chunk_id": 11255,
+    "title": "LLM Powered Autonomous Agents | Lil'Log",
+    "heading": "Component Three: Tool Use",
+    "text": "[Component Three: Tool Use]\n**API-Bank** (Li et al. 2023) is a benchmark for evaluating the performance of tool-augmented LLMs. It contains 53 commonly used API tools, a complete tool-augmented LLM workflow, and 264 annotated dialogues that involve 568 API calls. The selection of APIs is quite diverse, including search engines, calculator, calendar queries, smart home control, schedule management, health data management, account authentication workflow and more. Because there are a large number of APIs, LLM first has access to API search engine to find the right API to call and then uses the corresponding documentation to make a call.\n\nIn the API-Bank workflow, LLMs need to make a couple of decisions and at each step we can evaluate how accurate that decision is. Decisions include:\n\n1. Whether an API call is needed.\n2. Identify the right API to call: if not good enough, LLMs need to iteratively modify the API inputs (e.g. deciding search keywords for Search Engine API).\n3. Response based on the API results: the model can choose to refine and call again if results are not satisfied.\n\nThis benchmark evaluates the agent’s tool use capabilities at three levels:\n\n- Level-1 evaluates the ability to *call the API* . Given an API’s description, the model needs to determine whether to call a given API, call it correctly, and respond properly to API returns.\n- Level-2 examines the ability to *retrieve the API* . The model needs to search for possible APIs that may solve the user’s requirement and learn how to use them by reading documentation.\n- Level-3 assesses the ability to *plan API beyond retrieve and call* . Given unclear user requests (e.g. schedule group meetings, book flight/hotel/restaurant for a trip), the model may have to conduct multiple API calls to solve it."
+   },
+   {
+    "rank": 13,
+    "score": 2,
+    "chunk_id": 10518,
+    "title": "Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation",
+    "heading": "Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation > 2 RelatedWork",
+    "text": "[Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation > 2 RelatedWork]\nTool-use and function-calling benchmarks. Early tool-use benchmarks evaluate whether language models can select APIs, fill arguments, and produce valid tool calls, including ToolBench [Xu et al., 2023], ToolAlpaca [Tang et al., 2023], API-Bank [Li et al., 2023a], Gorilla [Patil et al., 2023], ToolLLM [Qin et al., 2023], and BFCL [Patil et al., 2024]. These benchmarks substantially advanced standardized function-calling evaluation, but they often reduce success to syntactic call matching, AST equivalence, or narrow execution checks. As a result, they under-specify whether the agent actually satisfies user intent in realistic multi-turn environments.\n\nInteractive and stateful agent evaluation. Recent benchmarks move beyond isolated tool calls toward stateful interaction, simulated users, and persistent environments, including τ-bench [Yao et al., 2024], τ 2 -bench [Barres et al., 2025], ToolSandbox [Lu et al., 2024], WebArena [Zhou et al., 2023], WorkArena [Drouin et al., 2024], and OSWorld [Xie et al., 2024]. These settings better capture long-horizon tool use, policy following, and environment updates, but their scoring is typically tied to final database hashes, scripted trajectories, or brittle natural-language checks. This makes them vulnerable to false negatives when agents reach valid alternative outcomes and false positives when unchanged state is incorrectly treated as success. MAVEN introduces a verification-centered reasoning scaffold and MAVEN-Bench, an adversarial multi-step math and physics benchmark that exposes substantial cross-benchmark degradation in frontier models and highlights the need for process-aware evaluation of tool-using agents Ghugarkar et al. [2026]."
+   },
+   {
+    "rank": 14,
+    "score": 2,
+    "chunk_id": 11217,
+    "title": "Agents - Chip Huyen",
+    "heading": "Agent Overview > Agent Failure Modes and Evaluation > Planning failures",
+    "text": "[Agent Overview > Agent Failure Modes and Evaluation > Planning failures]\nAn interesting mode of planning failure is caused by errors in reflection. The agent is convinced that it’s accomplished a task when it hasn’t. For example, you ask the agent to assign 50 people to 30 hotel rooms. The agent might assign only 40 people and insist that the task has been accomplished.\n\nTo evaluate an agent for planning failures, one option is to create a planning dataset where each example is a tuple `(task, tool inventory)`. For each task, use the agent to generate a K number of plans. Compute the following metrics:\n\n1. Out of all generated plans, how many are valid?\n2. For a given task, how many plans does the agent have to generate to get a valid plan?\n3. Out of all tool calls, how many are valid?\n4. How often are invalid tools called?\n5. How often are valid tools called with invalid parameters?\n6. How often are valid tools called with incorrect parameter values?\n\nAnalyze the agent’s outputs for patterns. What types of tasks does the agent fail more on? Do you have a hypothesis why? What tools does the model frequently make mistakes with? Some tools might be harder for an agent to use. You can improve an agent’s ability to use a challenging tool by better prompting, more examples, or finetuning. If all fail, you might consider swapping out this tool for something easier to use."
+   },
+   {
+    "rank": 15,
+    "score": 0,
+    "chunk_id": 13022,
+    "title": "Beyond Specialization: Benchmarking LLMs for Transliteration of Indian Languages",
+    "heading": "Beyond Specialization: Benchmarking LLMs for Transliteration of Indian Languages > 2 Methodology",
+    "text": "[Beyond Specialization: Benchmarking LLMs for Transliteration of Indian Languages > 2 Methodology]\nThe process employed in our methodology work comprises input language data, model inference through different transliteration systems (task-specific, general-purpose, fine-tuned), prediction generation, and evaluation based on metrics like Top-1 Accuracy and Character Error Rate (CER), as shown in Figure 1. Each component of Figure 1 is discussed next."
+   },
+   {
+    "rank": 16,
+    "score": 2,
+    "chunk_id": 10824,
+    "title": "How to Evaluate AI Agents From Tool Calls to Task Completion",
+    "heading": "",
+    "text": "*Table 1. Core evaluation metrics, grouped by axis (accuracy, verbosity, cost)*\n\nThe pairings matter: success rate without consistency is a point estimate on a stochastic system (a model that hits 90% then 74% is a worse bet than one holding 84%); tool-call precision without argument accuracy hides slot-filling failures.\n\nStep count is often the axis that varies *most* across models on the same task — four steps versus fifteen — though on suites like Terminal-Bench 2.0 steps-per-turn varies too, so which axis moves most is benchmark-dependent. **Parallel tool calling** cuts step count and latency, but not call count: a one-step turn firing four tools still issued four calls. Roll up in order; don’t average steps and call it a benchmark score.\n\nTwo benchmarks can both claim to test tool calling and produce numbers that aren’t comparable. Three dimensions explain most of the gap:\n\n- **Task complexity** — single-turn with one tool, or multi-turn requiring planning, error recovery, and state management? A single-call benchmark won’t tell you whether a model collapses on step eight of fifteen.\n- **Statefulness** — does the environment update on each action? Stateful benchmarks surface drift, context loss, and corrupted state that static ones miss.\n- **Methodology** — executable verification (did the DB update, did tests pass) is the gold standard. Reference-based evaluation needs an annotated answer set someone must maintain. LLM-as-a-Judge fills the gap where no executable check exists, but treats its scores as provisional until validated against human ratings on a sample."
+   },
+   {
+    "rank": 17,
+    "score": 0,
+    "chunk_id": 10757,
+    "title": "TeluguST-46: A Benchmark Corpus and Comprehensive ...",
+    "heading": "TeluguST-46: A Benchmark Corpus and Comprehensive Evaluation for Telugu-English Speech Translation > 4 Evaluation Metrics",
+    "text": "[TeluguST-46: A Benchmark Corpus and Comprehensive Evaluation for Telugu-English Speech Translation > 4 Evaluation Metrics]\nWe employ six automatic metrics capturing different translation quality aspects. Table 1 provides an overview of these metrics and their computational approaches, highlighting how each metric addresses different dimensions of translation quality assessment."
+   },
+   {
+    "rank": 18,
+    "score": 1,
+    "chunk_id": 14232,
+    "title": "Bagging-Based Model Merging for Robust General Text Embeddings",
+    "heading": "Bagging-Based Model Merging for Robust General Text Embeddings > 4.2 Evaluation Setting",
+    "text": "[Bagging-Based Model Merging for Robust General Text Embeddings > 4.2 Evaluation Setting]\nTo rigorously assess the model's capabilities, we evaluate its performance across a suite of established benchmarks from the Massive Text Embedding Benchmark (MTEB) framework [42].\n\nMTEB (English, v2). This updated English benchmark offers a more realistic assessment of model generalization compared to its predecessor (v1). Its scope includes 41 datasets across 7 task types (i.e., retrieval, classification, clustering, Pair Classification (P-CLS), Reranking, STS, Summarization (Summ.)). MTEB provides two evaluation metrics: Mean (Task) and Mean (Task Type). Mean (Task)\n\nis calculated as the average performance across all tasks within the benchmark. Mean (Task Type) is computed by first averaging the results within each task category and then averaging across all categories.\n\nMTEB (Code, v1). This specialized benchmark focuses on evaluating embedding models in the context of software engineering. It covers code retrieval tasks across a wide array of popular programming languages, structured into 12 datasets.\n\nRTEB (Retrieval Text Embedding Benchmark, Beta). This benchmark focuses on retrieval tasks within high-stakes, specialized domains such as legal, financial, healthcare, multilingual, and code. It includes both open and closed datasets, offering a robust framework for evaluating real-world applicability. We use the open datasets, including 16 datasets, for our evaluation."
+   },
+   {
+    "rank": 19,
+    "score": 2,
+    "chunk_id": 10528,
+    "title": "Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation",
+    "heading": "Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation > 3.8 Tool-Veritas: Deterministic-First Tool-Calling Evaluation",
+    "text": "[Benchmarking the Benchmarks: A Validity Audit of Tool-Calling Evaluation > 3.8 Tool-Veritas: Deterministic-First Tool-Calling Evaluation]\n| Dimension             | BFCL                                               | τ /τ 2                                  | MCP benchmarks                         | Tool-Veritas                                                        |\n|-----------------------|----------------------------------------------------|-----------------------------------------|----------------------------------------|---------------------------------------------------------------------|\n| Primary evalua- tor   | AST and simulator- state matching                  | Database checks and language assertions | LLM trajectory or claim judging        | Deterministic state gates with restricted LLM fall- back            |\n| State verification    | Simulator-state conformity                         | Domain-specific database checks         | Primarily trajectory or claim coverage | Sandbox predicates over observable task outcomes                    |\n| Qualitative scor- ing | Not primary                                        | Natural-language assertions             | LLM-based judging                      | Applied only after required deterministic gates pass                |\n| Recovery              | No separate repair metric in the au- dited setting | Environment dependent                   | Limited explicit re- pair accounting   | Bounded repair window with separate repair out- comes               |\n| Extensibility         | Fixed tasks and schemas                            | Fixed domains                           | Fixed server collec- tions             | Configuration-defined tools, domains, predicates, and MCP endpoints |\n| Trace output          | Benchmark- specific logs                           | Interaction and re- ward logs           | Trajectory and judge logs              | Per-turn action, state, gate, repair, and judge records             |"
+   },
+   {
+    "rank": 20,
+    "score": 1,
+    "chunk_id": 10569,
+    "title": "A Framework to Assess and Optimize LLM Tool Calling - arXiv",
+    "heading": "To Call or Not to Call:",
+    "text": "[To Call or Not to Call:]\nA Framework to Assess and Optimize LLM Tool Calling"
+   },
+   {
+    "rank": 21,
+    "score": 0,
+    "chunk_id": 11871,
+    "title": "build-llms - Sebastian Raschka, PhD",
+    "heading": "Developing an LLM: Building, Training, Finetuning > AlpacaEval",
+    "text": "[Developing an LLM: Building, Training, Finetuning > AlpacaEval]\nCompare to response by GPT-4 Preview using a GPT-4 based auto-annotator\n\n<!-- image -->"
+   },
+   {
+    "rank": 22,
+    "score": 2,
+    "chunk_id": 10562,
+    "title": "Tool Calling Best Practices for LLMs (2026 Guide) | AI/TLDR",
+    "heading": "In plain English > Going deeper",
+    "text": "[In plain English > Going deeper]\nOnce you have reliable single-agent tool calling, the natural next step is multi-agent systems where specialized agents expose their capabilities as tools to an orchestrator. The same schema, naming, and description rules apply — but now your \"tool\" is another LLM rather than a Python function. The Model Context Protocol (MCP) standardises how tools are advertised and invoked across agent boundaries, so toolsets built to MCP specs work across different frameworks without rewiring.\n\nFor evaluation, treat tool-calling accuracy as a first-class metric. Log every tool call (function name, arguments, result, latency) and track: selection accuracy (did the model call the right tool?), argument correctness (were required fields present and valid?), and end-to-end success rate. These signals tell you whether a description change helped or hurt before you ship it to production.\n\n- **Dynamic tool loading** — embed tool descriptions, retrieve the top-K relevant ones per query via cosine similarity, inject only those into the context\n- **Structured output mode** — some APIs (OpenAI, Anthropic) support a strict mode where the model is constrained to emit only valid schema-conforming JSON — eliminates nearly all invocation errors\n- **Plan-then-act** — ask the model to reason about which tools it will need before calling any of them (`tool_choice=\"none\"` in the planning turn), then execute the plan; reduces redundant calls\n- **Tool versioning** — version your tool schemas (`get_order_v2` ) so you can run A/B tests on description or schema changes without breaking existing callers"
+   }
+  ]
+ }
+]
