@@ -1,198 +1,129 @@
-# Case study: a local research assistant that shows its work
+# Case study: a research assistant that shows its work
 
-> **Living document.** Updated at every milestone (progress log at the
-> bottom) and rewritten into its final form at v1.0. Every number links to
-> `EVALS.md`, `BENCHMARKS.md` or a run record; every lesson links to its
-> `DECISIONS.md` or `ERROR_LOG.md` entry. Nothing here is claimed without
-> evidence.
+**Research Desk** · local deep research on one laptop · built Sep-Oct 2026 · [repo](../README.md) ·
+[detailed progress log](PROGRESS_LOG.md)
 
-## TL;DR
+## In 60 seconds
 
-Research Desk (v0.3, released 2026-10-22) is a research assistant that runs
-entirely on one laptop (8 GB GPU, 24 GB RAM, Ollama, no cloud). It builds a
-library you own and writes reports where every sentence cites a source passage
-that opens in one click. On the final test goal it wrote 2,979 words over 5 of
-6 sections in 17 minutes with 93% of sentences passing every code check, and
-said plainly that the sixth had no evidence.
+AI research agents write fluent reports. Read closely, some claims are wrong in a way that is hard to catch: **the quote
+is real, but it is about a different model, size or stage than the sentence claims.** Research Desk was built to make
+that kind of error rare and, when it happens, easy to spot. It runs on one laptop (8 GB GPU, Ollama, one 4B model, no
+cloud) and writes reports in which every sentence cites the passage it came from, checked in code.
 
-The interesting part is not the agent: it is how its failures were found,
-measured and fixed. The biggest one (E-001, section 4) was a fluent report
-whose quotes were all real but whose claims described the wrong model; the fix
-was to remove a pipeline step, not add one. Scope went v1 → v2.2 (more and
-more process) → v3 (back to the core idea, one 4B model, daily use as the
-evaluation).
+The project's turning point was a report that passed all its own checks and was still wrong. The fix was to **remove**
+a pipeline step, not to add checks around it. On the same question, the new version wrote less but stayed on the real
+subject, and said plainly where the evidence ran out.
 
-## 1. The problem
+## The problem
 
-Deep-research agents produce confident, fluent reports. Reading them closely,
-a share of the claims are wrong in ways a quote check does not catch: the
-quote is real, but the claim describes a different model, a different size or
-a different training stage than the source. For a team deciding something
-real, that is worse than no report.
+A team deciding something real needs research it can trust. Two constraints were chosen on purpose:
 
-Constraints chosen on purpose:
-- **Private:** runs locally, no paid APIs, documents never leave the machine.
-- **Ordinary hardware:** RTX 5050 laptop GPU (8 GB), 23.6 GB RAM.
-- **Quality over speed:** a report may take hours; a wrong claim may not pass.
+- **Private:** everything runs locally, no paid APIs, documents never leave the machine.
+- **Ordinary hardware:** a laptop with an 8 GB GPU and 24 GB RAM, so a small model (4B parameters) has to do the work.
 
-Target user: first the builder (daily AI/ML research), then clients who need
-private research over their own documents plus the web.
+## The failure that shaped it
 
-## 2. Timeline
+An earlier version answered *"How to pretrain a 4B model from scratch for Telugu, English and transliteration"* from a
+library of 114 documents. The report read well, every quote was verbatim, and every automatic check passed. Reading it
+against its sources:
 
-| Date | Stage | What happened |
-|---|---|---|
-| 2026-09-29 | Fork | Started from `langchain-ai/local-deep-researcher`; vault-integrated backend, Next.js dashboard, CI |
-| 2026-09-29 → 10-01 | v1 build | Deep research graph: clarify, plan, coverage check, collector, evidence gate, claim labels, run records, Stop; 285 offline tests |
-| 2026-10-01 | Close-out review | Stuck-call hang, power-capped GPU, shared global state, dead-Ollama silent pass found |
-| 2026-10-03 | Report review | **E-001**: claims take the question's subject, not the source's (section 4) |
-| 2026-10-12 | Scope v2 | Narrowed: quality first, one stronger model, structured facts, fact bank, chat later |
-| 2026-10-18 | Scope v2.1 | Collect wide, index everything, read the best, use a few; chat preview early |
-| 2026-10-19 | Scope v2.2 | Measure first: error analysis, simplest baseline, fast dev loop, claim check view |
-| 2026-10-19 | **Scope v3** | Back to the core idea: write from reranked chunks (no fact rewriting), one 4B model, feedback loop from daily use; research primary, chat secondary |
-| 2026-10-19 → 10-20 | M1-M3 | Reports from passages, run trace + feedback, chunk size locked, section budget measured (Tests A-D), reranker, source-quality fixes |
-| 2026-10-22 | **Public release v0.3** | Repo cleaned for strangers: install path, README, setup and user guides, CI on every push; a hidden ignore rule had kept the whole Library page out of git |
+| The report said | The source actually was |
+|---|---|
+| "Optimal hyperparameters for **pretraining** a 4B model from scratch" | a paper about **post-training** (fine-tuning) |
+| "**Pretraining a 4B** model ... 22.63T tokens" | the model card of a **17B** model |
+| A summary sentence combining numbers from four sources, labelled *established* | four different models and setups |
 
-## 3. Architecture
+On a closer count, only **22 of 42** extracted facts kept the right subject.
+
+**Why:** a step rewrote each source passage into a short "fact" phrased in the *question's* terms, so "a 17B model was
+trained on 22.63T tokens" became a fact about pretraining a 4B model. The checks then confirmed the quote existed, never
+that it was about the same thing.
+
+**The fix:** delete the rewriting step. The writer now reads the source passages themselves, each labelled with its
+document title and section, and code checks every sentence: numbers and model names must appear in the passage it
+cites. Same question, same library, new version:
+
+> "...while the Qwen3-32B model showed high accuracy (88.6±.7) with tool calling, this result pertains to a different
+> scale and language context than the proposed 4B multilingual system [E14]."
+
+It finished in 4 minutes instead of hours, supported 2 of 5 sections, gave **no recommendation**, and listed which
+sources to collect. Less impressive, and correct: the library really had no Telugu pretraining sources.
+
+**Lesson:** a check must test meaning, not only form. "Is the quote real?" is not the question; "is it about the same
+thing?" is.
+
+## How it works now
 
 ```
-goal ─► clarify ─► plan (you approve) ─► coverage check ─► collect (you pick) ─► index
-                                                                                  │
-   library: markdown files + SQLite (chunks, BM25/FTS5, vectors) ◄────────────────┘
-                                  │
-   per sub-question:  hybrid retrieve (RRF, top 24) ─► rerank (bge-reranker-v2-m3) ─► best 8
-                                  │
-              write the section from its 8 passages (qwen3.5:4b, every sentence cites [Cn])
-                                  │
-       code checks: numbers / model names in the cited passage, real citations,
-       word coverage, subject and domain ─► flags + citation repair
-                                  │
-   report (summary copied from section sentences) ─► dashboard: sources + feedback ─► desk.sqlite
+goal -> clarifying questions -> plan (you approve) -> collect sources (you pick) -> library
+library: chunks + keyword search + vectors -> reranker -> best 8 passages per sub-question
+write one section per sub-question from its own passages, every sentence cited
+code checks every sentence (numbers, model names, word overlap, domain) -> flags in the report
+you rate passages and flag sentences in the dashboard -> stored with the engine version
 ```
 
-A LangGraph graph (`goal_graph.py`) with three human-in-the-loop pauses (clarify, plan, source review) over a local
-library. Run traces and feedback live in a separate desk database, tied to the engine version. One local LLM
-(`qwen3.5:4b`) plus small embedding and reranker models. Chat (M4) will use the same retrieve → rerank path.
+![A report chapter: each sentence cites a passage, shown in the margin with feedback buttons](images/report-chapter.png)
 
-## 4. The failure that shaped the project (E-001)
+## Results
 
-A v1 report on "should we pretrain a small model or fine-tune one?" contained:
-- "Optimal hyperparameters for **pretraining** a 4B model from scratch",
-  taken from a **post-training** evaluation paper (E7/E8).
-- "**Pretraining a 4B** model … 22.63T tokens", taken from a **17B** model
-  card (E79).
-- A summary sentence stitching numbers from four sources, labelled
-  **established**.
+Final test report (*Local private RAG system design for small teams*, run 01a158a7):
 
-Every quote was verbatim, so every check passed. The root cause: extraction
-phrased facts in the *question's* terms, and the checks tested form (is the
-quote real?) not meaning (is the subject the same?).
+| | |
+|---|---|
+| Time | 17 minutes on the laptop |
+| Sections | 5 of 6 written; the 6th stated as a gap (no source on embedding-model memory use) |
+| Length and sources | 2,979 words from 18 documents (5 papers, 3 official docs, 10 web pages) |
+| Sentences passing the automatic checks | 144 of 155 (93%); 8 had no citation, 3 were flagged for not naming a source's domain |
 
-Fix (v3, M1): remove the paraphrase step. The writer reads the source chunks
-themselves, each labelled with its document title and heading, so the subject
-is in front of it; code checks that every number and model name in a sentence
-appears in the chunk it cites. (v2.2 had planned structured fact fields
-instead: more machinery around the step that caused the error.)
+**What "passing the automatic checks" means:** the sentence cites a real passage, its numbers and model names appear in
+that passage, and enough of its words do. **It is not a human-verified accuracy score:** the checks cannot catch a source
+that is itself wrong, or a conclusion that does not follow from correct facts. In one audited run, 79% of cited sentences
+had at least 70% of their words in the passage they cite, and spot-checked numbers were verbatim.
 
-**Lesson:** a check must test meaning, not only form. (ERROR_LOG E-001)
+What was measured along the way:
 
-## 5. Other lessons, each from a real failure
-
-| Lesson | What happened | Source |
+| Question | Answer | How it was measured |
 |---|---|---|
-| A verifier needs its own positive and negative test | The faithfulness judge rejected everything because of contradictory prompt rules; a full run produced 0 evidence | DECISIONS "The faithfulness judge was broken by my own prompt" |
-| Retrieval failures hide as writing failures | A section kept being wrong after prompt fixes; the retriever never found the right paper. Found by reading retrieved passages, not the report | DECISIONS "Retrieval failures hide as writing failures" |
-| A streaming call never times out | One model call generated ~79k tokens for 1.5 h; the HTTP read timeout resets on every token | DECISIONS "A streaming model call can never time out" |
-| Check the machine before blaming the model | Runs were 5-10× slow: the GPU was capped at 10 W, not a memory problem | DECISIONS "The slowdown was mostly a power-capped GPU" |
-| Dependencies change under you | Search returned nothing, silently: the package had been renamed upstream | DECISIONS "The search backend was silently broken" |
-| Measure model choices on your own prompts | The tutorial's suggested model was not the fastest; the original default was the slowest of seven | BENCHMARKS.md |
+| Does the reranker help? | Clearly offline (right passage in the top 3: 88% to 100%), small and mixed on real runs (32 vs 28, then 25 vs 27 useful passages) | 25-question retrieval set; two audited runs |
+| How many passages can a 4B model use per section? | About 8; beyond that it drops sources, the late ones first | 48 measured section writes |
+| How long can a section be? | About 600 words; past ~800, a quarter of sentences had no source (the model pads) | 48 measured section writes |
+| Is "thinking" worth it? | Yes: clean sentences 77% to 92%, for about 7 extra minutes | same goal run with and without |
+| Memory | 11-12 GB free RAM per run | measured on Windows |
 
-## 6. Key decisions and trade-offs
+**Scope of this evidence:** one user, AI/ML research questions in English, and most numbers come from repeated runs on
+two goals. Other domains and languages are not measured yet.
 
-| Decision | Alternatives rejected | Why |
+## Decisions and trade-offs
+
+| Chose | Over | Because |
 |---|---|---|
-| The model's context bounds a report, not the number of documents | "Read every PDF" | The decision step only ever saw ~24 compressed sentences; compression is where subjects got lost |
-| Collect wide, read the best, keep the rest searchable | Tick ~100 candidates by hand | Doesn't scale to hundreds; unread sources still feed chat and later runs |
-| One mid-size MoE model (candidate `gemma4:26b-a4b`), confirmed by test (v2; replaced in v3 by one 4B model, below) | Max context; several small models | Fits 8 GB GPU + RAM; one model loaded at a time |
-| Measure first: error analysis by stage, raw-passage baseline | Fix by diagnosis | Effort goes where errors are; complexity must beat the simple thing |
-| Rules in code (provenance, labels, gaps) | Trust a bigger model | A bigger model errs less, not never |
-| Write from reranked chunks (v3) | Extract facts, then write from facts | The paraphrase step was where subjects got lost (22/42 right); retrieval was already good (96% recall@6) |
-| One 4B model for plan, write and chat (v3) | Planner/extractor + separate writer | With extraction gone only light jobs remain; no model swapping on a memory-short laptop |
-| Feedback from daily use as the evaluation (v3) | 50-claim labelling sheet, judge calibration | Labels arrive as a side effect of using it; before/after numbers from real use |
+| Write from the source passages | Extract facts first, then write | The rewriting step was where subjects got lost (22 of 42 right) |
+| One 4B model for everything | A planner, an extractor and a writer | Fits an 8 GB GPU with no model swapping; quality held once extraction was gone |
+| Checks in code | A second LLM as judge | Code is predictable; an early LLM judge rejected everything because of its own prompt rules |
+| Fewer, shorter, cited sections | Long reports | Measured: accuracy holds to ~600 words per section, then the model pads |
+| Daily use and feedback as the evaluation | A 50-claim labelling project | The plan had grown to 12 sprints; simplifying got the tool into use |
+| Pinned, tested versions | Always the latest packages | Reproducible setup for people who clone it |
 
-## 7. Measurements
+## Lessons
 
-_Filled from the scoreboard in `EVALS.md` at each gate._
+1. **Test meaning, not form.** A real quote can still support a false sentence.
+2. **When complexity causes errors, remove a step before adding a check.**
+3. **Retrieval failures look like writing failures.** Read what was retrieved before rewriting prompts.
+4. **Check the machine before blaming the model.** A 5-10x slowdown was a power-capped GPU (10 W), not the model.
+5. **Measure your own limits.** The usable context of a 4B model was set by section length and position, not the
+   context window.
+6. **Watch for process outgrowing the product.** The plan grew to 12 sprints before anything new was usable; cutting it
+   back put the tool into daily use.
+7. **"Works on my machine" is literal.** Releasing it, a fresh clone found a page never committed to git, a lock file
+   that had drifted from the real environment, and a Python version that could not install.
 
-| Metric | v2 (facts) | v3.0 hybrid | v3.1 rerank |
-|---|---|---|---|
-| Retrieval recall@1/3/6 (frozen set, 25 questions) | 80/88/96% | 80/88/96% | 88/100/100% (offline) |
-| Useful passages in the writer's top 8 (real run, audit) | — | 28 of 48 | 32 of 48 |
-| Sources rated relevant (your feedback) | — | — | collecting from daily use |
-| Reports/answers rated helpful | — | — | collecting from daily use |
-| Sentences passing every code check | — | 86% (run 1, full test) | 92-96% (thinking on); 93% final report |
-| Words per report (body) | ~4,000 | 1,289-1,632 | 2,893-3,534 (400-600-word sections) |
-| Minutes per report (library only) | hours | 3.8 | 6.2 (no thinking) / 16.5-17 (thinking) |
-| Wrong-subject claims found on reading (same goal) | several | 0 | flagged in code (subject and domain checks) |
+## What's next
 
-The reranker's offline gain is clear; on two real runs it was small and mixed (32 vs 28, then 25 vs 27 useful passages).
-It stays on because it rescues passages hybrid buries (once from rank 18). Sources: EVALS "v3 M3 reranker",
-"v3 full-pipeline test", "v3 end-to-end audit", "v3 final report after all fixes".
+- **Real-use numbers:** source ratings and "was this report useful" from daily use, stored per engine version, to give
+  before/after evidence the automatic checks cannot.
+- **A comparison run:** the same question through the original
+  [local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher) and through Research Desk, side by side.
+- **Chat over the library** (same retrieval and checks).
 
-## 7b. What it can and cannot do (measured limits)
-
-Research Desk runs one small local model (qwen3.5:4b on an 8 GB laptop GPU, no cloud). These limits were measured, not
-assumed (EVALS "v3 Test A" to "v3 final check run"):
-
-| Limit | Measured value | Evidence |
-|---|---|---|
-| Sources per report section | at most 8 passages (~3k tokens), best first | Test C: beyond ~8 the model drops sources, the late ones most |
-| Length per section | 400-600 words | Test D: accurate up to ~600; at 800-1,000 a quarter of sentences carried no source |
-| Report length | ~1,000-3,500 words of cited text (3-6 sections plus summary and recommendations) | final runs: 2,893 and 3,534 words over 6 sections, 90-96% of sentences cited and clean |
-| Longer reports | come from more sections, never longer ones; each needs its own evidence | sections without enough sources are reported as gaps, not padded |
-| Memory | ~11-12 GB of free RAM per run on Windows (Ollama ~8 GB, backend with reranker ~3 GB) | E-022 |
-| Time per report | ~6 min (library only, no thinking) to ~30 min (web collecting + thinking) | RAG goal runs: 6.2 / 16.5 (thinking) / 27.4 min (thinking + collecting) |
-| Chunking | locked: 1,800-char text chunks, 3,000-char tables | Test A |
-
-What the checks do not catch: a source that is itself wrong (an explainer page called BERT "encoder-decoder" and the report
-repeated it), or a conclusion that does not follow from correct facts. Every claim is cited and every passage is one click
-away, so a reader can verify; the user's ratings are the ongoing evaluation. Tested on AI/ML research goals in English by
-one user; other domains and languages are not yet measured.
-
-## 8. What I would do differently
-
-_Collected as we go; finalised at v1.0._
-- Start with error analysis and a simple baseline before adding pipeline stages (adopted late, in v2.2).
-- Build the fast dev loop (saved evidence, mini fixture) before the first multi-hour run.
-- Watch for process outgrowing the product: by v2.2 the plan had 12 sprints and a labelling job before
-  anything new could be used. v3 put daily use first and let feedback be the measurement.
-
-## 9. What's next
-
-Done: M1 research from chunks, M2 source panel + feedback, M3 reranker, public release v0.3.
-Next: daily use and ratings (the before/after numbers above), then M4 chat over the library, then M5 insights page and
-a client demo (private documents plus the web, on the client's machine). Known gaps that bite users are listed in the
-README: no per-source time limit while collecting, shared Stop state between runs (E-004), a stopped Ollama not failing
-loudly (E-005).
-
----
-
-## Progress log
-
-One entry per sprint (v2.2) or milestone (v3): what was built, what the tests showed, what surprised us, links.
-
-| Step | Dates | Built | Tests (auto / manual) | Finding or surprise | Links |
-|---|---|---|---|---|---|
-| — | 2026-10-12 → 10-19 | Scope v2 → v2.2, process docs, build order | 328 offline + 19 dashboard pass | Free RAM stays ~5 GB even after a reboot; blocks the model test | DECISIONS scope entries |
-| 0 | 2026-10-19 | Reviewed + committed the October fixes (plans stay on the goal, fetcher back-off), docs, dashboard snapshot; branch per phase | 🤖 328 pytest, ruff, 19 dashboard, tsc, eslint, secret scan · 🧑 U-01 pass | The review found prompt examples copied from the one test goal (E-010): a prompt fix tuned on the failing case can flatter the eval. Added a held-out goal to Sprint 1 | ERROR_LOG E-008..E-012; commits fb0d896, 4c9b6c2, 5373c9e |
-| 1 (stopped) | 2026-10-19 | Error-analysis tooling (claim parser, labelling workbook, judge calibration, subject eval set, frozen retrieval set); hybrid recall 80/88/96% | 🤖 339 pytest | Preparing the 50-claim labelling made the plan's weight obvious: the user called it too complicated. Revisited the idea → **scope v3** | DECISIONS "Scope v3"; ERROR_LOG E-013 |
-| M1 | 2026-10-19 | Research from passages: no fact extraction, graded passage relevance, 150-300-word sections, subject check in code, one model qwen3.5:4b | 🤖 351 pytest + 4 live runs | Two small-model surprises: thinking mode returned an empty plan (E-014) and a yes/no relevance question rejected nearly everything (E-015); a 0-3 grade fixed it. Same goal as E-001: honest gap report in 229 s instead of a confident wrong one | EVALS "v3 M1"; ERROR_LOG E-014, E-015 |
-| M2 | 2026-10-19 | Run trace + feedback: desk database (one schema, two writers), every step, model call, retrieved chunk (ranks), grade, section input and sentence recorded; rating buttons per source and sentence on the report page | 🤖 358 pytest + 22 dashboard tests, live run through the backend (69 calls, 46 chunks, 44 sentences traced), headless Edge click test | The shared venv had broken the backend since Oct 10 (E-016): only a real end-to-end start finds that | DECISIONS "Run trace and feedback"; ERROR_LOG E-016 |
-| Review + lock | 2026-10-19 | First real report reviewed against its chunks; citation repair, strict tables, copied summary, flag placement; report layout fixed; chunk size measured (Test A) and locked, library re-chunked uniform; harness for Tests B/C | 🤖 369 pytest + 22 dashboard tests; Test A over 6 sizes; headless-browser layout check | Fluent reports hide citation drift: true facts cited to the neighbouring chunk. Word overlap found it (0.08 vs 0.75). Locking the chunk size surfaced two chunker bugs (E-017) | EVALS "v3 Test A", "v3 report review"; DECISIONS; ERROR_LOG E-017, E-018 |
-| Tests B/C | 2026-10-20 | Measured how much source text the 4B model uses per section: accurate up to ~5k tokens, but uses ~8 passages (section length) and drops late ones; neighbour expansion doubled input for no gain. Section budget set to the best 8, best first | 🤖 48 measured section writes + 370 pytest | The limit was not the context window (256k) but the section length and position bias; thinking removed the bias at 10x the time | EVALS "v3 Tests B and C"; DECISIONS "Section budget" |
-| Test D | 2026-10-20 | Measured how long a section can be: accurate up to ~600 words; at 800-1000 a quarter of sentences carry no source. Basis for the stated limits: <= 8 passages and <= ~600 words per section, reports ~1,000-3,000 words | 🤖 48 measured section writes, ~11 min | The 4B model fails by padding with unsourced sentences, not by repeating or drifting | EVALS "v3 Test D" |
-| Full test | 2026-10-20 | Reranker built (CPU cross-encoder, M3) and tested offline (top-3 88% -> 100%); one long report run three ways (hybrid / + reranker / + reranker + thinking when writing) | 🤖 3 full backend runs, offline reranker test, 375 pytest | The reranker lifts buried chunks, but on a small topic the report barely changes; thinking when writing gave the clearest gain (92% clean sentences, +7 min). The weak point of long reports is the plan, not the writing (E-019) | EVALS "v3 M3 reranker", "v3 full-pipeline test" |
-| E2E audit | 2026-10-20 | Full pipeline from cleared RAM/GPU, audited from its trace: health, reranker head-to-head, writer use, claim support, sources, UI | 🤖 1 full run, scripts/audit_run.py, headless browser | 94% of 180 sentences clean; the reranker beat hybrid 32 vs 28 useful passages and rescued 28% of what the writer used; the weak point is now the sources (15 web pages, 1 paper) | EVALS "v3 end-to-end audit" |
-| Source fixes | 2026-10-20 | Papers and AI-engineering docs ranked first, arXiv query fixed (0 -> 4-5 papers per question), domain-specific sources must be named, refined on-subject relevance | 🤖 2 verification runs + audits, 391 pytest | Fixing one weakness exposed the next: a stricter relevance rule cost 3 sections until re-graded; the final report has 5 of 6 sections from 5 papers, 3 docs, 10 web pages | EVALS "v3 final report after all fixes" |
-| Release v0.3 | 2026-10-22 | Public release prep: secrets/personal-data audit of all history (clean; unpushed commits rewritten to drop paths and names), one default model everywhere, reranker deps as an extra, doctor checks reranker + real memory need, CI on every push, Docker removed (it set up v1), README + setup guide + user guide | 🤖 392 pytest, 22 dashboard tests, ruff, tsc, eslint, history secret scan | A `library/` ignore rule had silently kept the Library page and its 7 API routes out of git for weeks: it worked on this machine and would have 404'd on every clone. Only a stranger's-eye review finds that. Then a fresh-clone install failed (uv picked Python 3.14, where `tiktoken` has no wheel; fixed by pinning 3.12) and the first CI run failed (Next's `PageProps` types only exist after a build). Everything worked on the dev machine; each clean start found one more thing. A live run the same morning stalled 17 min on one PDF (no per-source time limit; listed as a known limit) | docs/RELEASE_PLAN.md, docs/SETUP.md, docs/USER_GUIDE.md |
-| Quick start v0.3.2 | 2026-10-22 | Two-command setup for people who clone the repo: `scripts/setup.py` (checks tools, installs the tested versions, pulls models, writes settings, builds the dashboard, runs the setup check; safe to re-run) and `scripts/start.py` (both servers, one Ctrl+C); versions pinned to the daily-use environment | 🤖 403 pytest, 22 dashboard tests, CI; 10 release checks incl. a fresh-clone install, browser check of the new install, re-run, missing-tool messages and a clean stop | The fresh clone found what the dev machine hid: the dashboard never looked in the project's own `.venv` (it relied on the shared one two folders up), and the lock file had drifted from the environment the reports were made in (103 packages). "Works on my machine" was literally true | docs/SETUP.md, README quick start |
+Details: [progress log](PROGRESS_LOG.md) (every stage and measurement) · [EVALS.md](EVALS.md) (raw results) ·
+[DECISIONS.md](DECISIONS.md) · [ERROR_LOG.md](ERROR_LOG.md) (every bug, E-numbers).

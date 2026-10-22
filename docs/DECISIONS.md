@@ -10,7 +10,7 @@ know how the thing was actually built, not just what it does.
 Every model/config decision in this project was made by running the actual
 prompt shape the graph uses against multiple candidates and measuring, not
 by reading a benchmark leaderboard or trusting a library's own claims. Full
-methodology and results in [BENCHMARKS.md](BENCHMARKS.md). The short version:
+methodology and results in [the v1 benchmarks](archive/v1-2026-09-29-to-10-03.md). The short version:
 the tutorial's suggested model wasn't the fastest, the original default model
 was the *slowest* of seven candidates despite being one of the smaller ones,
 and a plausible-sounding risk (small local models can't reliably multi-tool-
@@ -85,7 +85,7 @@ fan-out) wasn't, for one concrete reason: it depends on a model reliably
 emitting *multiple* tool calls in a single turn, which is a materially
 different reliability bar than the single-tool-call structured outputs this
 project already leaned on elsewhere. Rather than assume that would work with
-a local 8B model, it was benchmarked directly (see `BENCHMARKS.md` #3) -
+a local 8B model, it was benchmarked directly (see the v1 benchmarks in `docs/archive/v1-2026-09-29-to-10-03.md`, #3) -
 `llama3.1:8b` handled it perfectly, but two other candidates didn't (one
 under-called, one failed entirely), confirming the risk was real *in
 general* even though it happened not to apply to the model already in use.
@@ -156,7 +156,7 @@ Four local models, one goal: llama3.1:8b was fastest and the best extractor;
 gemma4:e4b wrote the best prose but extracted fewer facts; granite4.1:8b was
 weakest; qwen3:8b was slow and crashed once. Result: a mixed setup (llama
 extracts, gemma writes) that costs about 8% more time for about 21% more text.
-Details in BENCHMARKS.md.
+Details in the v1 benchmarks (`docs/archive/v1-2026-09-29-to-10-03.md`).
 
 ## Things that went wrong in the environment
 - A Windows file lock stopped a `mv`; another process held the PDFs open. Copied,
@@ -226,7 +226,7 @@ practical reading: keep retrieving 6-8 passages per question, which the
 pipeline already does.
 
 ## The web collector is one agent, and we write our own fetching
-(Decided 2026-10-01; design in `docs/web-collector-design.md`; not built yet.)
+(Decided 2026-10-01; design in `docs/design/web-collector.md`; not built yet.)
 
 Deep research could read the library but not *find* web pages. Options weighed: (a) a separate search graph,
 (b) a search-backend component plus a separate fetch component, (c) one collector module.
@@ -344,10 +344,10 @@ compression at each step is where the subject and stitching errors came from. De
 - **Chat with the library** (Phase 2): fast model, cited, coverage statements, refuses general-knowledge answers, hands off to reports.
   Rejected framing: "works without the internet forever" (libraries go stale; freshness is shown instead).
 - **"Any domain"** only via domain packs, proven with a second domain in Phase 4; AI/ML first.
-- **Framework use** (`docs/FRAMEWORK_FIT.md`): Send + subgraph per question, RetryPolicy, CachePolicy, runtime context, Command,
+- **Framework use** (`docs/archive/v2.2-plan-2026-10-19.md`, framework review): Send + subgraph per question, RetryPolicy, CachePolicy, runtime context, Command,
   checkpoint fork for the model test, custom streaming; `create_agent` + middleware for chat; own SQLite for passages and the fact bank;
   SqliteStore for chat memory. Not adopted: Deep Agents for research, bigtool, replacing `knowledge.py`; LangSmith off by default.
-- **Process:** phases with tests first, review, error log and gates (`docs/PROCESS.md`); Phase 1 split into 1a-1d.
+- **Process:** phases with tests first, review, error log and gates (`docs/archive/v2.2-plan-2026-10-19.md`, process); Phase 1 split into 1a-1d.
 
 ## Scope v2.1: collect wide, index everything, chat preview early (2026-10-18)
 Context: the user pointed out that a run may find hundreds of sources but only a few can be used; the rest should go into the
@@ -410,7 +410,7 @@ Context: during Sprint 1 the user said the plan had become too complicated (50-c
   calibration as the evaluation, and gives the case study before/after numbers from real use.
 - **Deep research is primary; chat is secondary** (user). Chat offers research when the library cannot answer, so it does not drift
   into plain RAG.
-- **Process:** milestones M1-M5 instead of sprints; v2.2 plan docs moved to `docs/archive/v2.2/` (nothing deleted). Daily use by the
+- **Process:** milestones M1-M5 instead of sprints; v2.2 plan docs moved to the archive (now merged into `docs/archive/v2.2-plan-2026-10-19.md`; nothing deleted). Daily use by the
   builder starts at M2. Sprint 1 tooling stays; its labelling tasks (U-02, U-P2) are dropped.
 
 ## Thinking when planning: a setting, default off (2026-10-19)

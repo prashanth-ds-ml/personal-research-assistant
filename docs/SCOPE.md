@@ -1,6 +1,6 @@
 # Research Desk: scope v3
 
-**Version:** 3.0 · **Agreed:** 2026-10-19 · **Replaces:** v2.2 (`SCOPE-v2.2-2026-10-19.md`, plan docs in `archive/v2.2/`)
+**Version:** 3.0 · **Agreed:** 2026-10-19 · **Replaces:** v2.2 (merged into `archive/v2.2-plan-2026-10-19.md`)
 **Why v3:** v2.2 buried a simple idea under process (12 sprints, labelling, judge calibration). v3 keeps the idea and cuts the rest.
 
 ## The product in one line

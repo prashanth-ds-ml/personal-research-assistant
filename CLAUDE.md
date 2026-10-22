@@ -6,8 +6,8 @@ library (secondary), with user feedback improving both. One local model
 
 ## Read first
 - `docs/STATUS.md`: current milestone; `docs/SCOPE.md` (v3, one page): what we build and the milestones M1-M5
-- `DECISIONS.md` (append-only), `EVALS.md`, `docs/ERROR_LOG.md`, `docs/CASE_STUDY.md`
-- Older plans (v2.2 sprints, phases, user tests) are in `docs/archive/v2.2/`: history, not instructions
+- `docs/DECISIONS.md` (append-only), `docs/EVALS.md`, `docs/ERROR_LOG.md`, `docs/CASE_STUDY.md`, `docs/PROGRESS_LOG.md`
+- Older plans (v2.2 sprints, phases, user tests) are in `docs/archive/v2.2-plan-2026-10-19.md`: history, not instructions
 
 ## Working rules
 - Discuss before implementing; do not start a phase or a large change without the user's go-ahead.
@@ -15,10 +15,10 @@ library (secondary), with user feedback improving both. One local model
 - Keep it simple: do not add process, documents or stages the scope does not need. The user's daily use and feedback are
   the evaluation; do not hand the user labelling or test chores.
 - Tests first, named by test-case ID. Every bug or finding → ERROR_LOG entry → fix → regression test.
-- Record evaluation results in EVALS.md whatever they show; update the scoreboard at every gate.
+- Record evaluation results in docs/EVALS.md whatever they show; update the scoreboard at every gate.
 - A new stage or model change must show its effect (retrieval set, code-check pass rate, feedback per engine version) or it is cut.
 - Test everything possible yourself (live model on a small goal, API, dashboard, secret scan).
-- End of every milestone: STATUS, ERROR_LOG, EVALS, and a `CASE_STUDY.md` progress-log entry.
+- End of every milestone: STATUS, ERROR_LOG, EVALS, and a `docs/PROGRESS_LOG.md` entry.
 
 ## Non-negotiables
 - Every report/chat sentence cites a chunk; numbers and model names appear in the cited chunk (checked in code); gaps are stated.

@@ -1,11 +1,22 @@
-# Public release plan: Research Desk (v3)
+# Archive: public release plan (2026-10-22)
+
+The plan written before the first public release (v0.3.0); what was chosen is recorded at its top.
+
+Contents:
+
+- [Public release plan: Research Desk (v3)](#public-release-plan-research-desk-v3) (was `docs/RELEASE_PLAN.md`)
+
+---
+
+<!-- was docs/RELEASE_PLAN.md -->
+## Public release plan: Research Desk (v3)
 
 Drafted 2026-10-22 from three read-only reviews: secrets/personal data, set-up for a stranger, and clutter/dead code.
 **Chosen 2026-10-22:** publish v3 as it is, cleaned (Phases 1, 2 minus the demo library, 5 and 6). No refactoring:
 Phase 3 fixes and Phase 4 cleanup are left for later and listed in the README's Known limits. Unpushed history
 rewritten to remove paths and names; Docker removed; repo renamed to `research-desk`.
 
-## Where things stand
+### Where things stand
 
 - GitHub repo `prashanth-ds-ml/personal-research-assistant` is **already public**. `origin/main` (e7ccca3, pushed 2026-10-06)
   is v1. Local `main` is 23 commits ahead of it, `v3` 53 ahead, `phase-1a0` unpushed. Working tree clean.
@@ -19,12 +30,12 @@ rewritten to remove paths and names; Docker removed; repo renamed to `research-d
 - **Real bug for everyone**: root `.gitignore` rule `library/` hides `dashboard/src/app/library/page.tsx` and
   `dashboard/src/app/api/library/doc/route.ts`. A fresh clone's Library page is a 404.
 
-## Phase 0: owner actions (no code)
+### Phase 0: owner actions (no code)
 
 1. Rotate the LangSmith key that was printed in an old session (also in `dashboard/.env.local`).
 2. Answer the decisions at the end of this file.
 
-## Phase 1: privacy and history (before anything is pushed)
+### Phase 1: privacy and history (before anything is pushed)
 
 1. Replace personal paths with `VAULT_PATH`/placeholders; drop the studio and co-founder names from docs.
 2. Rewrite only the **unpushed** commits with `git filter-repo --replace-text` (paths, two names) so the old commits
@@ -32,7 +43,7 @@ rewritten to remove paths and names; Docker removed; repo renamed to `research-d
 3. `.gitignore`: `library/` -> `/library/`; add `*.log`, `*.sqlite*`, `*.db`, `.env.*` with `!.env.example`.
    Commit the two missing dashboard files.
 
-## Phase 2: make it run for a stranger (the main work)
+### Phase 2: make it run for a stranger (the main work)
 
 1. **One set of defaults**: `qwen3.5:4b` + the embedding model everywhere: configuration.py:40, doctor.py:29,
    dashboard/src/lib/system.ts:51, docker-compose.yml, .env.example.
@@ -51,7 +62,7 @@ rewritten to remove paths and names; Docker removed; repo renamed to `research-d
 7. **CI**: run on PRs and all branches; Python tests + `npm test` (include desk.test.ts) + `npm run build`.
    Drop the compose-build job if Docker is removed.
 
-## Phase 3: fixes that bite users
+### Phase 3: fixes that bite users
 
 1. Per-source time limit in `collector.collect_selected` (one PDF blocked a run for 17 min on 2026-10-22).
 2. E-005: a dead Ollama must fail the run loudly, not pass plan/coverage silently.
@@ -59,7 +70,7 @@ rewritten to remove paths and names; Docker removed; repo renamed to `research-d
 4. Replace the 11 bare `print(` warnings with `logging`.
 Other open items (E-002, E-003, E-006, E-007, E-010) go in the README's Known limits.
 
-## Phase 4: cleanup
+### Phase 4: cleanup
 
 - **Remove legacy v1 code** (decision 2): fact extraction / LLM judge path in deep_report.py (:717-1000, :1117,
   :1358-1432), the v1 `research_assistant` graph (graph.py, lmstudio.py, notifications.py, comparison prompts,
@@ -71,7 +82,7 @@ Other open items (E-002, E-003, E-006, E-007, E-010) go in the README's Known li
   `scripts/archive/`. **evals/**: keep v3 + retrieval results; archive the v2 fact/judge files; delete `v3/*.log`.
 - Local only (not in git): delete `report_*.md`, `.next-dev` (579 MB), stale `.next`.
 
-## Phase 5: presentation
+### Phase 5: presentation
 
 - New README: what it is, 3 screenshots, architecture diagram, hardware needs (16 GB+ RAM, 11-12 GB free per run;
   GPU optional but 5-10x faster), quick start, Known limits, credits.
@@ -83,14 +94,14 @@ Other open items (E-002, E-003, E-006, E-007, E-010) go in the README's Known li
 - Dependabot: merge python-dotenv, actions v7, react/react-dom 19.3 together; close eslint 10, typescript 7,
   @types/node 26 and add ignore rules for those majors.
 
-## Phase 6: verify and publish
+### Phase 6: verify and publish
 
 1. All Python tests (363) and dashboard tests (22) pass; `npm run build` passes.
 2. **Fresh-clone test**: clone into an empty folder, follow only the README, run the demo library and one deep
    report end to end. Anything the README didn't say gets fixed. (Needs the GPU power cap fixed and ~12 GB free RAM.)
 3. Merge `v3` into `main` (fast-forward), push, tag `v0.3.0`, GitHub release notes. `phase-1a0` stays local.
 
-## Decisions for the owner
+### Decisions for the owner
 
 1. **History**: rewrite the unpushed commits to remove paths and names (recommended), or push as-is with only a
    cleanup commit on top (the old commits would still show them)?

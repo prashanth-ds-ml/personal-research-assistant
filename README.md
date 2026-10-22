@@ -14,7 +14,21 @@ runs on your machine with [Ollama](https://ollama.com) and one small model. No c
 | **[Quick start](#quick-start)** | clone, `uv run scripts/setup.py`, `uv run scripts/start.py` |
 | **[Setup guide](docs/SETUP.md)** | every step by hand, tested versions, troubleshooting |
 | **[User guide](docs/USER_GUIDE.md)** | a research run step by step, reading reports, feedback, the library, settings (with screenshots) |
-| **[Case study](docs/CASE_STUDY.md)** | how it was built: the failures that shaped it, decisions, measurements |
+| **[Case study](docs/CASE_STUDY.md)** | the failure that shaped it, the fix, measured results and limits |
+
+## Case study in 60 seconds
+
+An earlier version wrote a fluent report in which every quote was real and every check passed, and it was still wrong:
+a 17B model's training data was presented as advice for a 4B model, a fine-tuning paper as pretraining guidance. A step
+that rewrote sources into "facts" in the question's words had quietly changed their subject. The fix was to **remove**
+that step: the writer now reads the source passages themselves and code checks every sentence against the passage it
+cites. On the same question the new version wrote less, named the real subjects, and said where evidence ran out.
+
+| Final test report | 17 min on a laptop · 5 of 6 sections (the 6th stated as a gap) · 18 sources · 93% of sentences pass the automatic checks* |
+|---|---|
+
+\* cited, with their numbers and model names found in the cited passage. This is not a human-verified accuracy score.
+**[Read the case study →](docs/CASE_STUDY.md)**
 
 ## What a run looks like
 
@@ -30,9 +44,6 @@ runs on your machine with [Ollama](https://ollama.com) and one small model. No c
 6. **Review** - in the dashboard you read the report next to its sources and rate them (👍 / 👎 / ⚠ wrong subject),
    flag sentences, and mark the report helpful or not. Feedback is stored with the engine version, so changes can be
    compared before/after.
-
-Example (from [EVALS.md](EVALS.md)): *Local private RAG system design for small teams* - 5 of 6 sections answered
-(the sixth an honest gap), 2,979 words, 18 sources, 93% of 155 sentences passed every check, 17 minutes.
 
 ## How it works
 
@@ -56,7 +67,7 @@ collect (web + PDFs) -> library: chunks + BM25 (SQLite FTS5) + vectors
 - Dashboard: Next.js in `dashboard/` (port 3001), talks to the backend (port 2025) through an API passthrough.
 
 The build story, with the failure that reshaped the design and the measurements behind each choice, is in the
-[case study](docs/CASE_STUDY.md); details in [DECISIONS.md](DECISIONS.md), [EVALS.md](EVALS.md) and
+[case study](docs/CASE_STUDY.md); details in [DECISIONS.md](docs/DECISIONS.md), [EVALS.md](docs/EVALS.md) and
 [docs/ERROR_LOG.md](docs/ERROR_LOG.md).
 
 ## Requirements
@@ -138,13 +149,16 @@ CI runs both, plus lint, a type check and a dashboard build, on every push.
 ## Repository layout
 
 ```
-src/research_assistant/   backend: graphs, retrieval (knowledge.py, rerank.py), report writing and checks, collector
+src/research_assistant/   backend: the research graph, library and retrieval, reranker, report writing and checks, collector
 dashboard/                Next.js dashboard
-scripts/                  doctor, ingest/reindex the library, CLI runs, run audits, experiments
-tests/                    offline test suite
-evals/                    retrieval question set and experiment results behind the decisions
-docs/                     scope, status, error log, case study, design notes (docs/archive = older plans)
+scripts/                  setup.py and start.py, setup check, library tools, run audits, experiments (see scripts/README.md)
+tests/                    offline test suite (no Ollama or network needed)
+evals/                    evaluation data and results behind the case study (see evals/README.md)
+docs/                     setup and user guides, case study, progress log, scope, decisions, evals, error log (docs/README.md)
+sample_docs/              two small sample documents for the quick assistant's "internal documents" search
 ```
+
+Changes per release: [CHANGELOG.md](CHANGELOG.md).
 
 ## Credits and license
 

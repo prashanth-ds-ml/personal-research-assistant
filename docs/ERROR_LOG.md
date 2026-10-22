@@ -254,5 +254,5 @@ only form (verbatim quote)".
 
 ### E-002 to E-007
 
-Details in `docs/closeout-review-2026-10-01.md` and `docs/next-steps.md`;
+Details in `docs/archive/v1-2026-09-29-to-10-03.md` (close-out review, next steps);
 expand each entry when its phase starts.

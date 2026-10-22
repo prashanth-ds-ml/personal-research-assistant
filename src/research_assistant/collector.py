@@ -8,7 +8,7 @@ An independent agent with two calls, used by the deep-research graph and by ``sc
 
 Everything that touches a website goes through ``Fetcher`` (public addresses only, redirects re-checked, robots.txt,
 per-host delay, size cap). Links found inside a fetched page are never followed: candidates come only from search.
-Design: docs/web-collector-design.md.
+Design: docs/design/web-collector.md.
 """
 
 import hashlib
