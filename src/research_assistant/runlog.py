@@ -14,7 +14,7 @@ import os
 import re
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 RUNS_DIR = ".runs"
@@ -24,7 +24,7 @@ _ID_RE = re.compile(r"^[\w.-]{1,80}$")
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
 
 
 def valid_id(run_id: str) -> bool:

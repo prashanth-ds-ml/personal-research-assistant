@@ -23,7 +23,7 @@ import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib import robotparser
 from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse
@@ -609,7 +609,7 @@ class SourceStore:
         post = frontmatter.Post(
             markdown, title=c.title, source=c.source, source_id=c.id, url=c.page_url or c.url, authors=c.authors,
             published=c.published, licence=c.licence, question=c.question, relevance=c.relevance,
-            fetched_at=datetime.now(timezone.utc).isoformat(),
+            fetched_at=datetime.now(UTC).isoformat(),
             content_hash=hashlib.sha256(markdown.encode("utf-8")).hexdigest())
         path = self.dir / f"{name}.md"
         path.write_text(frontmatter.dumps(post), encoding="utf-8")

@@ -15,7 +15,7 @@ import json
 import re
 import sqlite3
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 DESK_DIR = ".desk"
@@ -29,7 +29,7 @@ _TAG_ONLY = re.compile(r"^\s*\[(cited;|inference|established|single source)[^\]]
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
 
 
 def db_path(vault_path: str) -> Path | None:

@@ -176,3 +176,4 @@ Then restart both. Do not rebuild the dashboard while a research run is in progr
 | Collecting hangs on one source for a long time | A large PDF is being converted; there is no per-source time limit yet. Wait, or stop the run and collect fewer PDFs. |
 | A setting changed in the dashboard has no effect | Settings are written to `.env`; restart `langgraph dev`. |
 | PDF tables come out garbled | Install the `docling` extra (step 3). |
+| Windows: `--- Logging error ---` / `UnicodeEncodeError` in the backend log | Harmless (a log line with a non-ASCII character). To silence it, set `PYTHONUTF8=1` in the environment before starting `langgraph dev`. |

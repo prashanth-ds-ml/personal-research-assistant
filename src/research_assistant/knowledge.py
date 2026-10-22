@@ -23,7 +23,7 @@ import sqlite3
 import struct
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import frontmatter
@@ -458,7 +458,7 @@ class KnowledgeBase:
                 cur = self.db.execute(
                     "INSERT INTO docs(path, hash, title, source_url, ingested_at, n_chunks, status, error, markdown, source_kind) "
                     "VALUES (?,?,?,?,?,?,?,?,?,?)",
-                    (path, digest, title or Path(path).stem, source_url, datetime.now(timezone.utc).isoformat(),
+                    (path, digest, title or Path(path).stem, source_url, datetime.now(UTC).isoformat(),
                      len(chunks), doc_status, error, markdown, kind))
                 doc_id = cur.lastrowid
                 self._insert_chunks(doc_id, chunks, vectors)

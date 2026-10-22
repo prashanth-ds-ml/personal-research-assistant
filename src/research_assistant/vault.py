@@ -3,7 +3,7 @@ and vault-as-context retrieval for the personal research assistant.
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -69,7 +69,7 @@ def archive_sources(
     run_dir.mkdir(parents=True, exist_ok=True)
 
     existing = len(list(run_dir.glob("*.md")))
-    fetched_at = datetime.now(timezone.utc).isoformat()
+    fetched_at = datetime.now(UTC).isoformat()
     archived = []
 
     for i, source in enumerate(search_results.get("results", []), start=1):
@@ -283,7 +283,7 @@ def set_feedback(vault_path: str, research_subdir: str, slug: str, rating: str, 
     post = frontmatter.load(path)
     post["feedback_rating"] = rating
     post["feedback_note"] = note.strip()
-    post["feedback_at"] = datetime.now(timezone.utc).isoformat()
+    post["feedback_at"] = datetime.now(UTC).isoformat()
     path.write_text(frontmatter.dumps(post), encoding="utf-8")
     return path
 
