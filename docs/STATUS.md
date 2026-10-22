@@ -1,8 +1,8 @@
 # Status
 
-**Scope:** v3 ([SCOPE.md](SCOPE.md)), agreed 2026-10-19 · **Now:** M1-M3 done; the report pipeline is complete; next is
-your feedback, then M4 chat · branch `v3` · **Last updated:** 2026-10-20 (end of session)
-**Test here:** dashboard <http://localhost:3001> · backend <http://127.0.0.1:2025> (start commands below; both stopped)
+**Scope:** v3 ([SCOPE.md](SCOPE.md)), agreed 2026-10-19 · **Now:** M1-M3 done and released as **v0.3.1** (2026-10-22);
+next is feedback from daily use, then M4 chat · branch `main` · **Last updated:** 2026-10-22
+**Run it:** [SETUP.md](SETUP.md) · **Use it:** [USER_GUIDE.md](USER_GUIDE.md) · dashboard <http://127.0.0.1:3001>, backend <http://127.0.0.1:2025>
 **Case study:** [CASE_STUDY.md](CASE_STUDY.md)
 
 | Milestone | Status | Done when |
@@ -22,17 +22,16 @@ Details in [EVALS.md](../EVALS.md) ("v3 final report after all fixes"); limits i
 ## Next, in order
 1. Your feedback: read the final report in the dashboard, rate sources (👍/👎/⚠) and flag wrong sentences; run your own goals.
 2. M4 chat over the library (same retrieval engine + reranker).
-3. M5 insights page, demo, README rewrite.
+3. M5 insights page and demo (README, setup and user guides were done for the v0.3 release).
 
 ## For you
 - Rate the sources and flag sentences on the final RAG report and any new ones.
 - Before a run: free RAM >= 11-12 GB (Ollama maps ~8 GB on Windows, E-022); close heavy apps.
-- Rotate the LangSmith key in `dashboard/.env.local` (printed once in an earlier session).
 - A backup of the library before the re-chunk is at `<vault>/.kb/library.before-chunker-lock-2026-10-19.sqlite`
   (keep it or remove it yourself; nothing is deleted automatically).
 
 ## Starting the app
-- Backend: `langgraph dev --no-browser --no-reload --port 2025` (in this folder, with the root venv)
+- Backend: `uv run langgraph dev --no-browser --no-reload --port 2025` (in this folder; see [SETUP.md](SETUP.md))
 - Dashboard: `cd dashboard && npm run start` (production build; after code changes run `npm run build` first, never while a run is live)
 - Open errors: [ERROR_LOG.md](ERROR_LOG.md)
 
