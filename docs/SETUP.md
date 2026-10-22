@@ -33,7 +33,8 @@ cd research-desk
 uv sync --extra dev --extra rerank
 ```
 
-This creates `.venv` in the repo folder with the backend, the `langgraph dev` server, the test tools (`dev`) and
+This creates `.venv` in the repo folder (on Python 3.12, pinned in `.python-version`; uv downloads it if you do not
+have it) with the backend, the `langgraph dev` server, the test tools (`dev`) and
 PyTorch + transformers for the reranker (`rerank`, the large part).
 
 Optional extras:
