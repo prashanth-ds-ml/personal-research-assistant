@@ -1,9 +1,16 @@
 # Using Research Desk
 
-This guide walks through the dashboard at <http://127.0.0.1:3001>. To install it first, see [SETUP.md](SETUP.md).
+This guide walks through the dashboard at <http://127.0.0.1:3001>. To install it, see the quick start in the
+[README](../README.md#quick-start) or [SETUP.md](SETUP.md).
 
 The idea in one line: **you give it a goal, it builds a library of sources for you, and writes a short report in which
 every sentence points at the passage it came from.** You review the sources and sentences, and your ratings are kept.
+
+> **Your first run.** Start with `uv run scripts/start.py` (it opens the dashboard). Go to **Research**, type a goal
+> such as *"What do practitioners recommend for chunking documents in RAG systems? Cover chunk size, overlap and
+> tables."*, answer or skip the questions, and on the plan choose **Yes, gather new reading** (your library starts
+> empty). Tick 10-20 good sources, press **Collect**, and leave it: expect 20-40 minutes on a laptop, mostly converting
+> PDFs and writing. The report then opens with every sentence linked to its source.
 
 Contents: [Front page](#front-page) · [Start a research run](#start-a-research-run) · [Follow a run](#follow-a-run) ·
 [Read a report](#read-a-report) · [Give feedback](#give-feedback) · [The library](#the-library) ·

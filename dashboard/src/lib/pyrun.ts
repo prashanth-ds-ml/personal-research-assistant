@@ -8,8 +8,8 @@ const ROOT = process.env.RESEARCH_ROOT || path.resolve(process.cwd(), "..");
 
 function pythonBin(): string {
   if (process.env.PYTHON_BIN) return process.env.PYTHON_BIN;
-  // the shared uv venv sits at the repository root: <repo>/.venv
-  for (const rel of ["../../.venv/Scripts/python.exe", "../../.venv/bin/python", "../.venv/Scripts/python.exe", "../.venv/bin/python"]) {
+  // the project's own venv (`uv sync` creates <repo>/.venv) first, then a venv shared by parent folders
+  for (const rel of [".venv/Scripts/python.exe", ".venv/bin/python", "../../.venv/Scripts/python.exe", "../../.venv/bin/python", "../.venv/Scripts/python.exe", "../.venv/bin/python"]) {
     const p = path.resolve(ROOT, rel);
     if (existsSync(p)) return p;
   }
