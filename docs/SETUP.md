@@ -24,6 +24,30 @@ About 30 minutes, most of it downloads. When it runs, continue with the [user gu
 Windows: install all four, then open a **new** PowerShell window so they are on the PATH. The commands below work in
 PowerShell and in bash.
 
+### Tested versions: use these for the smoothest setup
+
+Research Desk was developed and used daily with exactly the versions below. **Install with `uv sync` and `npm ci`
+(not `pip install` or `npm install`)**: they read the lock files (`uv.lock`, `dashboard/package-lock.json`) and install
+the very same package versions we ran, so you get the setup that is known to work. Newer versions may work too, but
+they are not tested; if something breaks after an upgrade, go back to these.
+
+| Component | Tested version | Notes |
+|---|---|---|
+| OS | Windows 11 | CI also runs the tests on Ubuntu |
+| Python | 3.12.13 | pinned in `.python-version`; supported range 3.12-3.13 (3.14 fails: `tiktoken` has no wheel) |
+| uv | 0.11.7 | |
+| Node.js / npm | 24.15.0 / 11.12.1 | 22.18+ works (CI uses 22) |
+| Ollama | 0.40.8 | |
+| Chat model | `qwen3.5:4b` (id `2a654d98e6fb`, 3.4 GB) | `ollama pull qwen3.5:4b` |
+| Embedding model | `qwen3-embedding:0.6b` (id `ac6da0dfba84`, 639 MB) | the library index is built with it; changing it needs a rebuild |
+| Reranker | `BAAI/bge-reranker-v2-m3` | downloaded from Hugging Face on first use |
+| Key Python packages | langgraph 1.2.12 · langchain 1.4.2 · langchain-ollama 1.1.0 · langgraph-cli 0.4.32 / langgraph-api 0.15.1 · torch 2.14.0 · transformers 5.17.0 · docling 2.131.0 · trafilatura 2.2.0 · ddgs 9.16.0 | all ~260 packages are pinned in `uv.lock` |
+| Key dashboard packages | next 16.3.6 · react 19.2.8 · @langchain/langgraph-sdk 1.12.0 · typescript 5.9.3 | all ~520 packages are pinned in `package-lock.json` |
+| GPU | NVIDIA RTX 5050 Laptop (8 GB), 24 GB RAM | |
+
+Ollama model ids: `ollama list` shows them; the same tag can point to a newer build later, which may behave slightly
+differently.
+
 ## 3. Get the code and install
 
 ```bash

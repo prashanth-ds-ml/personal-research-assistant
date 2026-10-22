@@ -3,16 +3,21 @@
 # Please see the documentation for all configuration options:
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
+# Versions are pinned to what Research Desk was developed and tested with (uv.lock, dashboard/package-lock.json,
+# docs/SETUP.md "Tested versions"). Routine version-update PRs are off (limit 0); upgrades are done deliberately and
+# re-tested. GitHub security alerts are separate and still arrive.
 version: 2
 updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
   - package-ecosystem: "npm"
     directory: "/dashboard"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
     ignore:
       # Majors that need a deliberate upgrade (Next 16 + eslint-config-next support, the native TS compiler,
       # and @types/node must follow the Node version CI runs: 22).
@@ -26,3 +31,4 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0

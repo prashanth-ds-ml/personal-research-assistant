@@ -65,7 +65,7 @@ The build story, with the failure that reshaped the design and the measurements 
 | RAM | 16 GB | a deep research run uses about **11-12 GB** (model, reranker, PDF conversion); close heavy apps first |
 | GPU | optional | an NVIDIA GPU with 8 GB makes writing 5-10x faster; CPU-only works but is slow |
 | Disk | ~10 GB | models (~4 GB Ollama + ~2 GB reranker) plus your library |
-| Python | 3.10+ (tested on 3.12) | installed with [uv](https://docs.astral.sh/uv/) |
+| Python | 3.12 (3.13 untested, 3.14 fails) | installed with [uv](https://docs.astral.sh/uv/), which fetches 3.12 for you |
 | Node.js | 22.18+ | for the dashboard |
 | Ollama | recent | <https://ollama.com> |
 | OS | Windows 11 (daily use), Linux (CI) | macOS should work but is untested |
@@ -73,6 +73,10 @@ The build story, with the failure that reshaped the design and the measurements 
 ## Install
 
 Short version below; the [setup guide](docs/SETUP.md) has every step, Windows notes and troubleshooting.
+
+**Use `uv sync` and `npm ci`**: they install exactly the package versions this was developed and tested with
+(pinned in `uv.lock` and `dashboard/package-lock.json`). The tested versions of the tools and models are listed in the
+[setup guide](docs/SETUP.md#tested-versions-use-these-for-the-smoothest-setup).
 
 ```bash
 git clone https://github.com/prashanth-ds-ml/research-desk
