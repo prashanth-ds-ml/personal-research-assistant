@@ -3,7 +3,7 @@
 Releases: <https://github.com/prashanth-ds-ml/research-desk/releases>. How each stage was built and measured:
 [docs/PROGRESS_LOG.md](docs/PROGRESS_LOG.md).
 
-## Unreleased
+## 0.3.3 (2026-10-22)
 
 - Case study rewritten as a one-page story (the failure, the fix, measured results and limits); the stage-by-stage
   record moved to `docs/PROGRESS_LOG.md`.
