@@ -29,7 +29,9 @@ def test_failure_is_recorded(tmp_path):
     assert run["status"] == "failed" and "Ollama" in run["error"]
 
 
-def test_list_runs_newest_first_without_events_or_partials(tmp_path):
+def test_list_runs_newest_first_without_events_or_partials(tmp_path, monkeypatch):
+    ticks = iter(range(1000))                       # a clock that always moves: real ones tie within a millisecond on CI
+    monkeypatch.setattr(runlog, "_now", lambda: f"2026-01-01T00:00:00.{next(ticks):03d}+00:00")
     a, b = runlog.RunLog(str(tmp_path), "a"), runlog.RunLog(str(tmp_path), "b")
     a.start("first")
     b.start("second")
