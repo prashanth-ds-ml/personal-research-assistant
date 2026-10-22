@@ -11,7 +11,8 @@ runs on your machine with [Ollama](https://ollama.com) and one small model. No c
 
 | | |
 |---|---|
-| **[Setup guide](docs/SETUP.md)** | install, first start, troubleshooting |
+| **[Quick start](#quick-start)** | clone, `uv run scripts/setup.py`, `uv run scripts/start.py` |
+| **[Setup guide](docs/SETUP.md)** | every step by hand, tested versions, troubleshooting |
 | **[User guide](docs/USER_GUIDE.md)** | a research run step by step, reading reports, feedback, the library, settings (with screenshots) |
 | **[Case study](docs/CASE_STUDY.md)** | how it was built: the failures that shaped it, decisions, measurements |
 
@@ -70,56 +71,29 @@ The build story, with the failure that reshaped the design and the measurements 
 | Ollama | recent | <https://ollama.com> |
 | OS | Windows 11 (daily use), Linux (CI) | macOS should work but is untested |
 
-## Install
+## Quick start
 
-Short version below; the [setup guide](docs/SETUP.md) has every step, Windows notes and troubleshooting.
-
-**Use `uv sync` and `npm ci`**: they install exactly the package versions this was developed and tested with
-(pinned in `uv.lock` and `dashboard/package-lock.json`). The tested versions of the tools and models are listed in the
-[setup guide](docs/SETUP.md#tested-versions-use-these-for-the-smoothest-setup).
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/), [Node.js 22.18+](https://nodejs.org) and
+[Ollama](https://ollama.com/download) installed, and Ollama running. Then:
 
 ```bash
 git clone https://github.com/prashanth-ds-ml/research-desk
 cd research-desk
-
-# Python backend (dev = langgraph dev server + tests; rerank = torch + transformers for the reranker)
-uv sync --extra dev --extra rerank
-# optional, better PDF/table conversion (large, pulls PyTorch):  uv sync --extra dev --extra rerank --extra docling
-
-# Models
-ollama pull qwen3.5:4b
-ollama pull qwen3-embedding:0.6b
-
-# Settings: set VAULT_PATH in both files to the same absolute folder (it is created if missing)
-cp .env.example .env
-cp dashboard/.env.example dashboard/.env.local
-
-# Dashboard
-cd dashboard && npm ci && npm run build && cd ..
-
-# Check everything (Ollama, models, reranker libraries, vault, memory, GPU, ports)
-uv run python scripts/doctor.py
+uv run scripts/setup.py     # once: packages, models, settings, dashboard build, setup check (~15-30 min, mostly downloads)
+uv run scripts/start.py     # every time: starts everything and opens http://127.0.0.1:3001 (Ctrl+C stops it)
 ```
 
-No reranker libraries or not enough memory? Set `RERANK=false` in `.env`; reports still work, ranking is a bit worse.
+`setup.py` asks one question (where to keep your sources and reports; Enter = `~/ResearchDesk`), installs exactly the
+versions this was developed and tested with (`uv.lock`, `dashboard/package-lock.json`), pulls the two models, writes
+the settings files and runs a setup check. It is safe to run again: finished steps are skipped and your settings are
+kept. Options: `--no-rerank` for a smaller install without PyTorch, `--yes` to ask nothing.
 
-## Run
+Then open **Research**, type a goal, and let it collect sources on the first runs (the library starts empty). The
+[user guide](docs/USER_GUIDE.md) walks through every page.
 
-Two terminals, from the repo folder:
-
-```bash
-uv run langgraph dev --no-browser --no-reload --port 2025      # backend
-```
-
-```bash
-cd dashboard && npm run start                                  # dashboard -> http://127.0.0.1:3001
-```
-
-Open <http://127.0.0.1:3001>, go to **Research**, type a goal. Your library starts empty, so let it collect sources on
-the first runs; later goals reuse what is already in the library. The [user guide](docs/USER_GUIDE.md) walks through
-every page.
-
-On Windows, `scripts/start-research-assistant.ps1` starts both in the background (and `scripts/register-task.ps1`
+Prefer to do it by hand, or something went wrong? The [setup guide](docs/SETUP.md) has every step, the
+[tested versions](docs/SETUP.md#tested-versions-use-these-for-the-smoothest-setup) and a troubleshooting table.
+On Windows, `scripts/start-research-assistant.ps1` starts both servers in the background (`scripts/register-task.ps1`
 registers it to run at log-on).
 
 Command line instead of the dashboard: `uv run python scripts/run_deep_report.py --help`.

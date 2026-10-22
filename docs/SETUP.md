@@ -3,6 +3,28 @@
 From zero to your first report, on Windows or Linux (macOS should work the same way but is untested).
 About 30 minutes, most of it downloads. When it runs, continue with the [user guide](USER_GUIDE.md).
 
+## The quick way
+
+After installing the tools in step 2 (uv, Node.js, Ollama) and starting Ollama:
+
+```bash
+git clone https://github.com/prashanth-ds-ml/research-desk
+cd research-desk
+uv run scripts/setup.py
+uv run scripts/start.py
+```
+
+`scripts/setup.py` does steps 3 to 7 below for you: it installs the tested package versions, pulls the models, asks
+where to keep your research and writes both settings files, builds the dashboard and runs the setup check. It stops
+with a plain message if a tool is missing or Ollama is not running, and is safe to run again (finished steps are skipped,
+existing settings kept). `scripts/start.py` does step 8: it starts the backend and the dashboard together, waits until
+both answer, opens the browser, and stops both on Ctrl+C (logs in `logs/backend.log` and `logs/dashboard.log`).
+
+Options: `setup.py --no-rerank` (smaller install, no PyTorch; sets `RERANK=false`), `--yes` (no questions, research
+folder `~/ResearchDesk`), `--vault PATH`; `start.py --no-browser`, `--backend-port`, `--dashboard-port`.
+
+The steps below are the same thing by hand, for when you want control or something needs fixing.
+
 ## 1. Check your machine
 
 | | Needed | Why |
@@ -153,9 +175,10 @@ cd dashboard && npm test        # dashboard unit tests
 
 ```bash
 git pull
-uv sync --extra dev --extra rerank
-cd dashboard && npm ci && npm run build && cd ..
+uv run scripts/setup.py        # installs any changed packages and rebuilds the dashboard if its code changed
 ```
+
+By hand: `uv sync --locked --extra dev --extra rerank`, then `cd dashboard && npm ci && npm run build`.
 
 Then restart both. Do not rebuild the dashboard while a research run is in progress.
 
