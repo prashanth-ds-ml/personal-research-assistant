@@ -48,7 +48,7 @@ export async function systemStatus(): Promise<SystemStatus> {
 }
 
 /** Models a run needs. Override with DASHBOARD_EXPECTED_MODELS (comma separated) if you changed them in .env. */
-export const EXPECTED_MODELS = (process.env.DASHBOARD_EXPECTED_MODELS ?? "llama3.1:8b,gemma4:e4b,qwen3-embedding:0.6b")
+export const EXPECTED_MODELS = (process.env.DASHBOARD_EXPECTED_MODELS ?? "qwen3.5:4b,qwen3-embedding:0.6b")
   .split(",")
   .map((m) => m.trim())
   .filter(Boolean);

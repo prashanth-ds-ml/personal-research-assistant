@@ -17,7 +17,7 @@ ENV = {"LOCAL_LLM": "llama3.1:8b", "WRITER_MODEL": "gemma4:e4b", "EMBEDDING_MODE
 def test_required_models_come_from_the_settings():
     assert d.required_models(ENV) == {"llama3.1:8b": "planning and extraction", "gemma4:e4b": "writing the report",
                                       "qwen3-embedding:0.6b": "search embeddings"}
-    assert set(d.required_models({})) == {"llama3.2", "qwen3-embedding:0.6b"}          # defaults: one chat model plus embeddings
+    assert set(d.required_models({})) == {"qwen3.5:4b", "qwen3-embedding:0.6b"}          # defaults: one chat model plus embeddings
 
 
 def test_missing_models_are_listed_with_the_command_to_pull_them():
@@ -50,7 +50,7 @@ def test_env_file_check(tmp_path):
 
 
 def test_memory_and_ports_and_gpu_warn_but_do_not_fail():
-    assert d.check_memory(1.6).status == d.WARN and d.check_memory(9.0).status == d.OK and d.check_memory(None).status == d.WARN
+    assert d.check_memory(1.6).status == d.WARN and d.check_memory(13.0).status == d.OK and d.check_memory(None).status == d.WARN
     assert d.check_port(2025, "backend", in_use=lambda p: False).status == d.WARN
     assert d.check_port(2025, "backend", in_use=lambda p: True).status == d.OK
     assert d.check_gpu(lambda: ("RTX", 10.0, 80.0)).status == d.WARN                         # the power cap we actually met
@@ -63,3 +63,10 @@ def test_render_summarises_and_shows_fixes():
     text = d.render([d.Check("A", d.OK, "fine"), d.Check("B", d.FAIL, "broken", "do this"), d.Check("C", d.WARN, "meh", "try that")])
     assert "[FAIL] B: broken" in text and "-> do this" in text and "1 problem(s) to fix, 1 warning(s)." in text
     assert d.render([d.Check("A", d.OK, "fine")]).endswith("Everything needed is in place.")
+
+
+def test_reranker_check_names_the_missing_libraries_and_the_way_out():
+    assert d.check_reranker({"RERANK": "false"}).status == d.OK
+    c = d.check_reranker({}, has=lambda m: m != "torch")                    # default is on
+    assert c.status == d.FAIL and "torch" in c.detail and "RERANK=false" in c.fix
+    assert d.check_reranker({"RERANK": "true"}, has=lambda m: True).status == d.OK

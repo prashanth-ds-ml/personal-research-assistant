@@ -12,7 +12,7 @@ dashboard/.next/
 dashboard/.env.local
 
 vault/
-library/
+/library/
 library_kb.sqlite
 library_md/
 report_*.md
@@ -26,3 +26,9 @@ library_kb.sqlite-*
 # frozen eval index (rebuilt from the eval corpus by scripts/ingest_library.py)
 evals/kb/
 ~$*
+*.log
+*.sqlite
+*.sqlite-*
+*.db
+.env.*
+!.env.example

@@ -1,316 +1,162 @@
-# Personal Research Assistant
+# Research Desk
 
-> **Status (2026-10-20):** scope v3: checked research reports from library passages with one local model (qwen3.5:4b), hybrid search + reranker, and a feedback loop; chat over the library is next (M4). See [docs/SCOPE.md](docs/SCOPE.md) and [docs/STATUS.md](docs/STATUS.md). Parts of this README describe the earlier version and will be rewritten in M5.
+Local deep research that builds your own private library. You give it a goal; it plans sub-questions, collects web
+pages and papers, indexes them, and writes a short report in which **every sentence cites a source passage**. Everything
+runs on your machine with [Ollama](https://ollama.com) and one small model. No cloud, no API keys.
 
-A fully local, personalized research agent. Fork of
-[langchain-ai/local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher)
-that archives everything it finds, writes structured reports into an Obsidian
-vault, uses that vault as context for future research, and evolves a profile
-of what you're interested in over time — all running on your own machine
-against Ollama, no API keys or cloud services required (except optional
-LangSmith tracing).
+> **Status: v0.3 (scope v3).** Deep research, the source panel with feedback, and the reranker are done.
+> Chat over the library (M4) is next. See [docs/STATUS.md](docs/STATUS.md) and [docs/SCOPE.md](docs/SCOPE.md).
 
-> Every model/config choice below was benchmarked against this graph's actual
-> prompts, not assumed - see [BENCHMARKS.md](BENCHMARKS.md) for the methodology
-> and results, and [DECISIONS.md](DECISIONS.md) for the non-obvious bugs hit
-> along the way and how they were diagnosed.
+## What a run looks like
 
-## The problem this solves
+1. **Goal** - you type what you want to know. It may ask a few clarifying questions.
+2. **Plan** - it splits the goal into sub-questions; you approve or edit them.
+3. **Collect** - it searches the web (DuckDuckGo by default, or your SearXNG), arXiv, Europe PMC and Hugging Face,
+   shows you the candidates, and saves the ones you pick as markdown in your library.
+4. **Retrieve** - for each sub-question: hybrid search (BM25 + vectors, fused with RRF), then a cross-encoder reranker
+   keeps the best 8 passages.
+5. **Write** - one section per sub-question, written only from its own passages. Code (not another LLM) checks every
+   sentence: numbers and model names must appear in the cited passage, citations must point at real passages, weakly
+   supported sentences are flagged. A sub-question with no evidence becomes a stated gap, not a padded paragraph.
+6. **Review** - in the dashboard you read the report next to its sources and rate them (👍 / 👎 / ⚠ wrong subject),
+   flag sentences, and mark the report helpful or not. Feedback is stored with the engine version, so changes can be
+   compared before/after.
 
-The stock research agent is a good demo, but it throws away everything
-interesting the moment a run finishes: the full text of every page it read,
-the reasoning behind its follow-up queries, any sense of what *you*
-specifically care about. Run it twice on related topics and it starts from
-zero both times.
-
-This fork turns it into a tool you'd actually use daily: a personal "second
-brain" research assistant that gets better at helping you specifically the
-more you use it, with a permanent, searchable, linkable archive of every
-source it ever read.
+Example (from [EVALS.md](EVALS.md)): *Local private RAG system design for small teams* - 5 of 6 sections answered
+(the sixth an honest gap), 2,979 words, 18 sources, 93% of 155 sentences passed every check, 17 minutes.
 
 ## How it works
 
-Same iterative loop as the original (`generate query -> search -> summarize
--> reflect on gaps -> repeat`), extended with five stages wrapped around it:
-
 ```
-START
-  -> load_profile            read your evolving profile note (or bootstrap one)
-  -> retrieve_vault_context  find relevant prior research from your own notes
-  -> plan_research           detect "X vs Y" comparisons (native tool-calling)
-       --single topic--> generate_query -> web_research -> summarize_sources
-                            -> reflect_on_summary --loop--> web_research
-       --2+ things to compare--> parallel_research  each researched independently,
-                                   concurrently (own copy of the loop above, per entity)
-  --done--> finalize_summary   structured report, written to your vault
-              -> update_profile   appends a dated session-log entry
-                 -> notify_complete  native Windows toast when done
-                    -> END
+collect (web + PDFs) -> library: chunks + BM25 (SQLite FTS5) + vectors
+                           |
+       retrieve: hybrid (RRF) top ~24 -> reranker (bge-reranker-v2-m3) -> best 8 passages
+       each passage carries [document title > section heading]
+                           |
+       report: one section per sub-question, written from its own passages,
+       every sentence cited [C3] and checked in code
 ```
 
-- **Source archive**: every page's full content (not just the truncated
-  snippet used in the prompt) is saved as its own markdown file with
-  frontmatter (url, title, query, fetched date) under `Sources/`.
-- **Structured reports**: `Research/` gets a `## Key Findings` / `## Open
-  Questions` / `## Sources` note per topic, with working relative links to
-  the archived sources. Each Open Question includes a `**Current best
-  guess:**` - a tentative, clearly-unverified answer from the model's own
-  knowledge - so a note is actually useful to build on next time, not just a
-  list of things that weren't figured out. Every report page also has a
-  "Continue researching this topic" button that jumps straight back into
-  "New Research" with the topic prefilled.
-- **Comparison mode**: `plan_research` detects when a topic names 2+ things
-  to compare ("X vs Y vs Z") using real multi-tool-calling (not a workaround)
-  - benchmarked across 8 local models on both a real 3-way comparison prompt
-  and a plain single-topic prompt; `llama3.1:8b` (our default) got both
-  exactly right and fastest, so no model swap was needed. Each entity then
-  gets researched independently and *concurrently* (`asyncio.to_thread`, one
-  full copy of the research loop per entity, own `Sources/<entity>/`
-  subfolder), and the report gets one `##` section per entity plus a
-  synthesized `## Comparison` section - not just N summaries pasted together.
-- **Vault-as-context**: before researching, it embeds and searches your
-  existing `Research/` notes so it builds on prior work instead of repeating
-  it.
-- **Evolving profile**: `Profile.md` has a human-owned `## Standing
-  Preferences` section (the assistant never touches it) and an
-  assistant-owned, append-only `## Session Log` that grows a dated entry
-  after every run.
-- **Notification**: a native Windows toast fires when a run finishes,
-  clicking it opens the report.
-- **Dashboard**: a small Next.js app (`dashboard/`) showing research history
-  (read straight from the vault - not from LangGraph's own thread storage,
-  which doesn't survive restarts), a form to start new research with live
-  status, a live pipeline graph, a knowledge graph of your notes, and your
-  profile note. Each report also embeds its real LangSmith trace timeline.
+- Backend: two [LangGraph](https://github.com/langchain-ai/langgraph) graphs in `src/research_assistant/`
+  (`goal_graph.py` = deep research; `graph.py` = the earlier quick assistant), served by `langgraph dev`.
+- Models: `qwen3.5:4b` for planning and writing (16k context), `qwen3-embedding:0.6b` for embeddings, both via Ollama;
+  `BAAI/bge-reranker-v2-m3` on the CPU via Hugging Face transformers.
+- Storage: a folder you choose (`VAULT_PATH`, works as an Obsidian vault). Sources and reports are markdown; the
+  library index is `<vault>/.kb/library.sqlite`; run traces and feedback are `<vault>/.desk/desk.sqlite`.
+  Nothing in the vault is ever deleted by the app (removed items move to `<vault>/.removed`).
+- Dashboard: Next.js in `dashboard/` (port 3001), talks to the backend (port 2025) through an API passthrough.
 
-## Setup
+Design decisions and the bugs found along the way are in [DECISIONS.md](DECISIONS.md),
+[docs/ERROR_LOG.md](docs/ERROR_LOG.md) and the build story in [docs/CASE_STUDY.md](docs/CASE_STUDY.md).
 
-1. **Ollama models**: `ollama pull llama3.1:8b` (chat), `ollama pull
-   qwen3-embedding:0.6b` (vault embeddings). `llama3.1:8b` was picked by benchmarking 7 local models against this
-   graph's actual prompts, not by assumption - see [BENCHMARKS.md](BENCHMARKS.md)
-   for the full methodology and results. Swap `LOCAL_LLM` in `.env` for
-   anything else you have pulled - it's a one-line change.
-2. **Python environment**:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # Windows: .venv\Scripts\activate
-   pip install -e ".[dev]"
-   ```
-3. **`.env`**: `cp .env.example .env`, then set `VAULT_PATH` to an Obsidian
-   vault on your machine (a new empty folder is fine - it bootstraps
-   `Profile.md` and the `Research`/`Sources` subfolders on first run). Note
-   that a non-empty env var always wins over dashboard/UI overrides (an empty
-   one counts as unset), and the dashboard may only change a few per-run options
-   (see `PER_RUN_KEYS` in `configuration.py`) - that's why
-   `MAX_WEB_RESEARCH_LOOPS` is deliberately absent from `.env.example`.
-4. **Dashboard**: `cd dashboard && npm install && cp .env.example .env.local`,
-   then point `VAULT_PATH` at the same vault as step 3.
+## Requirements
 
-## Running it
+| | Minimum | Notes |
+|---|---|---|
+| RAM | 16 GB | a deep research run uses about **11-12 GB** (model, reranker, PDF conversion); close heavy apps first |
+| GPU | optional | an NVIDIA GPU with 8 GB makes writing 5-10x faster; CPU-only works but is slow |
+| Disk | ~10 GB | models (~4 GB Ollama + ~2 GB reranker) plus your library |
+| Python | 3.10+ (tested on 3.12) | installed with [uv](https://docs.astral.sh/uv/) |
+| Node.js | 22.18+ | for the dashboard |
+| Ollama | recent | <https://ollama.com> |
+| OS | Windows 11 (daily use), Linux (CI) | macOS should work but is untested |
 
-**Automatically** (recommended): a Windows Task Scheduler task
-(`ResearchAssistantAutoStart`) starts both processes at logon. Logs land in
-`logs/` and `dashboard/logs/`.
-
-**Manually**, for development:
-```powershell
-# Terminal 1 - backend (port 2025; see "Known issues" below for why not 2024)
-langgraph dev --no-browser --no-reload --port 2025
-
-# Terminal 2 - dashboard (port 3001)
-cd dashboard
-npm run dev
-```
-Then open http://localhost:3001.
-
-To stop auto-start: `Unregister-ScheduledTask -TaskName ResearchAssistantAutoStart`.
-
-## Searching internal documents (not the web)
-
-The original customer story: *"dig through our scattered internal docs and
-give me a cited summary."* Point the assistant at a folder of PDF / Markdown /
-text files and it retrieves from those instead of the web. Everything
-downstream (summarize, reflect, archive to the vault, cite) is unchanged.
-
-- **Dashboard:** New Research -> Search -> "Internal documents".
-- **Config:** `search_api=local_docs` and `DOCS_PATH=/path/to/docs`
-  (see `.env.example`; `docs_top_k` / `docs_chunk_size` tune retrieval).
-  Leave `SEARCH_API` unset in `.env` or it overrides the dropdown.
-- **Citations** look like `doc://handbook.pdf/p3-c2` (file, page, chunk) and
-  each retrieved chunk is archived under `Sources/` like any web source.
-- PDFs are text-extracted per page with `pypdf` (scanned/image-only PDFs
-  yield no text and are skipped - OCR is out of scope). The corpus is
-  embedded in memory with `EMBEDDING_MODEL` and cached until files change.
-- `sample_docs/` holds a demo set (the AcmeCorp employee handbook PDF and an
-  incident-response runbook).
-
-## Docker
-
-One command runs the backend (port 2025) and dashboard (port 3001):
+## Install
 
 ```bash
-ollama pull llama3.1:8b && ollama pull gemma4:e4b && ollama pull qwen3-embedding:0.6b   # Ollama runs on the host
-docker compose up --build
+git clone https://github.com/prashanth-ds-ml/research-desk
+cd research-desk
+
+# Python backend (dev = langgraph dev server + tests; rerank = torch + transformers for the reranker)
+uv sync --extra dev --extra rerank
+# optional, better PDF/table conversion (large, pulls PyTorch):  uv sync --extra dev --extra rerank --extra docling
+
+# Models
+ollama pull qwen3.5:4b
+ollama pull qwen3-embedding:0.6b
+
+# Settings: set VAULT_PATH in both files to the same absolute folder (it is created if missing)
+cp .env.example .env
+cp dashboard/.env.example dashboard/.env.local
+
+# Dashboard
+cd dashboard && npm ci && npm run build && cd ..
+
+# Check everything (Ollama, models, reranker libraries, vault, memory, GPU, ports)
+uv run python scripts/doctor.py
 ```
 
-- Dashboard: <http://localhost:3001> - LangGraph API: <http://localhost:2025>
-  (both published on 127.0.0.1 only; nothing else on your network can reach them)
-- The vault is a bind mount (`VAULT_DIR`, default `./vault`) shared by both
-  containers; your documents mount read-only from `DOCS_DIR` (default
-  `./sample_docs`) at `/docs`. Example:
-  `VAULT_DIR=~/ObsidianVault DOCS_DIR=~/company-docs docker compose up`
-- Containers reach Ollama at `host.docker.internal:11434`. Model override:
-  `DOCKER_LOCAL_LLM=qwen3:8b docker compose up`. Port clash on 3001:
-  `DASHBOARD_PORT=3002`.
-- The host `.env` is deliberately not passed in (Windows paths, secrets).
-  Note compose still reads `./.env` for `${...}` interpolation, so the compose
-  file only interpolates `DOCKER_*` / `VAULT_DIR` / `DOCS_DIR` / `DASHBOARD_PORT`
-  (`DOCKER_LIBRARY_FOLDERS`, `DOCKER_CONTACT_EMAIL` reach deep research).
-- Windows toast notifications are disabled in containers.
+No reranker libraries or not enough memory? Set `RERANK=false` in `.env`; reports still work, ranking is a bit worse.
 
-## Deep research mode (goal -> long cited report)
+## Run
 
-A second graph, `deep_research`, for questions that deserve a proper report:
-you give a **goal**, and the assistant
-
-1. **asks clarifying questions** (audience, scope, what the decision is) and
-   pauses for your answers,
-2. **plans** the research (sub-questions + a report outline) and pauses for you to
-   **approve or revise** it - nothing expensive runs before that,
-3. **retrieves** from your document library with hybrid search (BM25 + vectors),
-4. **extracts** facts passage by passage; a fact survives only if its quote appears
-   **verbatim** in the source *and* a second model call judges the passage supports it,
-5. **writes** the report section by section, each seeing only its own evidence
-   (plus a recommendations section synthesised from the others), with tables and
-   `[E#]` citations,
-6. saves it to the vault with an evidence appendix mapping every citation to its
-   quote and source.
-
-Everything runs on local models (about 165 model calls, ~11 minutes on an 8 GB GPU
-for a 6-question report). Use it from the dashboard's **Deep Research** page, or
-build the library and run it from the command line:
+Two terminals, from the repo folder:
 
 ```bash
-# PDF/DOCX -> markdown (tables kept) -> hybrid search index; incremental
-pip install -e ".[docling]"
-python scripts/ingest_library.py library/ --kb library_kb.sqlite --md-out library_md   # --md-out must be OUTSIDE library/
-
-# goal -> report (no questions asked; the dashboard/API adds the two pauses)
-python scripts/run_deep_report.py "Should we use hybrid retrieval for ...?" --kb library_kb.sqlite     --write-model gemma4:e4b
+uv run langgraph dev --no-browser --no-reload --port 2025      # backend
 ```
-
-How well it works is measured in [EVALS.md](EVALS.md) (retrieval ablation: hybrid
-80% recall@1 vs 68% BM25 vs 48% dense; report-quality progression across fixes;
-faithfulness-judge scoring against human labels) and the model choices in
-[BENCHMARKS.md](BENCHMARKS.md). For deploying it for someone else, see
-[docs/deployment-runbook.md](docs/deployment-runbook.md) and
-[docs/discovery-questionnaire.md](docs/discovery-questionnaire.md).
-
-### How it grows as you use it
-
-The library and your feedback are what make it better over time; no retraining involved.
-
-- **Two source folders in your vault.** `Sources/` holds pages the quick assistant archived;
-  `Library/` holds your PDFs and anything the fetcher saves. At the start of every deep-research run
-  the assistant indexes any new or changed files in both (unchanged files are skipped by hash, so
-  it is free when nothing changed): drop a PDF into `Library/`, start a run, and it is searchable.
-- **Optional source collecting.** Tick *Find and collect new sources first* on the Deep Research page
-  (or run `python scripts/collect.py "<question>"` for papers only). After you approve the plan, a collector
-  searches the web (DuckDuckGo, or your own SearXNG), arXiv, Hugging Face (Papers, model cards, dataset cards), a configurable list of AI-engineering sites (the explainer blogs of Sebastian Raschka, Andrej Karpathy and Jay Alammar in a group of their own, then HF blog, GitHub, LangChain, Anthropic, OpenAI and well-known engineering blogs; `COLLECT_EXTRA_SITES`) and, if you leave it on, Europe PMC, for each question, one question
-  after another, and has the local model score every result 0-3. The run then **pauses and shows you the
-  list**: titles, sites, relevance, page or paper. Nothing is downloaded yet. You tick what you want, and
-  the chosen ones are fetched one at a time (robots.txt honoured, public addresses only, login or paywalled
-  pages skipped, arXiv paced at one request per 3 seconds), converted to markdown (web pages with
-  trafilatura, PDFs with Docling) and saved with provenance in `Library/<date>-<goal>/`, with a
-  `manifest.json` that says why anything was skipped. They are indexed immediately so the same run can cite
-  them. Never the same source twice (an arXiv paper found as a PDF and as a web page counts once). There is no
-  limit on how many you collect unless you set `FETCH_MAX_SOURCES`; when you do, the questions take turns so none is starved. Limit it to trusted sites with `COLLECT_ALLOW_DOMAINS`
-  (for example `who.int;cdc.gov;*.gov.in`). Web pages are less reliable than papers, and the report's
-  Limitations section says how many of each were used. You can also paste page or PDF URLs to add first.
-- **Watching a run.** The **Runs** page lists every deep-research run (also ones that are waiting for you,
-  stopped or failed) and the run page shows live progress: the stage, questions answered, facts kept,
-  sections written, and an activity log. Each run is recorded in `<vault>/.runs/`, so it still shows after
-  a backend restart. **Stop** ends a run within seconds, even in the middle of a model call.
-  The **Reports** page lists finished reports (Deep / Quick filter).
-- **One-click feedback.** Each report page asks *Was this report useful?* (plus an optional note).
-  The rating is stored in the report's own frontmatter, and the planner is told about your last five
-  ratings next time ("the report X was not useful: too generic, wanted numbers").
-
-**Honest limits:** the output is a cited first draft for an expert, not a finished
-document. Local 8B models still occasionally merge two true findings into a false
-one, recommendations are generic, and the faithfulness judge has not yet been
-scored against human labels (the sheet is generated; see EVALS.md).
-
-## Testing
 
 ```bash
-pytest tests
+cd dashboard && npm run start                                  # dashboard -> http://127.0.0.1:3001
 ```
 
-Offline (no Ollama, no network): covers source archiving, report links,
-vault retrieval, the internal-doc retriever, and the append-only profile guarantee. See
-[EVALS.md](EVALS.md) for what these do and don't verify.
+Open <http://127.0.0.1:3001>, go to **Research**, type a goal. Your library starts empty, so tick source collection on
+the first runs; later goals reuse what is already in the library. Runs, reports, the library and settings each have
+their own page.
 
-## Folder layout
+On Windows, `scripts/start-research-assistant.ps1` starts both in the background (and `scripts/register-task.ps1`
+registers it to run at log-on).
+
+Command line instead of the dashboard: `uv run python scripts/run_deep_report.py --help`.
+
+## Configuration
+
+All settings live in `.env` (documented in [.env.example](.env.example)); a non-empty environment variable always wins.
+The ones you are most likely to change:
+
+| Setting | Default | What it does |
+|---|---|---|
+| `VAULT_PATH` | - | where sources, reports and the library live |
+| `LOCAL_LLM` | `qwen3.5:4b` | the one chat model for every role |
+| `RERANK` | `true` | cross-encoder reranking (needs the `rerank` extra) |
+| `WRITE_THINKING` / `PLAN_THINKING` | `true` / `false` | let the model think before writing / planning (slower, better) |
+| `SEARCH_BACKEND` | `ddgs` | `ddgs` (DuckDuckGo) or `searxng` (set `SEARXNG_URL`) |
+| `COLLECT_ALLOW_DOMAINS` / `COLLECT_BLOCK_DOMAINS` | blank | limit where web pages may come from |
+| `LANGCHAIN_TRACING_V2` | `false` | optional LangSmith tracing (needs `LANGCHAIN_API_KEY`) |
+
+## Tests
+
+```bash
+uv run pytest tests -q          # ~360 offline tests: fake LLM and embeddings, no Ollama or network needed
+cd dashboard && npm test        # dashboard unit tests
+```
+
+CI runs both, plus lint, a type check and a dashboard build, on every push.
+
+## Known limits
+
+- **Slow on a laptop**: a report takes about 6-30 minutes, longer with many PDFs to convert.
+- **One slow PDF can hold up collection** for many minutes; there is no per-source time limit yet.
+- **Run one research at a time**: the Stop flag and model-call counters are shared between runs (E-004).
+- **If Ollama stops mid-run**, some steps carry on with empty results instead of failing loudly (E-005).
+- Small models make mistakes: every sentence is short, cited and checkable, and you can flag it, but errors are not
+  guaranteed away. Other open issues: [docs/ERROR_LOG.md](docs/ERROR_LOG.md).
+- The **Quick research** page is the earlier v1 assistant (web search loop + notes) and is not part of the v3 checks.
+- Desktop notifications are Windows-only.
+
+## Repository layout
 
 ```
-src/research_assistant/   the LangGraph app (renamed from ollama_deep_researcher to
-                           avoid a package-name collision if you also have the
-                           original tutorial installed in the same environment)
-  graph.py                 nodes + wiring
-  vault.py                 all Obsidian I/O: archiving, reports, profile, retrieval
-  documents.py             internal-doc retriever (PDF/MD/TXT -> chunks -> embeddings)
-  knowledge.py             persistent hybrid-search knowledge base (Docling -> chunks -> SQLite FTS5 + vectors)
-  deep_report.py           plan -> extract -> verify -> write pipeline (testable with fake LLMs)
-  goal_graph.py            the deep_research LangGraph graph (clarify / approve interrupts)
-  notifications.py         Windows toast wrapper
-dashboard/                 Next.js app (history, new-research form, profile view)
-sample_docs/               demo internal documents for search_api=local_docs
-evals/                     retrieval question set, results, faithfulness labelling sheet
-docs/                      deployment runbook, customer discovery questionnaire
-Dockerfile, docker-compose.yml, dashboard/Dockerfile   container setup
-scripts/                   start-research-assistant.ps1, register-task.ps1,
-                           benchmarks/ (model-selection scripts)
-tests/                     offline pytest suite for vault.py (`pytest tests`)
-BENCHMARKS.md              model-selection methodology and results
-DECISIONS.md               non-obvious bugs and how they were diagnosed
-EVALS.md                   reliability checks + demo script
+src/research_assistant/   backend: graphs, retrieval (knowledge.py, rerank.py), report writing and checks, collector
+dashboard/                Next.js dashboard
+scripts/                  doctor, ingest/reindex the library, CLI runs, run audits, experiments
+tests/                    offline test suite
+evals/                    retrieval question set and experiment results behind the decisions
+docs/                     scope, status, error log, case study, design notes (docs/archive = older plans)
 ```
 
-## Known issues / accepted limitations
+## Credits and license
 
-- **DuckDuckGo search can still be flaky, occasionally.** `utils.py` uses
-  `ddgs` (the actively-maintained rename of `duckduckgo_search`, which was
-  silently returning empty/irrelevant results - confirmed via isolated
-  testing, unrelated to any code here). `ddgs` is far more reliable, but the
-  underlying free HTML-scraping backend can still rate-limit occasionally.
-  The pipeline degrades gracefully either way (empty research loop -> report
-  with no archived sources for that run, not a crash).
-- **Ports 2024/3000 avoided.** During development these got stuck with a
-  genuinely orphaned OS-level socket (confirmed via `Get-NetTCPConnection`/
-  `Get-CimInstance` - no real process backed the listener). This project
-  standardizes on 2025/3001 instead; there's no need to switch back.
-- **Env vars always beat per-run dashboard overrides** (see
-  `Configuration.from_runnable_config`: non-empty env > `configurable` (only the keys in `PER_RUN_KEYS`) > default).
-  `.env` deliberately leaves `MAX_WEB_RESEARCH_LOOPS` unset so the dashboard's
-  loop-count input can actually take effect per run - don't add them back to `.env` unless you
-  want to hard-lock that setting for every run regardless of the UI.
-- **In-memory backend**: `langgraph dev` doesn't persist runs across
-  restarts. If it restarts mid-run, that run is simply lost - the vault
-  (not LangGraph threads) is the durable source of truth for history.
-- **Web PDFs/binary sources** aren't text-extracted, just stubbed with a
-  note and the search snippet. (PDFs in the internal-docs folder *are*
-  parsed - see above - but scanned PDFs need OCR, which isn't built.)
-- **Internal-doc retrieval is a plain vector search** over an in-memory
-  index rebuilt when files change: fine for hundreds of documents, not
-  millions. No reranking, no per-user access control.
-- **Docker uses `langgraph dev`** (in-memory runs, lost on container
-  restart), same as the local setup; the vault is the durable record.
-
-## Acknowledgments
-
-Forked from [langchain-ai/local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher).
-Comparison mode's prompt pattern was adapted from
-[langchain-ai/open_deep_research](https://github.com/langchain-ai/open_deep_research)
-after investigating its architecture directly (see `DECISIONS.md` for why its
-control flow wasn't adopted wholesale).
+Started from [langchain-ai/local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher) by Lance Martin
+(MIT); the quick assistant graph and the web-search helpers still descend from it. The deep research graph, library,
+reranking, report checks, collector and dashboard were added here. MIT licensed, see [LICENSE](LICENSE).

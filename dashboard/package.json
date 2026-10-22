@@ -1,13 +1,16 @@
 {
   "name": "dashboard",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 3001",
     "build": "next build",
     "start": "next start -H 127.0.0.1 -p 3001",
     "lint": "eslint",
-    "test": "node --test src/lib/report.test.ts src/lib/compare.test.ts src/lib/settings.test.ts src/lib/runs.test.ts"
+    "test": "node --test src/lib/report.test.ts src/lib/compare.test.ts src/lib/settings.test.ts src/lib/runs.test.ts src/lib/desk.test.ts"
   },
   "dependencies": {
     "@langchain/langgraph-sdk": "^1.12.0",

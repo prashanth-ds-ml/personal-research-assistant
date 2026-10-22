@@ -1,7 +1,7 @@
 [project]
 name = "personal-research-assistant"
-version = "0.1.0"
-description = "Fully local, personalized research assistant. Forked from langchain-ai/local-deep-researcher: archives sources, writes structured notes to an Obsidian vault, uses vault notes as context, and evolves a personal profile over time."
+version = "0.3.0"
+description = "Research Desk: local deep research with Ollama. Collects web pages and papers into a private hybrid-search library and writes reports where every sentence cites a source passage. Started from langchain-ai/local-deep-researcher."
 authors = [
     { name = "Lance Martin" },
     { name = "Prashanth" },
@@ -21,6 +21,7 @@ dependencies = [
     "httpx>=0.28.1",
     "markdownify>=0.11.0",
     "python-dotenv==1.2.3",
+    "psutil>=5.9",                 # free-memory check in the doctor and dashboard
     "python-frontmatter>=1.1.0",
     "pypdf>=5.0.0",
     "numpy>=1.26",
@@ -33,6 +34,8 @@ dependencies = [
 dev = ["ruff>=0.15.10", "pytest>=8.0", "langgraph-cli[inmem]>=0.4", "openpyxl>=3.1"]  # openpyxl: eval labelling workbooks
 # PDF/DOCX/HTML -> markdown with tables (heavy: pulls PyTorch). Without it PDFs fall back to pypdf text.
 docling = ["docling>=2.0"]
+# Cross-encoder reranker (RERANK=true, the default): runs bge-reranker-v2-m3 on the CPU. Also pulled in by docling.
+rerank = ["torch>=2.2", "transformers>=4.40"]
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]

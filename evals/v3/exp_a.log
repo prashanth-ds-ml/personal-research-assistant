@@ -1,7 +1,0 @@
-size   600:  1996 chunks, avg   688 chars | recall@1/3/6 64%/88%/92% | recall@2k/4k/8k chars 88%/92%/100% | 47s
-size  1000:  1431 chunks, avg   923 chars | recall@1/3/6 64%/84%/96% | recall@2k/4k/8k chars 80%/84%/96% | 37s
-size  1400:  1184 chunks, avg  1096 chars | recall@1/3/6 80%/84%/96% | recall@2k/4k/8k chars 80%/92%/96% | 33s
-size  1800:   979 chunks, avg  1256 chars | recall@1/3/6 80%/88%/96% | recall@2k/4k/8k chars 84%/88%/96% | 29s
-size  2500:   801 chunks, avg  1457 chars | recall@1/3/6 80%/92%/92% | recall@2k/4k/8k chars 80%/92%/92% | 26s
-size  3500:   685 chunks, avg  1636 chars | recall@1/3/6 76%/96%/96% | recall@2k/4k/8k chars 76%/92%/96% | 24s
--> C:\Users\me\projects\langchain\portfolio\04-local-deep-research-vertical\evals\v3\exp_a_chunk_size.json

@@ -4,7 +4,7 @@
       "research_assistant": "./src/research_assistant/graph.py:graph",
       "deep_research": "./src/research_assistant/goal_graph.py:graph"
     },
-    "python_version": "3.11",
+    "python_version": "3.12",
     "env": "./.env",
     "dependencies": [
       "."

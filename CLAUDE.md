@@ -34,4 +34,4 @@ library (secondary), with user feedback improving both. One local model
 - 8 GB GPU + 24 GB RAM. Check free RAM and GPU power (`python scripts/doctor.py`) before model runs; one LLM loaded at a time.
 - Do not `npm run build` the dashboard while a run is live (servers on 3000/3001 serve the old build).
 - Long nested heredocs in the Bash tool fail; use Write/Edit. Use `C:\` paths for Windows Python + sqlite.
-- Never print `.env` files unfiltered (a LangSmith key leaked that way once).
+- Never print `.env` files unfiltered.

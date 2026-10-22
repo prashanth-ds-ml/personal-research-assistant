@@ -13,6 +13,7 @@
 """
 import argparse
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -24,7 +25,7 @@ from _common import ROOT  # noqa: E402
 from research_assistant import deep_report as d  # noqa: E402
 from research_assistant import report_checks as rc  # noqa: E402
 
-VAULT = Path(r"C:\Users\me\ObsidianVaults\Research")
+VAULT = Path(os.environ.get("VAULT_PATH", "."))                 # set in .env (loaded by _common)
 DESK = VAULT / ".desk" / "desk.sqlite"
 KB = VAULT / ".kb" / "library.sqlite"
 

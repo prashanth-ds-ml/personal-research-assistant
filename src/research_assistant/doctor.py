@@ -4,6 +4,7 @@ Used by ``scripts/doctor.py`` (and ``make doctor``). Pure functions with the out
 so they are tested offline. Nothing here changes anything: it only looks and says what to do.
 """
 
+import importlib.util
 import os
 import shutil
 import socket
@@ -26,7 +27,7 @@ class Check:
 
 def required_models(env: dict) -> dict[str, str]:
     """Model name -> what it is used for, from the settings the app reads (env first, then the defaults)."""
-    local = env.get("LOCAL_LLM") or "llama3.2"
+    local = env.get("LOCAL_LLM") or "qwen3.5:4b"
     embed = (env.get("EMBEDDING_MODEL") or "ollama:qwen3-embedding:0.6b").removeprefix("ollama:")
     needs = {local: "planning and extraction"}
     needs.setdefault(env.get("PLANNER_MODEL") or local, "planning")
@@ -81,16 +82,28 @@ def port_in_use(port: int, host: str = "127.0.0.1") -> bool:
 def check_port(port: int, what: str, in_use=port_in_use) -> Check:
     if in_use(port):
         return Check(f"Port {port} ({what})", OK, "something is listening (fine if it is this app)")
-    return Check(f"Port {port} ({what})", WARN, "nothing is listening yet", "Start it with `make dev` (it is normal before the first start)")
+    return Check(f"Port {port} ({what})", WARN, "nothing is listening yet", "Start it as the README shows (normal before the first start)")
 
 
-def check_memory(free_gb: float | None, needed_gb: float = 6.0) -> Check:
+def check_memory(free_gb: float | None, needed_gb: float = 12.0) -> Check:
     if free_gb is None:
         return Check("Free memory", WARN, "could not read free memory", "Install psutil for this check: pip install psutil")
     if free_gb < needed_gb:
-        return Check("Free memory", WARN, f"{free_gb:.1f} GB free (long runs want about {needed_gb:.0f} GB; the writer model maps ~5 GB)",
+        return Check("Free memory", WARN, f"{free_gb:.1f} GB free (a deep research run uses about 11-12 GB: model, reranker, PDF conversion)",
                      "Close browsers and other large programs before a long run")
     return Check("Free memory", OK, f"{free_gb:.1f} GB free")
+
+
+def check_reranker(env: dict, has=None) -> Check:
+    """RERANK is on by default and needs torch + transformers, which a plain install does not bring."""
+    if str(env.get("RERANK", "true")).strip().lower() in ("false", "0", "no"):
+        return Check("Reranker", OK, "off (RERANK=false)")
+    has = has or (lambda m: importlib.util.find_spec(m) is not None)
+    missing = [m for m in ("torch", "transformers") if not has(m)]
+    if missing:
+        return Check("Reranker", FAIL, f"RERANK is on but {', '.join(missing)} is not installed",
+                     'uv sync --extra rerank  (or set RERANK=false in .env)')
+    return Check("Reranker", OK, "torch and transformers installed (the model downloads ~2 GB on first use)")
 
 
 def free_memory_gb() -> float | None:
@@ -148,7 +161,7 @@ def _nvidia_smi():
 def run_all(root: Path, env: dict, http: httpx.Client | None = None) -> list[Check]:
     base = (env.get("OLLAMA_BASE_URL") or "http://localhost:11434")
     return [check_env_file(root), check_vault(env.get("VAULT_PATH", "")), *check_ollama(base, env, http),
-            check_gpu(), check_memory(free_memory_gb()), check_port(2025, "backend"), check_port(3001, "dashboard")]
+            check_reranker(env), check_gpu(), check_memory(free_memory_gb()), check_port(2025, "backend"), check_port(3001, "dashboard")]
 
 
 def render(checks: list[Check]) -> str:
