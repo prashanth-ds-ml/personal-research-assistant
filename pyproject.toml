@@ -1,6 +1,6 @@
 [project]
 name = "research-desk"
-version = "0.3.2"
+version = "0.3.3"
 description = "Research Desk: local deep research with Ollama. Collects web pages and papers into a private hybrid-search library and writes reports where every sentence cites a source passage. Started from langchain-ai/local-deep-researcher."
 authors = [
     { name = "Lance Martin" },
