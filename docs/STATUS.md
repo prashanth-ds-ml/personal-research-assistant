@@ -16,8 +16,8 @@ next is feedback from daily use, then M4 chat · branch `main` · **Last updated
 | M5 Insights page + demo + README + case study | not started | 10-minute client demo |
 
 **Final report (run 01a158a7, 17 min):** *Local Private RAG System Design for Small Teams* - 5 of 6 sections (embedding-model
-memory is an honest gap: no source in the library), 2,979 words, 5 papers / 3 docs / 10 web pages, 93% of 155 sentences clean.
-Details in [EVALS.md](../EVALS.md) ("v3 final report after all fixes"); limits in the case study (section 7b).
+memory is an honest gap: no source in the library), 2,979 words, 5 papers / 3 docs / 10 web pages, 93% of 155 sentences passed the automatic checks.
+Details in [EVALS.md](EVALS.md) ("v3 final report after all fixes"); measured limits in the case study ("Results").
 
 ## Next, in order
 1. Your feedback: read the final report in the dashboard, rate sources (👍/👎/⚠) and flag wrong sentences; run your own goals.

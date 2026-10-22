@@ -133,7 +133,7 @@ Each chapter answers one sub-question:
 - Sentences that failed a code check carry a red chip: **check figure** (a number is not in the cited passage),
   **check subject** (a model name or size is not in it), **check wording** (the sentence's words are barely in it),
   **check domain** (the source is from a specific field, e.g. medical, and the sentence does not say so). An amber
-  **inference** chip marks a sentence with no citation. Unmarked cited sentences passed every check.
+  **inference** chip marks a sentence with no citation. Unmarked cited sentences passed every automatic check (which shows they match their source, not that the source is right).
 - Select any text (12-400 characters) for **Copy as citation** or **Research this deeper**.
 
 At the end: **Where every claim came from** lists the sources (papers, other, web pages) with **Copy citation**.

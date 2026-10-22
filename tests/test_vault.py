@@ -1,4 +1,4 @@
-"""Automated versions of the reliability checks in EVALS.md.
+"""Automated versions of the reliability checks in docs/EVALS.md.
 
 All offline: no Ollama, no network. Retrieval uses a deterministic fake
 embedding model so the test checks the plumbing (chunking, ranking, formatting),
