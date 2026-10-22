@@ -22,6 +22,9 @@ Contents: [Front page](#front-page) · [Start a research run](#start-a-research-
 
 ![Front page](images/front-page.png)
 
+On a new install, with nothing in the library yet, the front page instead shows *Nothing on the desk yet* and three
+steps (add sources, ask a question, read your first issue); the machine checks are then on the **Research** page.
+
 - **Before you begin** checks the machine: is the research engine (backend) running, is Ollama up with the models,
   how big your library is, and whether there is enough free memory (a run uses about 11-12 GB).
 - Type a goal and press **Begin research →** (or Ctrl+Enter). This only fills in the goal on the Research page;
