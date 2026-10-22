@@ -1,6 +1,6 @@
 const LANGSMITH_API = "https://api.smith.langchain.com";
 const API_KEY = process.env.LANGSMITH_API_KEY;
-const PROJECT_NAME = process.env.LANGSMITH_PROJECT ?? "personal-research-assistant";
+const PROJECT_NAME = process.env.LANGSMITH_PROJECT ?? "research-desk";
 
 interface LangSmithRun {
   id: string;

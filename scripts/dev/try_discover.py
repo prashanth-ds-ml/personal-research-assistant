@@ -1,15 +1,19 @@
 """Try the collector's discovery for one question against the REAL services (web search, arXiv, Europe PMC, Hugging Face), without
 the model: every result is scored 3, so you see exactly what each source returns. Downloads nothing.
 
-  python scripts/try_discover.py "How do small models handle tool calling?" [--no-hf] [--no-sites]
+  python scripts/dev/try_discover.py "How do small models handle tool calling?" [--no-hf] [--no-sites]
 """
 import argparse
 import collections
 import json
+import sys
 import tempfile
 from pathlib import Path
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
+
 from _common import ROOT  # noqa: F401  (puts src/ on the path)
 
 from research_assistant import collector, fetcher

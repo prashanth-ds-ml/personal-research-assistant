@@ -5,7 +5,7 @@ summarization (summarize_sources).
 Used to pick LOCAL_LLM. Run with Ollama running locally and the candidate
 models already pulled:
 
-    python scripts/benchmarks/benchmark_chat_models.py
+    python evals/scripts/benchmarks/benchmark_chat_models.py
 """
 
 import json

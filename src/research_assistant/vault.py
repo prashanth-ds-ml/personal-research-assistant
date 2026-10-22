@@ -1,5 +1,5 @@
 """Obsidian vault I/O: source archiving, report writing, profile read/update,
-and vault-as-context retrieval for the personal research assistant.
+and vault-as-context retrieval for Research Desk.
 """
 
 import re

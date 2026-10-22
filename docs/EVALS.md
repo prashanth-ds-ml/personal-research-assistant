@@ -94,7 +94,7 @@ from `evals/` and `scripts/` against the 11-paper library in `library/`.
 
 ## 1. Retrieval: does hybrid search earn its complexity?
 
-`python scripts/eval_retrieval.py` - 25 questions, each with the paper that
+`python evals/scripts/eval_retrieval.py` - 25 questions, each with the paper that
 answers it and a phrase that must appear in the retrieved chunk (a chunk from
 the right paper that does not contain the answer does not count). Answer
 phrases were validated to exist in the expected paper.
@@ -147,9 +147,9 @@ example" is not evidence.
 
 To measure it properly:
 ```bash
-python scripts/make_faithfulness_sheet.py --n 50   # 25 accepted + 25 rejected claims
+python evals/scripts/make_faithfulness_sheet.py --n 50   # 25 accepted + 25 rejected claims
 # open evals/faithfulness_sheet.csv, fill `human` with y/n (claim fully supported by the passage), ~10 minutes
-python scripts/score_faithfulness.py evals/faithfulness_sheet.csv
+python evals/scripts/score_faithfulness.py evals/faithfulness_sheet.csv
 ```
 It reports the judge's two error types separately: **false accepts** (an
 unsupported claim gets into the report - the dangerous one) and **false
@@ -161,8 +161,8 @@ labelled as a first pass by the assistant (column `claude`; the `human` column i
 verification, starting with the rows marked `borderline`). Treat everything below as
 provisional until a human has confirmed the labels.
 
-Scored against those labels (`python scripts/score_faithfulness.py evals/faithfulness_sheet.csv claude`;
-`python scripts/rejudge_sheet.py --model <m> --labels claude`). The sample is stratified
+Scored against those labels (`python evals/scripts/score_faithfulness.py evals/faithfulness_sheet.csv claude`;
+`python evals/scripts/rejudge_sheet.py --model <m> --labels claude`). The sample is stratified
 (25 judge-accepted + 25 judge-rejected claims), so accuracy is *not* the population
 accuracy; the two error counts are what matter.
 
@@ -244,7 +244,7 @@ reports. The candidate list included low-quality sites (forums, social posts), w
 # Phase 1a-0: Measure first (from 2026-10-19)
 
 Plan: `docs/phases/phase-1a0-measure-first.md`. Tooling: `src/research_assistant/eval_tools.py` (tests in
-`tests/test_eval_tools.py`), `scripts/error_analysis.py`, `scripts/build_subject_eval.py`, `scripts/judge_calibration.py`.
+`tests/test_eval_tools.py`), `evals/scripts/error_analysis.py`, `evals/scripts/build_subject_eval.py`, `evals/scripts/judge_calibration.py`.
 
 ## Eval assets
 
@@ -309,7 +309,7 @@ Known limits: the subject check cannot read negation ("does not cover a 4B model
 ## v3 Test A: chunk size (2026-10-19)
 
 Frozen retrieval corpus (11 PDFs) re-chunked at each size, 25 questions, the pipeline's hybrid search
-(`scripts/exp_chunk_size.py`, raw: `evals/v3/exp_a_chunk_size.json`). A hit needs the right document and an answer phrase.
+(`evals/scripts/exp_chunk_size.py`, raw: `evals/v3/exp_a_chunk_size.json`). A hit needs the right document and an answer phrase.
 "Within N chars" = the top chunks that fit in N characters of reading: equal cost for every size.
 
 | Max chunk chars | Chunks | Avg chars | Top 1 / 3 / 6 | Within 2k / 4k / 8k chars |
@@ -335,7 +335,7 @@ and thin coverage of "which datasets" (only CCPairs). Fixes: see DECISIONS "Repo
 
 ## v3 Tests B and C: how much can the model use per section? (2026-10-20)
 
-`scripts/exp_context.py`, raw rows `evals/v3/exp_context.jsonl`. Fixed graded pool for 4 questions (2 embeddings, 2 tool
+`evals/scripts/exp_context.py`, raw rows `evals/v3/exp_context.jsonl`. Fixed graded pool for 4 questions (2 embeddings, 2 tool
 calling; 11/12/7/14 passages scored 2+, filled with score-1 above that), positions shuffled with a fixed seed, exact token
 counts from Ollama, 32k window, qwen3.5:4b, GPU at 50 W (times are slow-machine times). 24 passages was skipped: no question
 had 24 usable passages. Drift / unsupported are shares of cited sentences.
@@ -374,7 +374,7 @@ Small sample (4 writes). Left to the user: a "think when writing" setting would 
 ## v3 Test D: how long can a section be? (2026-10-20)
 
 Same fixed pool and measures as Tests B/C, passages best first (as the pipeline gives them), target length set in the
-section prompt (`scripts/exp_context.py d`, rows with "test": "D" in `evals/v3/exp_context.jsonl`). GPU at 115 W.
+section prompt (`evals/scripts/exp_context.py d`, rows with "test": "D" in `evals/v3/exp_context.jsonl`). GPU at 115 W.
 48 sections in ~11 minutes. 8 writes per row (4 questions x 2 repeats). Uncited = sentences with no citation per section.
 
 | Target words | Passages | Words written | Passages cited | Drift | Unsupported | Uncited / section | Repeats | Seconds |
@@ -392,7 +392,7 @@ Measured limit: ~600 words per section. Report = 3-6 sections, so ~1,000-3,000 w
 
 ## v3 M3 reranker, offline (2026-10-20)
 
-Frozen retrieval set (25 questions), hybrid top 24 reranked by a cross-encoder on the CPU (`scripts/exp_rerank.py`,
+Frozen retrieval set (25 questions), hybrid top 24 reranked by a cross-encoder on the CPU (`evals/scripts/exp_rerank.py`,
 `evals/v3/exp_rerank.json`).
 
 | | Top 1 | Top 3 | Top 6 | CPU per question |

@@ -94,7 +94,7 @@ class Configuration(BaseModel):
         description="Use tool calling instead of JSON mode for structured output",
     )
 
-    # --- Personal research assistant additions ---
+    # --- Research Desk additions (not in the upstream local-deep-researcher) ---
     vault_path: str = Field(
         default="",
         title="Obsidian Vault Path",

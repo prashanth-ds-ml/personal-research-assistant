@@ -4,11 +4,14 @@ A question is a HIT at k if any of the top-k chunks comes from the expected
 document AND contains one of the answer phrases (so a chunk from the right
 paper that doesn't actually contain the answer doesn't count).
 
-  python scripts/eval_retrieval.py --kb library_kb.sqlite [--ks 1 3 6] [--json out.json]
+  python evals/scripts/eval_retrieval.py --kb library_kb.sqlite [--ks 1 3 6] [--json out.json]
 """
 import argparse
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
 
 from _common import default_paths, open_kb  # noqa: E402
 

@@ -1,7 +1,7 @@
 """Test A (v3): which chunk size retrieves best? Re-chunks the frozen retrieval corpus at several sizes and runs the
 retrieval questions (evals/retrieval_qa.json) against each, with the same hybrid search the pipeline uses.
 
-  python scripts/exp_chunk_size.py [--sizes 600 1000 1400 1800 2500 3500] [--out evals/v3/exp_a_chunk_size.json]
+  python evals/scripts/exp_chunk_size.py [--sizes 600 1000 1400 1800 2500 3500] [--out evals/v3/exp_a_chunk_size.json]
 
 Two measures, because bigger chunks contain the answer phrase more easily:
   recall@k        the answer is in one of the top k chunks (k = 1, 3, 6)
@@ -12,9 +12,12 @@ import argparse
 import functools
 import json
 import sqlite3
+import sys
 import tempfile
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
 
 from _common import ROOT, default_paths  # noqa: E402
 

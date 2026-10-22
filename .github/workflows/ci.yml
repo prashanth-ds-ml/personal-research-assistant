@@ -16,7 +16,7 @@ jobs:
       - name: Install package
         run: uv sync --extra dev
       - name: Ruff lint
-        run: uv run ruff check src/ tests/ scripts/
+        run: uv run ruff check src/ tests/ scripts/ evals/
       - name: Offline tests (fake embeddings + fake LLM - no Ollama, no network, no Docling, no reranker model)
         run: uv run pytest tests -q
       - name: Both graphs compile (import-time only; no Ollama or vault needed)

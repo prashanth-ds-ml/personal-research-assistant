@@ -9,7 +9,14 @@ Releases: <https://github.com/prashanth-ds-ml/research-desk/releases>. How each 
   record moved to `docs/PROGRESS_LOG.md`.
 - "93% of sentences" now says what it measures: they pass the automatic checks, which is not a human accuracy score.
 - Docs restructured: engineering records under `docs/`, superseded plans merged into three archive files, indexes for
-  `docs/`, `scripts/` and `evals/`.
+  `docs/`, `scripts/`, `evals/` and `examples/`.
+- Repository layout: experiment and evaluation scripts moved to `evals/scripts/` (next to their data), development
+  checks to `scripts/dev/`; `scripts/` now holds only the tools users run.
+- `examples/`: a real example report (with its evidence appendix) and the sample documents (moved from `sample_docs/`;
+  `DOCS_PATH` default is now `./examples/sample_docs`).
+- One name: the Python package is `research-desk` (was `personal-research-assistant`); default LangSmith project
+  `research-desk`. The import name `research_assistant` is unchanged.
+- CONTRIBUTING.md, SECURITY.md, issue and pull request templates, README badges.
 
 ## 0.3.2 (2026-10-22)
 

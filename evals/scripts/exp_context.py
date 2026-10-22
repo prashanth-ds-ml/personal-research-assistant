@@ -1,10 +1,10 @@
 """Tests B and C (v3): how much source text can qwen3.5:4b use well when it writes one report section?
 
-  python scripts/exp_context.py pool                 # retrieve + grade a fixed passage pool per question (cached)
-  python scripts/exp_context.py c [--sizes 4 8 12 16 24] [--repeats 2]   # Test C: passages per section
-  python scripts/exp_context.py b [--n 6] [--repeats 2]                  # Test B: neighbour expansion on/off
-  python scripts/exp_context.py think [--n 8] [--repeats 2]              # the chosen size again, with thinking on
-  python scripts/exp_context.py d [--sizes 8 16] [--repeats 2]           # Test D: how long can a section be?
+  python evals/scripts/exp_context.py pool                 # retrieve + grade a fixed passage pool per question (cached)
+  python evals/scripts/exp_context.py c [--sizes 4 8 12 16 24] [--repeats 2]   # Test C: passages per section
+  python evals/scripts/exp_context.py b [--n 6] [--repeats 2]                  # Test B: neighbour expansion on/off
+  python evals/scripts/exp_context.py think [--n 8] [--repeats 2]              # the chosen size again, with thinking on
+  python evals/scripts/exp_context.py d [--sizes 8 16] [--repeats 2]           # Test D: how long can a section be?
 
 Every variant writes from the SAME cached pool (evals/v3/exp_pool.json), so only the variable under test changes.
 Passages are shuffled with a fixed seed per repeat, so position in the prompt is independent of relevance (that is what
@@ -22,6 +22,9 @@ import sqlite3
 import sys
 import time
 import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
 
 from _common import ROOT, open_kb  # noqa: E402
 

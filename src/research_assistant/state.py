@@ -13,7 +13,7 @@ class SummaryState:
     research_loop_count: int = field(default=0)  # Research loop count
     running_summary: str = field(default=None)  # Final report
 
-    # Personal research assistant additions
+    # Research Desk additions (not in the upstream local-deep-researcher)
     run_date: str = field(default=None)  # e.g. "2026-09-28", set once in load_profile
     topic_slug: str = field(default=None)  # e.g. "mcp-explained", set once in load_profile
     profile_content: str = field(default="")  # Contents of Profile.md, read in load_profile

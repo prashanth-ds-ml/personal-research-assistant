@@ -1,8 +1,8 @@
 """Create run records (see src/research_assistant/runlog.py) for deep-research threads that already exist in the
 backend but were started before runs were recorded, so they show up on the dashboard's Runs page.
 
-  python scripts/backfill_runs.py            # dry run: list what would be created
-  python scripts/backfill_runs.py --write    # create the records in <vault>/.runs
+  python scripts/dev/backfill_runs.py            # dry run: list what would be created
+  python scripts/dev/backfill_runs.py --write    # create the records in <vault>/.runs
 
 Threads that already have a record are left alone. A thread the backend still shows as busy whose latest run is no
 longer running (a ghost left by a cancelled run) is recorded as stopped.

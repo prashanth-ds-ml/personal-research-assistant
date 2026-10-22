@@ -1,0 +1,46 @@
+name: Bug report
+description: Something does not work as the docs say
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting. Please check the troubleshooting table in docs/SETUP.md first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `uv run scripts/doctor.py`
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: From logs/backend.log or logs/dashboard.log (remove anything private).
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag or `git describe --tags`
+      placeholder: v0.3.2
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS, RAM, GPU
+      placeholder: Windows 11, 24 GB RAM, RTX 4060 8 GB
