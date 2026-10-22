@@ -13,6 +13,15 @@ updates:
     directory: "/dashboard"
     schedule:
       interval: "weekly"
+    ignore:
+      # Majors that need a deliberate upgrade (Next 16 + eslint-config-next support, the native TS compiler,
+      # and @types/node must follow the Node version CI runs: 22).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
