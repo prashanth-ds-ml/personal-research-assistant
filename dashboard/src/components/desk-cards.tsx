@@ -84,7 +84,7 @@ export function DeskCards({ onAnswer }: { onAnswer: (runId: string) => void }) {
             {[
               { ok: sys.engine, text: sys.engine ? "The research engine is running" : "The research engine is not running. Start it with: langgraph dev" },
               { ok: sys.ollama, text: sys.ollama ? `Ollama running, ${sys.installed.length} models installed` : "Ollama is not running. Start it, then reload." },
-              { ok: sys.enoughMemory, text: `Memory: ${sys.freeGb} GB free. Long runs want about 6 GB` },
+              { ok: sys.enoughMemory, text: `Memory: ${sys.freeGb} GB free. Long runs want about 12 GB` },
             ].map((r) => (
               <div key={r.text} className="flex gap-3 border-t border-border py-2 text-sm">
                 <span className={`mt-0.5 text-[11px] ${r.ok ? "text-success" : "text-warning"}`} aria-hidden>

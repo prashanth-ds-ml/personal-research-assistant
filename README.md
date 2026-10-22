@@ -7,6 +7,14 @@ runs on your machine with [Ollama](https://ollama.com) and one small model. No c
 > **Status: v0.3 (scope v3).** Deep research, the source panel with feedback, and the reranker are done.
 > Chat over the library (M4) is next. See [docs/STATUS.md](docs/STATUS.md) and [docs/SCOPE.md](docs/SCOPE.md).
 
+![A report chapter: every sentence cites a passage, shown in the margin with feedback buttons](docs/images/report-chapter.png)
+
+| | |
+|---|---|
+| **[Setup guide](docs/SETUP.md)** | install, first start, troubleshooting |
+| **[User guide](docs/USER_GUIDE.md)** | a research run step by step, reading reports, feedback, the library, settings (with screenshots) |
+| **[Case study](docs/CASE_STUDY.md)** | how it was built: the failures that shaped it, decisions, measurements |
+
 ## What a run looks like
 
 1. **Goal** - you type what you want to know. It may ask a few clarifying questions.
@@ -46,8 +54,9 @@ collect (web + PDFs) -> library: chunks + BM25 (SQLite FTS5) + vectors
   Nothing in the vault is ever deleted by the app (removed items move to `<vault>/.removed`).
 - Dashboard: Next.js in `dashboard/` (port 3001), talks to the backend (port 2025) through an API passthrough.
 
-Design decisions and the bugs found along the way are in [DECISIONS.md](DECISIONS.md),
-[docs/ERROR_LOG.md](docs/ERROR_LOG.md) and the build story in [docs/CASE_STUDY.md](docs/CASE_STUDY.md).
+The build story, with the failure that reshaped the design and the measurements behind each choice, is in the
+[case study](docs/CASE_STUDY.md); details in [DECISIONS.md](DECISIONS.md), [EVALS.md](EVALS.md) and
+[docs/ERROR_LOG.md](docs/ERROR_LOG.md).
 
 ## Requirements
 
@@ -62,6 +71,8 @@ Design decisions and the bugs found along the way are in [DECISIONS.md](DECISION
 | OS | Windows 11 (daily use), Linux (CI) | macOS should work but is untested |
 
 ## Install
+
+Short version below; the [setup guide](docs/SETUP.md) has every step, Windows notes and troubleshooting.
 
 ```bash
 git clone https://github.com/prashanth-ds-ml/research-desk
@@ -100,9 +111,9 @@ uv run langgraph dev --no-browser --no-reload --port 2025      # backend
 cd dashboard && npm run start                                  # dashboard -> http://127.0.0.1:3001
 ```
 
-Open <http://127.0.0.1:3001>, go to **Research**, type a goal. Your library starts empty, so tick source collection on
-the first runs; later goals reuse what is already in the library. Runs, reports, the library and settings each have
-their own page.
+Open <http://127.0.0.1:3001>, go to **Research**, type a goal. Your library starts empty, so let it collect sources on
+the first runs; later goals reuse what is already in the library. The [user guide](docs/USER_GUIDE.md) walks through
+every page.
 
 On Windows, `scripts/start-research-assistant.ps1` starts both in the background (and `scripts/register-task.ps1`
 registers it to run at log-on).
@@ -143,6 +154,8 @@ CI runs both, plus lint, a type check and a dashboard build, on every push.
   guaranteed away. Other open issues: [docs/ERROR_LOG.md](docs/ERROR_LOG.md).
 - The **Quick research** page is the earlier v1 assistant (web search loop + notes) and is not part of the v3 checks.
 - Desktop notifications are Windows-only.
+- Report page display: a `~` in a passage can render as crossed-out text, and the *How it was made* / *Faithfulness*
+  boxes still use the earlier label names.
 
 ## Repository layout
 

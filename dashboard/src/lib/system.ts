@@ -3,8 +3,8 @@ import os from "node:os";
 // What this machine and the local model server are doing right now. Read only, nothing leaves the machine.
 const ENGINE = (process.env.LANGGRAPH_API_URL || "http://127.0.0.1:2025").replace(/\/$/, "");
 const OLLAMA = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
-/** A long run wants about this much free memory for the writer model. */
-export const WANT_FREE_GB = 6;
+/** A deep research run uses about 11-12 GB: the model in Ollama, the reranker and PDF conversion (E-022). */
+export const WANT_FREE_GB = 12;
 
 export interface SystemStatus {
   ollama: boolean;

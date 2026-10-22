@@ -8,11 +8,19 @@
 
 ## TL;DR
 
-_Written at v1.0._ Draft: a research assistant that runs entirely on one
-laptop (8 GB GPU, 24 GB RAM, Ollama, no cloud), builds a knowledge base you
-own, and writes reports where every claim opens its source quote in one click.
+Research Desk (v0.3, released 2026-10-22) is a research assistant that runs
+entirely on one laptop (8 GB GPU, 24 GB RAM, Ollama, no cloud). It builds a
+library you own and writes reports where every sentence cites a source passage
+that opens in one click. On the final test goal it wrote 2,979 words over 5 of
+6 sections in 17 minutes with 93% of sentences passing every code check, and
+said plainly that the sixth had no evidence.
+
 The interesting part is not the agent: it is how its failures were found,
-measured and fixed.
+measured and fixed. The biggest one (E-001, section 4) was a fluent report
+whose quotes were all real but whose claims described the wrong model; the fix
+was to remove a pipeline step, not add one. Scope went v1 → v2.2 (more and
+more process) → v3 (back to the core idea, one 4B model, daily use as the
+evaluation).
 
 ## 1. The problem
 
@@ -42,15 +50,29 @@ private research over their own documents plus the web.
 | 2026-10-18 | Scope v2.1 | Collect wide, index everything, read the best, use a few; chat preview early |
 | 2026-10-19 | Scope v2.2 | Measure first: error analysis, simplest baseline, fast dev loop, claim check view |
 | 2026-10-19 | **Scope v3** | Back to the core idea: write from reranked chunks (no fact rewriting), one 4B model, feedback loop from daily use; research primary, chat secondary |
+| 2026-10-19 → 10-20 | M1-M3 | Reports from passages, run trace + feedback, chunk size locked, section budget measured (Tests A-D), reranker, source-quality fixes |
+| 2026-10-22 | **Public release v0.3** | Repo cleaned for strangers: install path, README, setup and user guides, CI on every push; a hidden ignore rule had kept the whole Library page out of git |
 
 ## 3. Architecture
 
-_Diagram added at M5._ In words: a LangGraph research graph (goal → clarify →
-plan → coverage → collect → index → per sub-question: hybrid retrieve →
-rerank → write the section from its chunks → code checks → report) over a
-local library (SQLite: documents, chunks with FTS5 + vectors, feedback).
-Chat uses the same retrieve → rerank → answer path. One local LLM
-(`qwen3.5:4b`) plus small embedding and reranker models.
+```
+goal ─► clarify ─► plan (you approve) ─► coverage check ─► collect (you pick) ─► index
+                                                                                  │
+   library: markdown files + SQLite (chunks, BM25/FTS5, vectors) ◄────────────────┘
+                                  │
+   per sub-question:  hybrid retrieve (RRF, top 24) ─► rerank (bge-reranker-v2-m3) ─► best 8
+                                  │
+              write the section from its 8 passages (qwen3.5:4b, every sentence cites [Cn])
+                                  │
+       code checks: numbers / model names in the cited passage, real citations,
+       word coverage, subject and domain ─► flags + citation repair
+                                  │
+   report (summary copied from section sentences) ─► dashboard: sources + feedback ─► desk.sqlite
+```
+
+A LangGraph graph (`goal_graph.py`) with three human-in-the-loop pauses (clarify, plan, source review) over a local
+library. Run traces and feedback live in a separate desk database, tied to the engine version. One local LLM
+(`qwen3.5:4b`) plus small embedding and reranker models. Chat (M4) will use the same retrieve → rerank path.
 
 ## 4. The failure that shaped the project (E-001)
 
@@ -91,7 +113,7 @@ instead: more machinery around the step that caused the error.)
 |---|---|---|
 | The model's context bounds a report, not the number of documents | "Read every PDF" | The decision step only ever saw ~24 compressed sentences; compression is where subjects got lost |
 | Collect wide, read the best, keep the rest searchable | Tick ~100 candidates by hand | Doesn't scale to hundreds; unread sources still feed chat and later runs |
-| One mid-size MoE model (candidate `gemma4:26b-a4b`), confirmed by test | Max context; several small models | Fits 8 GB GPU + RAM; one model loaded at a time |
+| One mid-size MoE model (candidate `gemma4:26b-a4b`), confirmed by test (v2; replaced in v3 by one 4B model, below) | Max context; several small models | Fits 8 GB GPU + RAM; one model loaded at a time |
 | Measure first: error analysis by stage, raw-passage baseline | Fix by diagnosis | Effort goes where errors are; complexity must beat the simple thing |
 | Rules in code (provenance, labels, gaps) | Trust a bigger model | A bigger model errs less, not never |
 | Write from reranked chunks (v3) | Extract facts, then write from facts | The paraphrase step was where subjects got lost (22/42 right); retrieval was already good (96% recall@6) |
@@ -104,14 +126,18 @@ _Filled from the scoreboard in `EVALS.md` at each gate._
 
 | Metric | v2 (facts) | v3.0 hybrid | v3.1 rerank |
 |---|---|---|---|
-| Retrieval recall@1/3/6 (frozen set) | 80/88/96% | 80/88/96% | — |
-| Sources rated relevant (your feedback) | — | — | — |
-| Reports/answers rated helpful | — | — | — |
-| Sentences failing code checks | — | — | — |
-| Retrieval at the locked chunk size (top 1/3/6) | 80/88/96% | 80/88/96% | — |
-| Words per report (body) | ~4,000 | 1,289 | — |
-| Minutes per report (library only) | hours | 3.8 | — |
-| Wrong-subject claims found on reading (same goal) | several | 0 | — |
+| Retrieval recall@1/3/6 (frozen set, 25 questions) | 80/88/96% | 80/88/96% | 88/100/100% (offline) |
+| Useful passages in the writer's top 8 (real run, audit) | — | 28 of 48 | 32 of 48 |
+| Sources rated relevant (your feedback) | — | — | collecting from daily use |
+| Reports/answers rated helpful | — | — | collecting from daily use |
+| Sentences passing every code check | — | 86% (run 1, full test) | 92-96% (thinking on); 93% final report |
+| Words per report (body) | ~4,000 | 1,289-1,632 | 2,893-3,534 (400-600-word sections) |
+| Minutes per report (library only) | hours | 3.8 | 6.2 (no thinking) / 16.5-17 (thinking) |
+| Wrong-subject claims found on reading (same goal) | several | 0 | flagged in code (subject and domain checks) |
+
+The reranker's offline gain is clear; on two real runs it was small and mixed (32 vs 28, then 25 vs 27 useful passages).
+It stays on because it rescues passages hybrid buries (once from rank 18). Sources: EVALS "v3 M3 reranker",
+"v3 full-pipeline test", "v3 end-to-end audit", "v3 final report after all fixes".
 
 ## 7b. What it can and cannot do (measured limits)
 
@@ -143,9 +169,11 @@ _Collected as we go; finalised at v1.0._
 
 ## 9. What's next
 
-M1 research from chunks → M2 source panel + feedback (daily use starts) →
-M3 reranker (before/after) → M4 chat → M5 insights page and client demo
-(private documents plus the web, on the client's machine).
+Done: M1 research from chunks, M2 source panel + feedback, M3 reranker, public release v0.3.
+Next: daily use and ratings (the before/after numbers above), then M4 chat over the library, then M5 insights page and
+a client demo (private documents plus the web, on the client's machine). Known gaps that bite users are listed in the
+README: no per-source time limit while collecting, shared Stop state between runs (E-004), a stopped Ollama not failing
+loudly (E-005).
 
 ---
 
@@ -166,3 +194,4 @@ One entry per sprint (v2.2) or milestone (v3): what was built, what the tests sh
 | Full test | 2026-10-20 | Reranker built (CPU cross-encoder, M3) and tested offline (top-3 88% -> 100%); one long report run three ways (hybrid / + reranker / + reranker + thinking when writing) | 🤖 3 full backend runs, offline reranker test, 375 pytest | The reranker lifts buried chunks, but on a small topic the report barely changes; thinking when writing gave the clearest gain (92% clean sentences, +7 min). The weak point of long reports is the plan, not the writing (E-019) | EVALS "v3 M3 reranker", "v3 full-pipeline test" |
 | E2E audit | 2026-10-20 | Full pipeline from cleared RAM/GPU, audited from its trace: health, reranker head-to-head, writer use, claim support, sources, UI | 🤖 1 full run, scripts/audit_run.py, headless browser | 94% of 180 sentences clean; the reranker beat hybrid 32 vs 28 useful passages and rescued 28% of what the writer used; the weak point is now the sources (15 web pages, 1 paper) | EVALS "v3 end-to-end audit" |
 | Source fixes | 2026-10-20 | Papers and AI-engineering docs ranked first, arXiv query fixed (0 -> 4-5 papers per question), domain-specific sources must be named, refined on-subject relevance | 🤖 2 verification runs + audits, 391 pytest | Fixing one weakness exposed the next: a stricter relevance rule cost 3 sections until re-graded; the final report has 5 of 6 sections from 5 papers, 3 docs, 10 web pages | EVALS "v3 final report after all fixes" |
+| Release v0.3 | 2026-10-22 | Public release prep: secrets/personal-data audit of all history (clean; unpushed commits rewritten to drop paths and names), one default model everywhere, reranker deps as an extra, doctor checks reranker + real memory need, CI on every push, Docker removed (it set up v1), README + setup guide + user guide | 🤖 392 pytest, 22 dashboard tests, ruff, tsc, eslint, history secret scan | A `library/` ignore rule had silently kept the Library page and its 7 API routes out of git for weeks: it worked on this machine and would have 404'd on every clone. Only a stranger's-eye review finds that. A live run the same morning stalled 17 min on one PDF (no per-source time limit; listed as a known limit) | docs/RELEASE_PLAN.md, docs/SETUP.md, docs/USER_GUIDE.md |
