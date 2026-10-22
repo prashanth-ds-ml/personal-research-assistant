@@ -1,12 +1,12 @@
 """Build a sheet of extracted claims for a HUMAN to label, so the LLM judge can be
-scored against ground truth (scripts/score_faithfulness.py).
+scored against ground truth (evals/scripts/score_faithfulness.py).
 
 For each eval question we retrieve passages, extract candidate facts WITHOUT the
 judge, then run the judge only to record its verdict. The sheet is sampled to
 contain both judge-accepted and judge-rejected claims (otherwise you could not
 measure how many good claims the judge wrongly throws away).
 
-  python scripts/make_faithfulness_sheet.py --kb library_kb.sqlite --n 50 --out evals/faithfulness_sheet.csv
+  python evals/scripts/make_faithfulness_sheet.py --kb library_kb.sqlite --n 50 --out evals/faithfulness_sheet.csv
 
 Fill the `human` column with y (claim is fully supported by the passage) or n,
 then run score_faithfulness.py.
@@ -15,7 +15,10 @@ import argparse
 import csv
 import json
 import random
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
 
 from _common import OLLAMA_URL, default_paths, open_kb  # noqa: E402
 

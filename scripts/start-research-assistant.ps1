@@ -1,5 +1,5 @@
 <#
-Starts the personal research assistant's backend (langgraph dev) and
+Starts Research Desk's backend (langgraph dev) and
 dashboard (Next.js) in the background, non-blocking. Meant to be run at
 logon via register-task.ps1's scheduled task, but safe to run manually too.
 #>

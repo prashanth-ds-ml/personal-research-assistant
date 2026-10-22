@@ -1,7 +1,7 @@
 """Error analysis (P0.1): sample claims from saved reports, label them, tally where the wrong ones first went wrong.
 
-  python scripts/error_analysis.py build  REPORT.md [REPORT.md ...] [--n 50] [--seed 1] [--kb PATH]
-  python scripts/error_analysis.py tally  [--who human|claude]
+  python evals/scripts/error_analysis.py build  REPORT.md [REPORT.md ...] [--n 50] [--seed 1] [--kb PATH]
+  python evals/scripts/error_analysis.py tally  [--who human|claude]
 
 build writes evals/error_analysis/claims.xlsx (sheet "How to label" + sheet "Claims" with the evidence in each row and
 dropdowns for the labels: the human labels go here), claims.csv (the same rows, plain) and claims.md (readable: each
@@ -25,6 +25,8 @@ import csv
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
 
 from _common import ROOT  # noqa: E402
 
@@ -74,7 +76,7 @@ GUIDE = [
      "with a note. Use wrong only when the sentence would actually mislead."),
     ("Blind labelling", "Don't open claude_labels.csv (or its commit) until you are done; the agreement score depends "
      "on it."),
-    ("When done", "Save the workbook (keep .xlsx), then run: python scripts/error_analysis.py tally"),
+    ("When done", "Save the workbook (keep .xlsx), then run: python evals/scripts/error_analysis.py tally"),
 ]
 
 

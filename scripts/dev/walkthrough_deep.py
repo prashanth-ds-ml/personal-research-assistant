@@ -6,7 +6,7 @@ making the same calls the /deep page makes (LangGraph SDK `useStream`):
 
 Real backend, real models, real library. Run it with the services up:
 
-  python scripts/walkthrough_deep.py "<goal>" [--api http://localhost:3001/api]
+  python scripts/dev/walkthrough_deep.py "<goal>" [--api http://localhost:3001/api]
 """
 import argparse
 import json

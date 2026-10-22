@@ -1,6 +1,6 @@
 """Judge calibration (P0.2): how often the faithfulness judge agrees with a person.
 
-  python scripts/judge_calibration.py [--sheet evals/faithfulness_sheet.csv] [--human evals/faithfulness_human.csv]
+  python evals/scripts/judge_calibration.py [--sheet evals/faithfulness_sheet.csv] [--human evals/faithfulness_human.csv]
                                       [--column judge]
 
 The decision number is agreement with HUMAN labels only. They come from a blind copy (the user never sees the
@@ -11,7 +11,7 @@ Also printed, as an upper bound only: agreement with a mixed reference (human la
 Claude agree on). For rows nobody labelled that reference is circular, which is why it is not the decision number.
 ``--column`` scores another labeller column (e.g. a new judge model's output added later).
 
-  python scripts/judge_calibration.py --make-blind 20 [--seed 3]
+  python evals/scripts/judge_calibration.py --make-blind 20 [--seed 3]
 
 writes the blind copy: the disputed rows plus random others up to N, shuffled, with id, question, source, claim,
 quote, context and an empty "human" column (y = the passage supports the claim, n = it does not).
@@ -21,6 +21,8 @@ import csv
 import random
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
 
 from _common import default_paths  # noqa: E402
 

@@ -1,6 +1,6 @@
 """Build evals/subject_facts.jsonl (P0.2): the extraction subject eval set.
 
-  python scripts/build_subject_eval.py [--vault PATH] [--kb PATH]
+  python evals/scripts/build_subject_eval.py [--vault PATH] [--kb PATH]
 
 Each case is a real evidence row from the two saved reports of 2026-10-02 and 2026-10-03, with the library passage
 it came from, the research question it was read for, and hand-labelled expected fields (system, size, stage, and
@@ -12,7 +12,10 @@ import argparse
 import json
 import os
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
 
 from _common import ROOT  # noqa: E402
 

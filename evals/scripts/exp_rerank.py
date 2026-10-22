@@ -1,6 +1,6 @@
 """M3 offline test: does a cross-encoder reranker put the answering chunk higher than hybrid search alone?
 
-  python scripts/exp_rerank.py [--models BAAI/bge-reranker-base BAAI/bge-reranker-v2-m3] [--out evals/v3/exp_rerank.json]
+  python evals/scripts/exp_rerank.py [--models BAAI/bge-reranker-base BAAI/bge-reranker-v2-m3] [--out evals/v3/exp_rerank.json]
 
 Frozen retrieval corpus and questions (as eval_retrieval.py / exp_chunk_size.py): the hybrid top RERANK_POOL chunks per
 question are reranked; recall@1/3/6 is compared with the hybrid order. A hit needs the expected document AND an answer
@@ -8,8 +8,11 @@ phrase in the chunk. Also reports the reranker's CPU time per question.
 """
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # shared helpers: scripts/_common.py
 
 from _common import ROOT, default_paths, open_kb  # noqa: E402
 from exp_chunk_size import hybrid  # noqa: E402

@@ -294,7 +294,7 @@ a new eval engine; run a model-selection study inside project 6 with the existin
   instantly with no search. They are now stored in the run's state when it starts (`options`) and read from there.
 - **Threads survive a backend restart.** `langgraph dev` saves its state to `.langgraph_api/` and restores it, so
   paused runs were not lost when the backend was restarted (an earlier note here and in the session said they were:
-  wrong). What persisted is invisible on the Runs page unless a record exists, so `scripts/backfill_runs.py` creates
+  wrong). What persisted is invisible on the Runs page unless a record exists, so `scripts/dev/backfill_runs.py` creates
   records for threads that predate run records. A thread that was busy when its server was killed stays marked busy
   (a ghost); the record for it says stopped.
 - **A plan always ends with a recommendations section.** It used to exist only if the model left its last section with

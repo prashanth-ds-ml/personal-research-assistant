@@ -112,7 +112,7 @@ Reflect carefully on the Summary to identify knowledge gaps and produce a follow
 Call the FollowUpQuery Tool to generate a reflection for this request:"""
 
 
-# --- Personal research assistant additions ---
+# --- Research Desk additions (not in the upstream local-deep-researcher) ---
 
 vault_context_block = """
 <PRIOR_RESEARCH>

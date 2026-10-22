@@ -1,6 +1,6 @@
 """Re-judge the labelled faithfulness sheet with another model and compare error types.
 
-  python scripts/rejudge_sheet.py --model gemma4:e4b [--labels claude]
+  python evals/scripts/rejudge_sheet.py --model gemma4:e4b [--labels claude]
 
 Uses the FULL passage (the KB chunk the quote came from), exactly as the pipeline's judge
 does, not the short context window stored in the sheet.
@@ -12,7 +12,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from dotenv import load_dotenv  # noqa: E402

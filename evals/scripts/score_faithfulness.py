@@ -1,6 +1,6 @@
 """Score the LLM faithfulness judge against human labels.
 
-  python scripts/score_faithfulness.py evals/faithfulness_sheet.csv
+  python evals/scripts/score_faithfulness.py evals/faithfulness_sheet.csv
 
 `human` column: y = the passage fully supports the claim, n = it does not.
 Reports how often the judge agrees with you and, more usefully, its two error

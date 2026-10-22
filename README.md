@@ -1,5 +1,11 @@
 # Research Desk
 
+[![CI](https://github.com/prashanth-ds-ml/research-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/prashanth-ds-ml/research-desk/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/prashanth-ds-ml/research-desk)](https://github.com/prashanth-ds-ml/research-desk/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](.python-version)
+[![Runs locally with Ollama](https://img.shields.io/badge/runs%20locally-Ollama-black.svg)](https://ollama.com)
+
 Local deep research that builds your own private library. You give it a goal; it plans sub-questions, collects web
 pages and papers, indexes them, and writes a short report in which **every sentence cites a source passage**. Everything
 runs on your machine with [Ollama](https://ollama.com) and one small model. No cloud, no API keys.
@@ -15,6 +21,7 @@ runs on your machine with [Ollama](https://ollama.com) and one small model. No c
 | **[Setup guide](docs/SETUP.md)** | every step by hand, tested versions, troubleshooting |
 | **[User guide](docs/USER_GUIDE.md)** | a research run step by step, reading reports, feedback, the library, settings (with screenshots) |
 | **[Case study](docs/CASE_STUDY.md)** | the failure that shaped it, the fix, measured results and limits |
+| **[Example report](examples/report-local-private-rag.md)** | a real report it wrote, with every citation and the evidence appendix |
 
 ## Case study in 60 seconds
 
@@ -149,16 +156,16 @@ CI runs both, plus lint, a type check and a dashboard build, on every push.
 ## Repository layout
 
 ```
-src/research_assistant/   backend: the research graph, library and retrieval, reranker, report writing and checks, collector
+src/research_assistant/   backend: research graph, library and retrieval, reranker, report writing and checks, collector
 dashboard/                Next.js dashboard
-scripts/                  setup.py and start.py, setup check, library tools, run audits, experiments (see scripts/README.md)
+scripts/                  setup.py, start.py, doctor.py, library and run tools (scripts/README.md)
 tests/                    offline test suite (no Ollama or network needed)
-evals/                    evaluation data and results behind the case study (see evals/README.md)
-docs/                     setup and user guides, case study, progress log, scope, decisions, evals, error log (docs/README.md)
-sample_docs/              two small sample documents for the quick assistant's "internal documents" search
+evals/                    experiments behind the case study: scripts, data and results (evals/README.md)
+examples/                 a real example report, and sample documents (examples/README.md)
+docs/                     guides, case study, progress log, scope, decisions, evals, error log (docs/README.md)
 ```
 
-Changes per release: [CHANGELOG.md](CHANGELOG.md).
+[CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)
 
 ## Credits and license
 

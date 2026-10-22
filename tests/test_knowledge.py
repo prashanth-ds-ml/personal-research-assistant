@@ -230,7 +230,7 @@ def test_faithfulness_scoring_math():
     import pathlib
 
     spec = importlib.util.spec_from_file_location(
-        "score_faithfulness", pathlib.Path(__file__).parent.parent / "scripts" / "score_faithfulness.py")
+        "score_faithfulness", pathlib.Path(__file__).parent.parent / "evals" / "scripts" / "score_faithfulness.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     rows = ([{"judge": "y", "human": "y"}] * 6 + [{"judge": "y", "human": "n"}] * 2

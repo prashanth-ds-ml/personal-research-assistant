@@ -8,7 +8,7 @@ Used to decide whether comparison mode needed a different model than the
 existing default. Run with Ollama running locally and the candidate models
 already pulled:
 
-    python scripts/benchmarks/benchmark_tool_calling.py
+    python evals/scripts/benchmarks/benchmark_tool_calling.py
 """
 
 import time

@@ -5,7 +5,7 @@ navigation does to the dashboard's stream), waits, and reports the run's status.
 default behaviour and with on_disconnect=continue; cancels the run afterwards so it does not burn
 the GPU.
 
-  python scripts/check_disconnect.py [--api http://localhost:2025]
+  python scripts/dev/check_disconnect.py [--api http://localhost:2025]
 """
 import argparse
 import json
